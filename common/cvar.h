@@ -43,12 +43,12 @@ inline int __cvar_compare(const void *a, const void *b) {
 
 static inline void cvarinit(const cvar *src) {
   cvar var = {.write_fn = src->write_fn, .tp = src->tp, .val = src->val};
-  NV_strncpy(var.name, src->name, 64);
+  nv_strncpy(var.name, src->name, 64);
 
   if (!g_nvars || !g_vars) {
     g_vars = (cvar *)malloc(sizeof(cvar));
   } else {
-    NV_assert(g_nvars > 0);
+    nv_assert(g_nvars > 0);
     g_vars = (cvar *)realloc(g_vars, g_nvars * sizeof(cvar));
   }
   g_vars[g_nvars] = var;
@@ -57,17 +57,17 @@ static inline void cvarinit(const cvar *src) {
 
 static inline cvar_value cvarread(const char *name) {
   for (int i = 0; i < g_nvars; i++) {
-    if (NV_strncmp(name, g_vars[i].name, 63) == 0) {
+    if (nv_strncmp(name, g_vars[i].name, 63) == 0) {
       return g_vars[i].val;
     }
   }
-  NV_assert(0);
+  nv_assert(0);
   return (cvar_value){-1};
 }
 
 static inline void cvarset(const char *name, const cvar_value value) {
   for (int i = 0; i < g_nvars; i++) {
-    if (NV_strncmp(name, g_vars[i].name, 63) == 0) {
+    if (nv_strncmp(name, g_vars[i].name, 63) == 0) {
       cvar *var = &g_vars[i];
       var->val  = value;
       if (var->write_fn) {

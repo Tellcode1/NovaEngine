@@ -45,7 +45,7 @@ target_compile_options(core PRIVATE -g)
 target_link_libraries(core jpeg png z)
 
 add_executable(shadermanager src/preprocessors.c)
-target_compile_definitions(shadermanager PRIVATE CSM=1 CSM_EXECUTABLE=1)
+target_compile_definitions(shadermanager PRIVATE NVSM=1 NVSM_EXECUTABLE=1)
 target_link_libraries(shadermanager m core)
 target_compile_options(shadermanager PRIVATE --fast-math)
 
@@ -63,10 +63,13 @@ set(LIBS
     box2d
 )
 
+# execute fonc and compile roboto.ttf into a baked font to be used by the example
+execute_process( COMMAND ./fontc ${CMAKE_CURRENT_LIST_DIR}/Assets/roboto.ttf )
+
 target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/common/stdafx.h)
 target_link_options(Nova PRIVATE -g)
 target_compile_options(Nova PRIVATE -g)
-target_compile_definitions(Nova PRIVATE CSM FONTC FONTC_EXECUTABLE=0 CSM_EXECUTABLE=0) # avoid making multiple main's 
+target_compile_definitions(Nova PRIVATE NVSM=1 FONTC=1 FONTC_EXECUTABLE=0 NVSM_EXECUTABLE=0) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 
 if (NOVA_BUILD_EXAMPLE)

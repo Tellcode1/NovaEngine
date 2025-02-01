@@ -7,7 +7,7 @@ NOVA_HEADER_START;
 
 typedef uint32_t VkFormat_;
 
-typedef enum NVFormat {
+typedef enum nv_format {
   NOVA_FORMAT_UNDEFINED = 0,
 
   // These are UNORM's by the way.
@@ -53,36 +53,36 @@ typedef enum NVFormat {
   NOVA_FORMAT_BC1,
   NOVA_FORMAT_BC3,
   NOVA_FORMAT_BC7,
-} NVFormat;
+} nv_format;
 
-extern VkFormat_ NV_NVFormatToVKFormat(NVFormat format);
+extern VkFormat_ nv_format_to_vk_format(nv_format format);
 
-extern NVFormat NV_VKFormatToNVFormat(VkFormat_ format);
+extern nv_format nv_vk_format_to_nv_format(VkFormat_ format);
 
 // dst is a pointer to a const char *
 // like:
-// const char *str; NV_FormatToString(NOVA_FORMAT_R8, &str);
-extern void NV_FormatToString(NVFormat format, const char **dst);
+// const char *str; nv_FormatToString(NOVA_FORMAT_R8, &str);
+extern void nv_format_to_string(nv_format format, const char **dst);
 
-extern bool NV_FormatHasColorChannel(NVFormat fmt);
+extern bool nv_format_has_color_channel(nv_format fmt);
 
 // Returns false even for stencil/depth and undefined format
-extern bool NV_FormatHasAlphaChannel(NVFormat fmt);
+extern bool nv_format_has_alpha_channel(nv_format fmt);
 
-extern bool NV_FormatHasDepthChannel(NVFormat fmt);
+extern bool nv_format_has_depth_channel(nv_format fmt);
 
-extern bool NV_FormatHasStencilChannel(NVFormat fmt);
+extern bool nv_format_has_stencil_channel(nv_format fmt);
 
 // returns -1 on invalid format (or compressed formats)
 // returns the size of depth component (in bytes) even in combined depth stencil formats
-extern int NV_FormatGetBytesPerChannel(NVFormat fmt);
+extern int nv_format_get_bytes_per_channel(nv_format fmt);
 
-extern int NV_FormatGetBytesPerPixel(NVFormat fmt);
+extern int nv_format_get_bytes_per_pixel(nv_format fmt);
 
 // 0 on error or undefined format.
 // oh and I haven't implemented compressed formats yet..
 // also, stencil channels are also counted
-extern int NV_FormatGetNumChannels(NVFormat fmt);
+extern int nv_format_get_num_channels(nv_format fmt);
 
 NOVA_HEADER_END;
 

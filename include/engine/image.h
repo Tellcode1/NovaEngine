@@ -7,24 +7,24 @@
 NOVA_HEADER_START;
 
 // CPU Image
-typedef struct NVImage {
+typedef struct nv_image {
   int w, h;
-  NVFormat fmt;
+  nv_format fmt;
   unsigned char *data;
-} NVImage;
+} nv_image;
 
-extern NVImage NV_img_load(const char *path);
-extern NVImage NV_img_load_png(const char *path);
+extern nv_image nv_img_load(const char *path);
+extern nv_image nv_img_load_png(const char *path);
 
 // jpg and jpeg (they're the same thing by the way)
-extern NVImage NV_img_load_jpeg(const char *path);
+extern nv_image nv_img_load_jpeg(const char *path);
 
-extern void NV_img_write_(const NVImage *tex, const char *path);
-extern void NV_img_write_png(const NVImage *tex, const char *path);
-extern void NV_img_write_jpeg(const NVImage *tex, const char *path);
+extern void nv_img_write_(const nv_image *tex, const char *path);
+extern void nv_img_write_png(const nv_image *tex, const char *path);
+extern void nv_img_write_jpeg(const nv_image *tex, const char *path);
 
 // dst_channels must be greater than src channels!
-unsigned char *NV_img_pad_channels(const NVImage *src, int dst_channels);
+unsigned char *nv_img_pad_channels(const nv_image *src, int dst_channels);
 
 NOVA_HEADER_END;
 

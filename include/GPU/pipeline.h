@@ -11,16 +11,16 @@
 
 NOVA_HEADER_START;
 
-struct NVSM_shader_t;
+typedef struct nvsm_shader_t nvsm_shader_t;
 
-typedef void (*NV_GPU_ResultCheckFn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
+typedef void (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
 
-#define CVK_REQUIRED_PTR(ptr)                                                                                                                                                 \
+#define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
   if ((ptr) == NULL)                                                                                                                                                          \
-  NV_LOG_AND_ABORT(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", NV_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
-#define CVK_NOT_EQUAL_TO(val, to)                                                                                                                                             \
+  nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
+#define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
   if ((val) == (to))                                                                                                                                                          \
-  NV_LOG_AND_ABORT(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", NV_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
+  nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
 
 #define _NVVK_TO_BIT(n) (1 << n)
 
@@ -37,73 +37,73 @@ typedef enum cvk_pipeline_flags_bits
 } cvk_pipeline_flags_bits;
 typedef u32 cvk_pipeline_flags;
 
-#define NVVK_ResultCheck(func) _NVVK_result_fn(func, NV_basename(__FILE__), #func, __LINE__)
+#define nvvk_result_check(func) _nvvk_result_fn(func, nv_basename(__FILE__), #func, __LINE__)
 
 static void
-_NVVK_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
+_nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
 {
   if (result == VK_SUCCESS)
     return;
 
-  struct tm* time = _NV_GET_TIME();
+  struct tm* time = _nv_get_time();
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors
   if (result < 0)
-    NV_printf("[%d:%d:%d] vkerr: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FUNC, NVVK_vk_result_to_string(result));
+    nv_printf("[%d:%d:%d] vkerr: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FUNC, nvvk_vk_result_to_string(result));
   else
-    NV_printf("[%d:%d:%d] vkwarn: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FUNC, NVVK_vk_result_to_string(result));
+    nv_printf("[%d:%d:%d] vkwarn: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FUNC, nvvk_vk_result_to_string(result));
 }
 
 /*
   Used internally. Do NOT modify by yourselves! Use SetResultCheckFunc instead.
 */
-extern NV_GPU_ResultCheckFn _NVVK_result_fn;
+extern nv_gpu_result_check_fn _nvvk_result_fn;
 
 /*
   Set the result checking function for the API. This is called every time the program requests something in the order of vkCreate* that this namespace
   has a hold of. Use NULL to deattach the function.
 */
 static inline void
-NV_GPU_SetResultCheckFn(NV_GPU_ResultCheckFn func)
+nv_GPU_SetResultCheckFn(nv_gpu_result_check_fn func)
 {
   if (func != NULL)
-    _NVVK_result_fn = func;
+    _nvvk_result_fn = func;
   else
-    func = _NVVK_default_result_check_fn;
+    func = _nvvk_default_result_check_fn;
 }
 
-extern u32 NV_GPU_vk_flag_register;
+extern u32 nv_GPU_vk_flag_register;
 
 /*
  *	FORWARD DECLARATIONS
  */
-typedef struct NV_VK_Pipeline              NV_VK_Pipeline;
-typedef struct NV_GPU_PipelineCreateInfo   NV_GPU_PipelineCreateInfo;
-typedef struct NV_GPU_SwapchainCreateInfo  NV_GPU_SwapchainCreateInfo;
-typedef struct NV_GPU_RenderPassCreateInfo NV_GPU_RenderPassCreateInfo;
-typedef struct NV_GPU_PipelineBlendState   NV_GPU_PipelineBlendState;
+typedef struct nv_vk_pipeline                 nv_vk_pipeline;
+typedef struct nv_gpu_pipeline_create_info    nv_gpu_pipeline_create_info;
+typedef struct nv_gpu_swapchain_create_info   nv_gpu_swapchain_create_info;
+typedef struct nv_gpu_render_pass_create_info nv_gpu_render_pass_create_info;
+typedef struct nv_gpu_pipeline_blend_state    nv_gpu_pipeline_blend_state;
 
 #define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
 
-typedef struct NV_VK_Pipeline
+typedef struct nv_vk_pipeline
 {
   VkPipeline       pipeline;
   VkPipelineLayout pipeline_layout;
 
   // The common descriptor set layout.
   VkDescriptorSetLayout descriptor_layout;
-} NV_VK_Pipeline;
+} nv_vk_pipeline;
 
-typedef struct NV_BakedPipelines
+typedef struct nv_baked_pipelines
 {
-  NV_VK_Pipeline Unlit;
-  NV_VK_Pipeline Lit;
-  NV_VK_Pipeline Ctext;
-  NV_VK_Pipeline Line; // Draws lines. Yep.
-} NV_BakedPipelines;
-extern NV_BakedPipelines g_Pipelines;
+  nv_vk_pipeline Unlit;
+  nv_vk_pipeline Lit;
+  nv_vk_pipeline Ctext;
+  nv_vk_pipeline Line; // Draws lines. Yep.
+} nv_baked_pipelines;
+extern nv_baked_pipelines g_Pipelines;
 
-typedef enum NV_GPU_PipelineBlendPreset
+typedef enum nv_gpu_pipeline_blend_preset
 {
   CVK_BLEND_PRESET_NONE                = 0,
   CVK_BLEND_PRESET_ALPHA               = 1,
@@ -112,9 +112,9 @@ typedef enum NV_GPU_PipelineBlendPreset
   CVK_BLEND_PRESET_PREMULTIPLIED_ALPHA = 4,
   CVK_BLEND_PRESET_SUBTRACTIVE         = 5,
   CVK_BLEND_PRESET_SCREEN              = 6,
-} NV_GPU_PipelineBlendPreset;
+} nv_gpu_pipeline_blend_preset;
 
-typedef struct NV_GPU_PipelineBlendState
+typedef struct nv_gpu_pipeline_blend_state
 {
   VkBlendFactor         srcColorBlendFactor;
   VkBlendFactor         dstColorBlendFactor;
@@ -123,15 +123,15 @@ typedef struct NV_GPU_PipelineBlendState
   VkBlendFactor         dstAlphaBlendFactor;
   VkBlendOp             alphaBlendOp;
   VkColorComponentFlags colorWriteMask;
-} NV_GPU_PipelineBlendState;
-extern NV_GPU_PipelineBlendState NV_GPU_InitPipelineBlendState(NV_GPU_PipelineBlendPreset preset);
+} nv_gpu_pipeline_blend_state;
+extern nv_gpu_pipeline_blend_state nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset);
 
-typedef struct NV_GPU_PipelineCreateInfo
+typedef struct nv_gpu_pipeline_create_info
 {
   VkRenderPass        render_pass;
   VkPipelineLayout    pipeline_layout;
   VkExtent2D          extent;
-  NVFormat            format;
+  nv_format            format;
   u64                 subpass;
   VkPipeline          old_pipeline;
   VkPipelineCache     cache;
@@ -143,56 +143,56 @@ typedef struct NV_GPU_PipelineCreateInfo
   VkSampleCountFlagBits samples;
 
   // Ignored if flags does not contain PIPELINE_CREATE_FLAGS_ENABLE_BLEND
-  const NV_GPU_PipelineBlendState* blend_state;
+  const nv_gpu_pipeline_blend_state* blend_state;
 
   //	Array pointers are allowed to be NULL
   const VkVertexInputAttributeDescription* pAttributeDescriptions;
   const VkVertexInputBindingDescription*   pBindingDescriptions;
   const VkDescriptorSetLayout*             pDescriptorLayouts;
   const VkPushConstantRange*               pPushConstants;
-  const struct NVSM_shader_t* const*       pShaders;
+  const struct nvsm_shader_t* const*       pShaders;
 
   int                                      nAttributeDescriptions;
   int                                      nBindingDescriptions;
   int                                      nDescriptorLayouts;
   int                                      nPushConstants;
   int                                      nShaders;
-} NV_GPU_PipelineCreateInfo;
-#define NV_GPU_InitPipelineCreateInfo()                                                                                                                                       \
-  (NV_GPU_PipelineCreateInfo) { .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .samples = VK_SAMPLE_COUNT_1_BIT }
+} nv_gpu_pipeline_create_info;
+#define nv_gpu_init_pipeline_create_info()                                                                                                                                       \
+  (nv_gpu_pipeline_create_info) { .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .samples = VK_SAMPLE_COUNT_1_BIT }
 
-typedef struct NV_GPU_SwapchainCreateInfo
+typedef struct nv_gpu_swapchain_create_info
 {
   VkExtent2D       extent;
   VkPresentModeKHR present_mode;
   u64              image_count;
-  NVFormat         format;
+  nv_format         format;
   VkColorSpaceKHR  color_space;
   VkSwapchainKHR   old_swapchain;
-} NV_GPU_SwapchainCreateInfo;
-extern NV_GPU_SwapchainCreateInfo NV_GPU_InitSwapchainCreateInfo();
+} nv_gpu_swapchain_create_info;
+extern nv_gpu_swapchain_create_info nv_gpu_init_swapchain_create_info();
 
-typedef struct NV_GPU_RenderPassCreateInfo
+typedef struct nv_gpu_render_pass_create_info
 {
   u64      subpass;
-  NVFormat format;
-  NVFormat depthBufferFormat;
+  nv_format format;
+  nv_format depthBufferFormat;
 
   // Ignored if flags does not contain PIPELINE_CREATE_FLAGS_ENABLE_MULTISAMPLING
   VkSampleCountFlagBits samples;
-} NV_GPU_RenderPassCreateInfo;
-#define NV_GPU_InitRenderPassCreateInfo()                                                                                                                                     \
-  (NV_GPU_RenderPassCreateInfo) { .samples = VK_SAMPLE_COUNT_1_BIT }
+} nv_gpu_render_pass_create_info;
+#define nv_gpu_init_render_pass_create_info()                                                                                                                                     \
+  (nv_gpu_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
 
-extern void NV_VK_BakeGlobalPipelines(NV_renderer_t* rd);
-extern void NV_VK_DestroyGlobalPipelines();
+extern void nv_vk_bake_global_pipelines(nv_renderer_t* rd);
+extern void nv_vk_destroy_global_pipelines();
 
-extern void NV_GPU_CreateGraphicsPipeline(NV_GPU_PipelineCreateInfo const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
-extern void NV_GPU_CreateDepthPipeline(NV_GPU_PipelineCreateInfo const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
-extern void NV_GPU_CreatePipelineLayout(NV_GPU_PipelineCreateInfo const* pCreateInfo, VkPipelineLayout* dstLayout);
-extern void NV_GPU_CreateRenderPass(NV_GPU_RenderPassCreateInfo const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
-extern void NV_GPU_CreateDepthPass(NV_GPU_RenderPassCreateInfo const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
-extern void NV_GPU_CreateSwapchain(NV_GPU_SwapchainCreateInfo const* pCreateInfo, VkSwapchainKHR* dstSwapchain);
+extern void nv_gpu_create_graphics_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
+extern void nv_gpu_create_depth_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
+extern void nv_gpu_create_pipeline_layout(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipelineLayout* dstLayout);
+extern void nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
+extern void nv_gpu_create_depth_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
+extern void nv_gpu_create_swapchain(nv_gpu_swapchain_create_info const* pCreateInfo, VkSwapchainKHR* dstSwapchain);
 
 NOVA_HEADER_END;
 

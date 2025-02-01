@@ -20,49 +20,81 @@
 
 NOVA_HEADER_START;
 
+#if defined(_MSC_VER)
+#define nv_RESTRICT __restrict
+#elif defined(__GNUC__) || defined(__clang__)
+#define nv_RESTRICT __restrict__
+#else
+#define nv_RESTRICT
+#endif
+
 #define DEBUG
 
-#define NV_MAX(a, b) ((a) > (b) ? (a) : (b))
-#define NV_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define nv_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define nv_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define nv_CONCAT(x, y) x##y
+#define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
+
+#ifndef NDEBUG
+#define nv_assert_and_ret(expr, retval)                                                                                                                                       \
+  if (!((bool)(expr)))                                                                                                                                                        \
+  {                                                                                                                                                                           \
+    nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                        \
+    return retval;                                                                                                                                                            \
+  }
+#define nv_assert(expr)                                                                                                                                                       \
+  if (!((bool)(expr)))                                                                                                                                                        \
+  {                                                                                                                                                                           \
+    nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                        \
+  }
+#else
+// These are typecasted to void because they give warnings because result (its
+// like expr != NULL) is not used
+#define nv_assert_and_ret(expr, retval) (void)(expr)
+#define nv_assert(expr) (void)(expr)
+#pragma message "Assertions disabled"
+#endif
 
 // puts but with formatting and with the preceder "error". does not stop
-// execution of program if you want that, use NV_LOG_AND_ABORT instead.
-#define NV_LOG_ERROR(err, ...) _NV_LOG_ERROR(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+// execution of program if you want that, use nv_log_and_abort instead.
+#define nv_log_error(err, ...) _nv_log_error(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
 
 // formats the string, puts() it with the preceder "fatal error" and then aborts
 // the program
-#define NV_LOG_AND_ABORT(err, ...) _NV_LOG_AND_ABORT(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_and_abort(err, ...) _nv_log_and_abort(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with the preceder "warning"
-#define NV_LOG_WARNING(err, ...) _NV_LOG_WARNING(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_warning(err, ...) _nv_log_warning(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with the preceder "info"
-#define NV_LOG_INFO(err, ...) _NV_LOG_INFO(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_info(err, ...) _nv_log_info(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with the preceder "debug"
-#define NV_LOG_DEBUG(err, ...) _NV_LOG_DEBUG(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_debug(err, ...) _nv_log_debug(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with a custom preceder
-#define NV_LOG_CUSTOM(preceder, err, ...) _NV_LOG_CUSTOM(__PRETTY_FUNCTION__, preceder, err, ##__VA_ARGS__)
+#define nv_log_custom(preceder, err, ...) _nv_log_custom(__PRETTY_FUNCTION__, preceder, err, ##__VA_ARGS__)
 
-extern void _NV_LOG_ERROR(const char* func, const char* fmt, ...);
-extern void _NV_LOG_AND_ABORT(const char* func, const char* fmt, ...);
-extern void _NV_LOG_WARNING(const char* func, const char* fmt, ...);
-extern void _NV_LOG_INFO(const char* func, const char* fmt, ...);
-extern void _NV_LOG_DEBUG(const char* func, const char* fmt, ...);
-extern void _NV_LOG_CUSTOM(const char* func, const char* preceder, const char* fmt, ...);
+extern void _nv_log_error(const char* func, const char* fmt, ...);
+extern void _nv_log_and_abort(const char* func, const char* fmt, ...);
+extern void _nv_log_warning(const char* func, const char* fmt, ...);
+extern void _nv_log_info(const char* func, const char* fmt, ...);
+extern void _nv_log_debug(const char* func, const char* fmt, ...);
+extern void _nv_log_custom(const char* func, const char* preceder, const char* fmt, ...);
 
-#define __WRAPPER1(x, y) NV_CONCAT(x, y)
+extern void _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* str, unsigned char err);
+
+#define _nv_time_wrapper1(x, y) nv_CONCAT(x, y)
 
 // May god never have a look at this define. I will not be spared.
-#define _NV_TIME_FUNCTION(func, LINE)                                                                                                                                         \
-  const auto __WRAPPER1(__COUNTER_BEGIN__, __LINE__) = SDL_GetTicks64();                                                                                                      \
+#define _nv_TIME_FUNCTION(func, LINE)                                                                                                                                         \
+  const size_t _nv_time_wrapper1(__COUNTER_BEGIN__, __LINE__) = SDL_GetTicks64();                                                                                             \
   func; /* Call the function*/                                                                                                                                                \
-  NV_LOG_DEBUG("[Line %d] Function %s took %ldms", LINE, #func, SDL_GetTicks64() - __WRAPPER1(__COUNTER_BEGIN__, __LINE__), LINE);
-#define NV_TIME_FUNCTION(func) _NV_TIME_FUNCTION(func, __LINE__)
+  nv_log_debug("[Line %d] Function %s took %ldms", LINE, #func, SDL_GetTicks64() - _nv_time_wrapper1(__COUNTER_BEGIN__, __LINE__), LINE);
+#define nv_time_function(func) _nv_time_function(func, __LINE__)
 
 static inline struct tm*
-_NV_GET_TIME()
+_nv_get_time()
 {
   time_t     now;
   struct tm* tm;
@@ -70,37 +102,12 @@ _NV_GET_TIME()
   now = time(0);
   if ((tm = localtime(&now)) == NULL)
   {
-    NV_LOG_ERROR("Error extracting time stuff");
+    nv_log_error("Error extracting time stuff");
     return NULL;
   }
 
   return tm;
 }
-
-extern void _NV_LOG(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* str, unsigned char err);
-
-#define NV_CONCAT(x, y) x##y
-#define NV_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
-
-#ifndef NDEBUG
-#define NV_assert_and_ret(expr, retval)                                                                                                                                       \
-  if (!((bool)(expr)))                                                                                                                                                        \
-  {                                                                                                                                                                           \
-    NV_LOG_AND_ABORT("Assertion failed -> %s", #expr);                                                                                                                        \
-    return retval;                                                                                                                                                            \
-  }
-#define NV_assert(expr)                                                                                                                                                       \
-  if (!((bool)(expr)))                                                                                                                                                        \
-  {                                                                                                                                                                           \
-    NV_LOG_AND_ABORT("Assertion failed -> %s", #expr);                                                                                                                        \
-  }
-#else
-// These are typecasted to void because they give warnings because result (its
-// like expr != NULL) is not used
-#define NV_assert_and_ret(expr, retval) (void)(expr)
-#define NV_assert(expr) (void)(expr)
-#pragma message "Assertions disabled"
-#endif
 
 typedef uint64_t u64;
 typedef uint32_t u32;

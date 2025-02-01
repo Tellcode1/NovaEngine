@@ -31,16 +31,16 @@ typedef struct fontc_glyph {
   float l, b, r, t;
 } fontc_glyph;
 
-typedef struct fontc_file {
+typedef struct fontc_file_t {
   fontc_header header;
   fontc_glyph *glyphs; // numglyphs is in header.
   unsigned char *bitmap;
-} fontc_file;
+} fontc_file_t;
 
 extern fontc_atlas_t fontc_atlas_init(int init_w, int init_h);
 extern bool fontc_atlas_add_image(fontc_atlas_t *__restrict__ atlas, int w, int h, const unsigned char *__restrict__ data, int *__restrict__ x,
                                   int *__restrict__ y);
-extern void fontc_read_font(const char *path, fontc_file *file);
+extern void fontc_read_font(const char *path, fontc_file_t *file);
 extern void fontc_bake_font(const char *font_path, const char *out);
 
 NOVA_HEADER_END;

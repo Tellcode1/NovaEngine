@@ -5,10 +5,10 @@
 
 NOVA_HEADER_START;
 
-typedef struct NV_GPU_Memory NV_GPU_Memory;
+typedef struct nv_gpu_memory_t nv_gpu_memory;
 
 // This is mainly here to bar the user from using unsupported buffer types
-typedef enum NV_GPU_BufferType {
+typedef enum nv_gpu_buffer_type {
   NOVA_GPU_BUFFER_TYPE_VERTEX_BUFFER        = 128,
   NOVA_GPU_BUFFER_TYPE_INDEX_BUFFER         = 64,
   NOVA_GPU_BUFFER_TYPE_UNIFORM_BUFFER       = 16,
@@ -16,36 +16,36 @@ typedef enum NV_GPU_BufferType {
   NOVA_GPU_BUFFER_TYPE_TRANSFER_SOURCE      = 1,
   NOVA_GPU_BUFFER_TYPE_TRANSFER_DESTINATION = 2,
   NOVA_GPU_BUFFER_TYPE_INDIRECT_BUFFER      = 256,
-} NV_GPU_BufferType;
+} nv_gpu_buffer_type;
 
-typedef struct NV_GPU_Buffer {
+typedef struct nv_gpu_buffer_t {
   struct VkBuffer_T *buffer;
   // The size of the buffer
   // Even if there are multiple children, this gives only the size of ONE buffer
   size_t size, offset;
   int alignment;
-  NV_GPU_Memory *memory;
-  NV_GPU_BufferType type;
-} NV_GPU_Buffer;
+  nv_gpu_memory *memory;
+  nv_gpu_buffer_type type;
+} nv_gpu_buffer_t;
 
 // Note: 'nchilds' count of buffers of size 'size' will be created.
 // The size will NOT be divided among the children.
-extern void NV_GPU_CreateBuffer(size_t size, int alignment, uint32_t usage, NV_GPU_Buffer *dst);
-extern void NV_GPU_DestroyBuffer(NV_GPU_Buffer *buffer);
+extern void nv_gpu_create_buffer(size_t size, int alignment, uint32_t usage, nv_gpu_buffer_t *dst);
+extern void nv_gpu_destroy_buffer(nv_gpu_buffer_t *buffer);
 
-extern void NV_GPU_WriteToBuffer(NV_GPU_Buffer *buffer, size_t size, void *data, size_t offset);
+extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t *buffer, size_t size, void *data, size_t offset);
 
 // Note: Memory must be able to hold all the buffers!
 // You can get the size of the memory by just looking up the size of one buffer
 // and then multiplying it with the count.
-extern void NV_GPU_BindBufferToMemory(NV_GPU_Memory *mem, size_t offset, NV_GPU_Buffer *buffer);
+extern void nv_gpu_bind_buffer_to_memory(nv_gpu_memory *mem, size_t offset, nv_gpu_buffer_t *buffer);
 
-extern int NV_GPU_GetBufferSize(const NV_GPU_Buffer *buffer);
+extern int nv_gpu_get_buffer_size(const nv_gpu_buffer_t *buffer);
 
 // dest must be atleast the size of the buffer
-extern void NV_GPU_BufferReadback(const NV_GPU_Buffer *buffer, void *dest);
+extern void nv_gpu_buffer_readback(const nv_gpu_buffer_t *buffer, void *dest);
 
-// extern NVAsync_Context NV_GPU_BufferReadbackAsync(const NV_GPU_Buffer *buffer, void *dest);
+// extern NVAsync_Context nv_GPU_BufferReadbackAsync(const nv_GPU_Buffer *buffer, void *dest);
 
 NOVA_HEADER_END;
 

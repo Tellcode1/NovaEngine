@@ -26,13 +26,13 @@ static const double NVM_RAD2DEG_CONSTANT = 57.29577951308232; // 1.0 / DEG2RAD_C
 #define NVM_DEG2RAD(x) ((x) * 0.017453292519943295)
 #define NVM_RAD2DEG(x) ((x) * 57.29577951308232)
 
-typedef struct NVM_rect2d {
+typedef struct nvm_rect2d {
     // The CENTER of the rect
     vec2 position;
     vec2 size;
-} NVM_rect2d;
+} nvm_rect2d;
 
-static inline bool NVM_AABB(const NVM_rect2d *r1, const NVM_rect2d *r2) {
+static inline bool nvm_aabb(const nvm_rect2d *r1, const nvm_rect2d *r2) {
     const vec2 r1_half_size = v2muls(r1->size, 0.5f);
     const vec2 r2_half_size = v2muls(r2->size, 0.5f);
 
@@ -49,7 +49,7 @@ static inline bool NVM_AABB(const NVM_rect2d *r1, const NVM_rect2d *r2) {
 }
 
 // Checks if a point is inside the rect
-static inline bool NVM_is_point_inside_rect(const vec2 *point, const NVM_rect2d *r) {
+static inline bool nvm_is_point_inside_rect(const vec2 *point, const nvm_rect2d *r) {
     const vec2 r_half_size = v2muls(r->size, 0.5f);
 
     const vec2 r_min = v2sub(r->position, r_half_size);

@@ -7,25 +7,26 @@
 #include "../stdafx.h"
 #include "../string.h"
 
-typedef struct NV_chunk_t    NV_chunk_t;
-typedef struct NV_node_t     NV_node_t;
-typedef struct NV_freelist_t NV_freelist_t;
+typedef struct nv_chunk_t    nv_chunk_t;
+typedef struct nv_node_t     nv_node_t;
+typedef struct nv_freelist_t nv_freelist_t;
+typedef struct nv_allocator nv_allocator;
 
-typedef NV_node_t* (*NV_freelist_alloc_fn)(size_t alignment, size_t size); // allocate the payload and set the size
-typedef void (*NV_freelist_free_fn)(NV_node_t* node);                      // you need to free the node's data and the node!!!
+typedef nv_node_t* (*nv_freelist_alloc_fn)(size_t alignment, size_t size); // allocate the payload and set the size
+typedef void (*nv_freelist_free_fn)(nv_node_t* node);                      // you need to free the node's data and the node!!!
 
-struct NV_chunk_t
+struct nv_chunk_t
 {
   void* mapping;
   // available is here for easy querying by the freelist
   size_t     mapping_size, mapping_offset, available;
-  NV_node_t* root;
+  nv_node_t* root;
 };
 
-struct NV_node_t
+struct nv_node_t
 {
-  struct NV_node_t* next;
-  NV_chunk_t*       chunk;
+  struct nv_node_t* next;
+  nv_chunk_t*       chunk;
   void*             payload;
   void*             mapping;
   size_t            mapping_size;
@@ -34,36 +35,36 @@ struct NV_node_t
   bool              in_use;
 };
 
-struct NV_freelist_t
+struct nv_freelist_t
 {
   unsigned             m_canary;
-  NV_node_t*           m_root;
-  NV_freelist_alloc_fn m_alloc_fn;
-  NV_freelist_free_fn  m_free_fn;
+  nv_node_t*           m_root;
+  nv_freelist_alloc_fn m_alloc_fn;
+  nv_freelist_free_fn  m_free_fn;
   pthread_rwlock_t     m_rwlock;
 };
 
-extern NV_chunk_t* NV_freelist_make_chunk(const NV_freelist_t* list, size_t alignment, size_t size);
-extern NV_node_t*  NV_freelist_mknode(const NV_freelist_t* list, size_t alignment, size_t size);
+extern nv_chunk_t* nv_freelist_make_chunk(const nv_freelist_t* list, size_t alignment, size_t size);
+extern nv_node_t*  nv_freelist_mknode(const nv_freelist_t* list, size_t alignment, size_t size);
 
-// Initialize a freelist
-extern void NV_freelist_init(size_t init_size, NV_freelist_alloc_fn alloc_fn, NV_freelist_free_fn free_fn, NV_freelist_t* list);
+// initialize a freelist
+extern void nv_freelist_init(size_t init_size, nv_freelist_alloc_fn alloc_fn, nv_freelist_free_fn free_fn, nv_freelist_t* list, nv_allocator *allocator);
 
-extern void NV_freelist_destroy(NV_freelist_t* list);
+extern void nv_freelist_destroy(nv_freelist_t* list);
 
-// Allocate memory from the list. Will allocate a new node if there is no space left!!!
-extern void* NV_freelist_alloc(NV_freelist_t* list, size_t alignment, size_t size);
+// allocate memory from the list. will allocate a new node if there is no space left!!!
+extern void* nv_freelist_alloc(nv_freelist_t* list, size_t alignment, size_t size);
 
-// Add a new node with guaranteed extra space.
-extern NV_node_t* NV_freelist_expand(NV_freelist_t* list, size_t alignment, size_t expand_by);
+// add a new node with guaranteed extra space.
+extern nv_node_t* nv_freelist_expand(nv_freelist_t* list, size_t alignment, size_t expand_by);
 
 // frees the block and its node
 // however, if the node is surrounded by free data, it will be coalesced together
-extern void NV_freelist_free(NV_freelist_t* list, void* block);
+extern void nv_freelist_free(nv_freelist_t* list, void* block);
 
 // find the node that owns the block
-extern NV_node_t* NV_freelist_find(NV_freelist_t* list, void* alloc);
+extern nv_node_t* nv_freelist_find(nv_freelist_t* list, void* alloc);
 
-extern void       NV_freelist_check_circle(const NV_freelist_t* list);
+extern void       nv_freelist_check_circle(const nv_freelist_t* list);
 
 #endif //__NOVA_FREELIST_H__

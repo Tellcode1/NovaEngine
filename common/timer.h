@@ -21,7 +21,7 @@ static inline double __timer_get_currtime() {
 // pass __FLT_MAX__ for duration for it to just not end
 static inline timer timer_begin(double duration) {
   if (duration <= 0.0f) {
-    NV_LOG_ERROR("Timer duration passed as negative or zero. What do you even want the "
+    nv_log_error("Timer duration passed as negative or zero. What do you even want the "
               "timer to do????");
     return (timer){-1, -1};
   }
@@ -41,7 +41,7 @@ static inline void timer_reset(timer *tm) {
 
 static inline bool timer_is_done(const timer *tm) {
   if (tm->end == -1 || tm->start == -1) {
-    NV_LOG_WARNING("Timer end is invalid (it has been reset or was not created "
+    nv_log_warning("Timer end is invalid (it has been reset or was not created "
                 "correctly). The timer needs to be restarted using timer_begin()");
     return 0;
   }

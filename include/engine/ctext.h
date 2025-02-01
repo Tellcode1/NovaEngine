@@ -55,10 +55,10 @@ typedef struct ctext_text_render_info {
 
 typedef struct ctext_label ctext_label;
 
-extern ctext_label *ctext_create_label(NV_scene_t *scene, cfont_t *fnt);
+extern ctext_label *ctext_create_label(nv_scene_t *scene, cfont_t *fnt);
 extern void ctext_destroy_label(ctext_label *label);
 
-extern NVObject *ctext_label_get_object(const ctext_label *label);
+extern nv_object *ctext_label_get_object(const ctext_label *label);
 extern void ctext_label_set_text(ctext_label *label, const char *text);
 extern void ctext_label_set_horizontal_align(ctext_label *label, ctext_hori_align h_align);
 extern void ctext_label_set_vertical_align(ctext_label *label, ctext_vert_align v_align);
@@ -76,27 +76,27 @@ static inline ctext_text_render_info ctext_init_text_render_info() {
 }
 
 // Initializes the text renderer for ONLY that renderer
-extern void ctext_init(struct NV_renderer_t *rd);
-extern void ctext_shutdown(struct NV_renderer_t *rd);
+extern void ctext_init(struct nv_renderer_t *rd);
+extern void ctext_shutdown(struct nv_renderer_t *rd);
 
-extern void ctext_load_font(NV_renderer_t *rd, const char *font_path, int scale, cfont_t **dst);
+extern void ctext_load_font(nv_renderer_t *rd, const char *font_path, int scale, cfont_t **dst);
 
 extern void ctext_destroy_font(cfont_t *fnt);
 
 extern void ctext_render(cfont_t *fnt, const ctext_text_render_info *pInfo, const char *fmt, ...);
 
-extern void ctext_flush_renders(NV_renderer_t *rd);
-extern void __ctext_flush_font(NV_renderer_t *rd, cfont_t *fnt);
+extern void ctext_flush_renders(nv_renderer_t *rd);
+extern void _ctext_flush_font(nv_renderer_t *rd, cfont_t *fnt);
 
 // Get the scale needed to fit the string in a box
 // The scale is calculated as if both the string and the box were at (0,0)
-extern float ctext_get_scale_for_fit(const cfont_t *fnt, const NV_string_t *str, vec2 bbox);
+extern float ctext_get_scale_for_fit(const cfont_t *fnt, const char *str, vec2 bbox);
 
-typedef struct ctext_glyph {
+typedef struct ctext_glyph_t {
   float x0, x1, y0, y1;
   float l, r, b, t;
   float advance;
-} ctext_glyph;
+} ctext_glyph_t;
 
 typedef struct ctext_drawcall_t ctext_drawcall_t;
 
@@ -106,13 +106,13 @@ struct cfont_t {
   float space_width;
 
   int font_index;
-  NV_GPU_Texture *texture;
-  NV_GPU_Memory *texture_mem;
-  NV_GPU_Sampler *sampler;
+  nv_gpu_texture *texture;
+  nv_gpu_memory *texture_mem;
+  nv_gpu_sampler *sampler;
 
   int allocated_size;
-  NV_GPU_Buffer buffer;
-  NV_GPU_Memory *buffer_mem;
+  nv_gpu_buffer_t buffer;
+  nv_gpu_memory *buffer_mem;
   void *mapped;
 
   int index_buffer_offset;
@@ -122,10 +122,10 @@ struct cfont_t {
   bool rendered_this_frame;
 
   int chars_drawn;
-  NV_dynarray_t /* ctext_drawcall_t */ drawcalls;
-  NV_hashmap_t * /* unicode, ctext_glyph ctext_hasher<unicode>> */ glyph_map;
+  nv_dynarray_t /* ctext_drawcall_t */ drawcalls;
+  nv_hashmap_t * /* unicode, ctext_glyph_t ctext_hasher<unicode>> */ glyph_map;
 
-  struct NV_renderer_t *rd;
+  struct nv_renderer_t *rd;
 };
 
 NOVA_HEADER_END;

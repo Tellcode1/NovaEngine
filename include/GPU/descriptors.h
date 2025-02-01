@@ -10,38 +10,38 @@ NOVA_HEADER_START;
 
 // WARNING: Currently only supports the first 11 descriptor types.
 
-typedef struct NV_descriptor_poolSize {
+typedef struct nv_descriptor_pool_size {
   uint32_t type;
   int capacity;
   int numchilds; // how many are being used
-} NV_descriptor_poolSize;
+} nv_descriptor_pool_size;
 
-typedef struct NV_descriptor_set NV_descriptor_set;
+typedef struct nv_descriptor_set_t nv_descriptor_set_t;
 
-typedef struct NV_descriptor_pool {
+typedef struct nv_descriptor_pool {
   VkDescriptorPool pool;
   int max_child_sets;
-  NV_descriptor_poolSize descriptors[11];
-  NV_descriptor_set **sets;
+  nv_descriptor_pool_size descriptors[11];
+  nv_descriptor_set_t **sets;
   int nsets;
-} NV_descriptor_pool;
+} nv_descriptor_pool;
 
-typedef struct NV_descriptor_set {
+typedef struct nv_descriptor_set_t {
   int canary;
   VkDescriptorSetLayout layout;
   VkDescriptorSet set;
-  NV_descriptor_pool *pool;
+  nv_descriptor_pool *pool;
   struct VkWriteDescriptorSet *writes;
   int nwrites;
-} NV_descriptor_set;
+} nv_descriptor_set_t;
 
-extern void NV_descriptor_setSubmitWrite(NV_descriptor_set *set, const VkWriteDescriptorSet *write);
-extern void NV_descriptor_setDestroy(NV_descriptor_set *set);
-extern void NV_descriptor_poolDestroy(NV_descriptor_pool *pool);
-extern void _NV_descriptor_pool_Allocate(NV_descriptor_pool *pool);
-extern void NV_descriptor_pool_Init(NV_descriptor_pool *dst);
-extern void NV_AllocateDescriptorSet(NV_descriptor_pool *pool, const VkDescriptorSetLayoutBinding *bindings, int nbindings,
-                                       NV_descriptor_set **dst);
+extern void nv_descriptor_set_t_submit_write(nv_descriptor_set_t *set, const VkWriteDescriptorSet *write);
+extern void nv_descriptor_set_t_destroy(nv_descriptor_set_t *set);
+extern void nv_descriptor_pool_destroy(nv_descriptor_pool *pool);
+extern void _nv_descriptor_pool_allocate(nv_descriptor_pool *pool);
+extern void nv_descriptor_pool_init(nv_descriptor_pool *dst);
+extern void nv_allocate_descriptor_set(nv_descriptor_pool *pool, const VkDescriptorSetLayoutBinding *bindings, int nbindings,
+                                       nv_descriptor_set_t **dst);
 
 NOVA_HEADER_END;
 

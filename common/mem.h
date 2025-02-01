@@ -2,7 +2,6 @@
 #define __NOVA_MEM_H__
 
 #include "../common/containers/freelist.h"
-#include "../common/containers/heap.h"
 #include "stdafx.h"
 #include "string.h"
 #include <stddef.h>
@@ -21,64 +20,64 @@ NOVA_HEADER_START;
 #define LMALLOC_DEFAULT_PAGE_SIZE 4096
 #endif
 
-typedef struct NVAllocator      NVAllocator;
-typedef struct NVAllocatorStack NVAllocatorStack;
-typedef struct NVAllocatorHeap  NVAllocatorHeap;
+typedef struct nv_allocator      nv_allocator;
+typedef struct nv_allocator_stack nv_allocator_stack;
+typedef struct nv_allocator_heap  nv_allocator_heap;
 
-// Stack Allocator Functions.
-extern void  NVAllocatorStackInit(NVAllocatorStack* allocator, unsigned char* buf, size_t available);
+// stack allocator functions.
+extern void  nv_allocator_stack_init(nv_allocator_stack* allocator, unsigned char* buf, size_t available);
 
-extern void* saalloc(NVAllocator* parent, size_t alignment, size_t size);
-extern void* sacalloc(NVAllocator* parent, size_t alignment, size_t size);
-extern void* sarealloc(NVAllocator* parent, void* prevblock, size_t alignment, size_t size);
-extern void  safree(NVAllocator* parent, void* block);
+extern void* saalloc(nv_allocator* parent, size_t alignment, size_t size);
+extern void* sacalloc(nv_allocator* parent, size_t alignment, size_t size);
+extern void* sarealloc(nv_allocator* parent, void* prevblock, size_t alignment, size_t size);
+extern void  safree(nv_allocator* parent, void* block);
 
 // malloc, calloc, realloc, free
-extern void* heapalloc(NVAllocator* parent, size_t alignment, size_t size);
-extern void* heapcalloc(NVAllocator* parent, size_t alignment, size_t size);
-extern void* heaprealloc(NVAllocator* parent, void* prevblock, size_t alignment, size_t size);
-extern void  heapfree(NVAllocator* parent, void* block);
+extern void* heapalloc(nv_allocator* parent, size_t alignment, size_t size);
+extern void* heapcalloc(nv_allocator* parent, size_t alignment, size_t size);
+extern void* heaprealloc(nv_allocator* parent, void* prevblock, size_t alignment, size_t size);
+extern void  heapfree(nv_allocator* parent, void* block);
 
-// Custom mmap based heap allocator.
-extern void  NVAllocatorHeapInit(NVAllocatorHeap* pool);
+// custom mmap based heap allocator.
+extern void  nv_allocator_heap_init(nv_allocator_heap* pool);
 
-extern void* poolmalloc(NVAllocator* allocator, size_t alignment, size_t size);
-extern void* poolcalloc(NVAllocator* allocator, size_t alignment, size_t size);
-extern void* poolrealloc(NVAllocator* allocator, void* prevblock, size_t alignment, size_t size);
-extern void  poolfree(NVAllocator* allocator, void* block);
+extern void* poolmalloc(nv_allocator* allocator, size_t alignment, size_t size);
+extern void* poolcalloc(nv_allocator* allocator, size_t alignment, size_t size);
+extern void* poolrealloc(nv_allocator* allocator, void* prevblock, size_t alignment, size_t size);
+extern void  poolfree(nv_allocator* allocator, void* block);
 
-typedef void* (*NVAllocatorAllocFn)(NVAllocator* allocator, size_t alignment, size_t size);
-typedef NVAllocatorAllocFn NVAllocatorCallocFn;
-typedef void* (*NVAllocatorReallocFn)(NVAllocator* allocator, void* prevblock, size_t alignment, size_t size);
-typedef void (*NVAllocatorFreeFn)(NVAllocator* allocator, void* block);
+typedef void* (*nv_allocator_alloc_fn)(nv_allocator* allocator, size_t alignment, size_t size);
+typedef nv_allocator_alloc_fn nv_allocator_calloc_fn;
+typedef void* (*nv_allocator_realloc_fn)(nv_allocator* allocator, void* prevblock, size_t alignment, size_t size);
+typedef void (*nv_allocator_free_fn)(nv_allocator* allocator, void* block);
 
-struct NVAllocator
+struct nv_allocator
 {
-  NVAllocatorAllocFn   alloc;
-  NVAllocatorCallocFn  calloc;
-  NVAllocatorReallocFn realloc;
-  NVAllocatorFreeFn    free;
+  nv_allocator_alloc_fn   alloc;
+  nv_allocator_calloc_fn  calloc;
+  nv_allocator_realloc_fn realloc;
+  nv_allocator_free_fn    free;
   void*                context;
   void*                user_data;
 };
 
 // malloc, realloc, free
-extern NVAllocator NVAllocatorDefault;
+extern nv_allocator nv_allocator_default;
 
-struct NVAllocatorStack
+struct nv_allocator_stack
 {
   unsigned char* buf;
   size_t         bufsiz;
   size_t         bufoffset;
 };
 
-struct NVAllocatorHeap
+struct nv_allocator_heap
 {
-  NV_freelist_t freelist;
+  nv_freelist_t freelist;
 };
 
 static inline void
-NVAllocatorBindStackAllocator(NVAllocator* allocator, NVAllocatorStack* stack)
+nv_allocator_bind_stack_allocator(nv_allocator* allocator, nv_allocator_stack* stack)
 {
   allocator->alloc   = saalloc;
   allocator->calloc  = sacalloc;
@@ -88,13 +87,13 @@ NVAllocatorBindStackAllocator(NVAllocator* allocator, NVAllocatorStack* stack)
 }
 
 static inline void
-NVAllocatorBindHeapAllocator(NVAllocator* allocator, NV_heap* heap)
+nv_allocator_bind_heap_allocator(nv_allocator* allocator, nv_freelist_t* list)
 {
   allocator->alloc   = poolmalloc;
   allocator->calloc  = poolcalloc;
   allocator->realloc = poolrealloc;
   allocator->free    = poolfree;
-  allocator->context = heap;
+  allocator->context = list;
 }
 
 NOVA_HEADER_END;

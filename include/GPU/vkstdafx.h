@@ -14,9 +14,9 @@ NOVA_HEADER_START;
 #error implement
 #endif
 
-#define NVVK_FORWARD_DECLARE(s)                                                                                                                        \
-  typedef struct s##_T s##_T;                                                                                                                        \
-  typedef s##_T *s;
+#define NVVK_FORWARD_DECLARE(s)                                                                                                                                               \
+  typedef struct s##_T s##_T;                                                                                                                                                 \
+  typedef s##_T*       s;
 
 NVVK_FORWARD_DECLARE(VkInstance);
 NVVK_FORWARD_DECLARE(VkDevice);
@@ -25,33 +25,33 @@ NVVK_FORWARD_DECLARE(VkSurfaceKHR);
 NVVK_FORWARD_DECLARE(VkDebugUtilsMessengerEXT);
 NVVK_FORWARD_DECLARE(VkQueue);
 
-extern VkInstance instance;
-extern VkDevice device;
-extern VkPhysicalDevice physDevice;
-extern VkSurfaceKHR surface;
-extern struct SDL_Window *window;
-extern VkDebugUtilsMessengerEXT debugMessenger;
+extern VkInstance               instance;
+extern VkDevice                 device;
+extern VkPhysicalDevice         phys_device;
+extern VkSurfaceKHR             surface;
+extern struct SDL_Window*       window;
+extern VkDebugUtilsMessengerEXT debug_messenger;
 
-extern NVFormat SwapChainImageFormat;
-extern u32 SwapChainColorSpace;
-extern u32 SwapChainImageCount;
-extern u32 Samples;
+extern nv_format                swap_chain_image_format;
+extern u32                      swap_chain_color_space;
+extern u32                      swap_chain_image_count;
+extern u32                      samples;
 
-extern u32 GraphicsFamilyIndex;
-extern u32 PresentFamilyIndex;
-extern u32 ComputeFamilyIndex;
-extern u32 TransferQueueIndex;
-extern u32 GraphicsAndComputeFamilyIndex;
+extern u32                      graphics_family_index;
+extern u32                      present_family_index;
+extern u32                      compute_family_index;
+extern u32                      transfer_queue_index;
+extern u32                      graphics_and_compute_family_index;
 
-extern VkQueue GraphicsQueue;
-extern VkQueue GraphicsAndComputeQueue;
-extern VkQueue PresentQueue;
-extern VkQueue ComputeQueue;
-extern VkQueue TransferQueue;
+extern VkQueue                  graphics_queue;
+extern VkQueue                  graphics_and_compute_queue;
+extern VkQueue                  present_queue;
+extern VkQueue                  compute_queue;
+extern VkQueue                  transfer_queue;
 
-extern u32 MAX_SAMPLES;
-extern unsigned char SUPPORTS_MULTISAMPLING;
-extern float MAX_ANISOTROPY;
+extern u32                      MAX_SAMPLES;
+extern unsigned char            SUPPORTS_MULTISAMPLING;
+extern float                    MAX_ANISOTROPY;
 
 NOVA_HEADER_END;
 
