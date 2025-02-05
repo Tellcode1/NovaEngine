@@ -1,5 +1,7 @@
-#ifndef __NOVA__COLLIDER_H__
-#define __NOVA__COLLIDER_H__
+#ifndef __NOVA_COLLIDER_H__
+#define __NOVA_COLLIDER_H__
+
+// implementation: engine.c
 
 #include "../../common/math/vec2.h"
 

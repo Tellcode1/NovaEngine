@@ -1,8 +1,10 @@
 #ifndef __NOVA_SPRITE_H__
 #define __NOVA_SPRITE_H__
 
+// implementation: vk.c
+
 #include "../GPU/vkstdafx.h"
-#include "../GPU/format.h"
+#include "../../common/format.h"
 
 NOVA_HEADER_START;
 

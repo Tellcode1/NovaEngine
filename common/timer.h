@@ -1,6 +1,8 @@
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
+// implementation: none
+
 #include "stdafx.h"
 #include <stdbool.h>
 #include <sys/time.h>

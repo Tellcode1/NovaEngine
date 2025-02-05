@@ -1,5 +1,7 @@
-#ifndef __NOVA__OBJECT_H__
-#define __NOVA__OBJECT_H__
+#ifndef __NOVA_OBJECT_H__
+#define __NOVA_OBJECT_H__
+
+// implementation: engine.c
 
 #include "../../common/math/vec2.h"
 #include "../../common/math/vec4.h"

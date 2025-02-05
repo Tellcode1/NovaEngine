@@ -1,6 +1,8 @@
 #ifndef __NOVA_STDAFX_H__
 #define __NOVA_STDAFX_H__
 
+// implementation: core.c
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,11 +23,11 @@
 NOVA_HEADER_START;
 
 #if defined(_MSC_VER)
-#define nv_RESTRICT __restrict
+#define NOVA_RESTRICT __restrict
 #elif defined(__GNUC__) || defined(__clang__)
-#define nv_RESTRICT __restrict__
+#define NOVA_RESTRICT __restrict__
 #else
-#define nv_RESTRICT
+#define NOVA_RESTRICT
 #endif
 
 #define DEBUG

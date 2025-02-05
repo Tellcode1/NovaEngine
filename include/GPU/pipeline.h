@@ -1,6 +1,8 @@
 #ifndef __NOVA_PIPELINE_H__
 #define __NOVA_PIPELINE_H__
 
+// implementation: vk.c
+
 #include "../../external/volk/volk.h"
 
 #include "../../common/printf.h"
@@ -10,6 +12,8 @@
 #include "vkstdafx.h"
 
 NOVA_HEADER_START;
+
+#define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
 
 typedef struct nvsm_shader_t nvsm_shader_t;
 
@@ -78,29 +82,29 @@ extern u32 nv_GPU_vk_flag_register;
  *	FORWARD DECLARATIONS
  */
 typedef struct nv_vk_pipeline                 nv_vk_pipeline;
+typedef struct nv_baked_pipelines             nv_baked_pipelines;
 typedef struct nv_gpu_pipeline_create_info    nv_gpu_pipeline_create_info;
 typedef struct nv_gpu_swapchain_create_info   nv_gpu_swapchain_create_info;
 typedef struct nv_gpu_render_pass_create_info nv_gpu_render_pass_create_info;
 typedef struct nv_gpu_pipeline_blend_state    nv_gpu_pipeline_blend_state;
 
-#define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
 
-typedef struct nv_vk_pipeline
+struct nv_vk_pipeline
 {
   VkPipeline       pipeline;
   VkPipelineLayout pipeline_layout;
 
   // The common descriptor set layout.
   VkDescriptorSetLayout descriptor_layout;
-} nv_vk_pipeline;
+};
 
-typedef struct nv_baked_pipelines
+struct nv_baked_pipelines
 {
   nv_vk_pipeline Unlit;
   nv_vk_pipeline Lit;
   nv_vk_pipeline Ctext;
   nv_vk_pipeline Line; // Draws lines. Yep.
-} nv_baked_pipelines;
+};
 extern nv_baked_pipelines g_Pipelines;
 
 typedef enum nv_gpu_pipeline_blend_preset
@@ -114,7 +118,7 @@ typedef enum nv_gpu_pipeline_blend_preset
   CVK_BLEND_PRESET_SCREEN              = 6,
 } nv_gpu_pipeline_blend_preset;
 
-typedef struct nv_gpu_pipeline_blend_state
+struct nv_gpu_pipeline_blend_state
 {
   VkBlendFactor         srcColorBlendFactor;
   VkBlendFactor         dstColorBlendFactor;
@@ -123,15 +127,14 @@ typedef struct nv_gpu_pipeline_blend_state
   VkBlendFactor         dstAlphaBlendFactor;
   VkBlendOp             alphaBlendOp;
   VkColorComponentFlags colorWriteMask;
-} nv_gpu_pipeline_blend_state;
-extern nv_gpu_pipeline_blend_state nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset);
+};
 
-typedef struct nv_gpu_pipeline_create_info
+struct nv_gpu_pipeline_create_info
 {
   VkRenderPass        render_pass;
   VkPipelineLayout    pipeline_layout;
   VkExtent2D          extent;
-  nv_format            format;
+  nv_format           format;
   u64                 subpass;
   VkPipeline          old_pipeline;
   VkPipelineCache     cache;
@@ -157,31 +160,33 @@ typedef struct nv_gpu_pipeline_create_info
   int                                      nDescriptorLayouts;
   int                                      nPushConstants;
   int                                      nShaders;
-} nv_gpu_pipeline_create_info;
-#define nv_gpu_init_pipeline_create_info()                                                                                                                                       \
-  (nv_gpu_pipeline_create_info) { .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .samples = VK_SAMPLE_COUNT_1_BIT }
+};
 
-typedef struct nv_gpu_swapchain_create_info
+struct nv_gpu_swapchain_create_info
 {
   VkExtent2D       extent;
   VkPresentModeKHR present_mode;
   u64              image_count;
-  nv_format         format;
+  nv_format        format;
   VkColorSpaceKHR  color_space;
   VkSwapchainKHR   old_swapchain;
-} nv_gpu_swapchain_create_info;
-extern nv_gpu_swapchain_create_info nv_gpu_init_swapchain_create_info();
+};
 
-typedef struct nv_gpu_render_pass_create_info
+struct nv_gpu_render_pass_create_info
 {
-  u64      subpass;
+  u64       subpass;
   nv_format format;
   nv_format depthBufferFormat;
 
   // Ignored if flags does not contain PIPELINE_CREATE_FLAGS_ENABLE_MULTISAMPLING
   VkSampleCountFlagBits samples;
-} nv_gpu_render_pass_create_info;
-#define nv_gpu_init_render_pass_create_info()                                                                                                                                     \
+};
+
+extern nv_gpu_swapchain_create_info nv_gpu_init_swapchain_create_info();
+extern nv_gpu_pipeline_blend_state  nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset);
+#define nv_gpu_init_pipeline_create_info()                                                                                                                                    \
+  (nv_gpu_pipeline_create_info) { .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .samples = VK_SAMPLE_COUNT_1_BIT }
+#define nv_gpu_init_render_pass_create_info()                                                                                                                                 \
   (nv_gpu_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
 
 extern void nv_vk_bake_global_pipelines(nv_renderer_t* rd);

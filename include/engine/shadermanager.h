@@ -1,5 +1,7 @@
-#ifndef __C_SHADERMANAGER_H
-#define __C_SHADERMANAGER_H
+#ifndef __NOVA_SHADERMANAGER_H__
+#define __NOVA_SHADERMANAGER_H__
+
+// implementation: preprocessors.c
 
 #include "../../common/stdafx.h"
 
@@ -35,4 +37,4 @@ extern int nvsm_load_shader_from_disk(const char *path, struct nvsm_shader_t **o
 
 NOVA_HEADER_END;
 
-#endif //__C_SHADERMANAGER_H
+#endif //__NOVA_SHADERMANAGER_H__

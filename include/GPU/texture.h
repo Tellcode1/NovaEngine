@@ -1,9 +1,11 @@
 #ifndef __NOVA_TEXTURE_H__
 #define __NOVA_TEXTURE_H__
 
+// implementation: vk.c
+
 #include "../../common/stdafx.h"
 #include "../engine/renderer.h"
-#include "format.h"
+#include "../../common/format.h"
 #include "vkstdafx.h"
 
 NOVA_HEADER_START;
@@ -12,10 +14,9 @@ NVVK_FORWARD_DECLARE(VkImage);
 NVVK_FORWARD_DECLARE(VkImageView);
 NVVK_FORWARD_DECLARE(VkSampler);
 
-typedef struct nv_gpu_sampler nv_gpu_sampler;
-typedef struct nv_image       nv_image;
-typedef struct nv_gpu_memory_t  nv_gpu_memory;
-
+typedef struct nv_gpu_sampler  nv_gpu_sampler;
+typedef struct nv_image_t        nv_image_t;
+typedef struct nv_gpu_memory_t nv_gpu_memory_t;
 typedef enum nv_gpu_texture_usage
 {
   NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE      = 0,
@@ -31,7 +32,7 @@ typedef enum nv_gpu_texture_usage
 
 typedef struct nv_gpu_texture_create_info
 {
-  nv_format             format;
+  nv_format            format;
   nv_sample_count      samples;
   uint32_t             type;
   nv_gpu_texture_usage usage;
@@ -55,12 +56,12 @@ extern void        nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo
 
 extern void        nv_gpu_texture_attach_view(nv_gpu_texture* tex, VkImageView view);
 
-extern void        nv_gpu_bind_texture_to_memory(nv_gpu_memory* mem, size_t offset, nv_gpu_texture* tex);
+extern void        nv_gpu_bind_texture_to_memory(nv_gpu_memory_t *mem, size_t offset, nv_gpu_texture* tex);
 extern void        nv_gpu_destroy_texture(nv_gpu_texture* tex);
 
 extern void        nv_gpu_create_sampler(const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler** sampler);
 
-extern void        nv_gpu_write_to_texture(nv_gpu_texture* tex, const nv_image* src);
+extern void        nv_gpu_write_to_texture(nv_gpu_texture* tex, const nv_image_t* src);
 
 extern VkImage     nv_gpu_texture_get(const nv_gpu_texture* tex);
 extern VkImageView nv_gpu_texture_get_view(const nv_gpu_texture* tex);

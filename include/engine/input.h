@@ -1,5 +1,7 @@
-#ifndef __NOVA__INPUT_H__
-#define __NOVA__INPUT_H__
+#ifndef __NOVA_INPUT_H__
+#define __NOVA_INPUT_H__
+
+// implementation: engine.c
 
 #include "../../common/math/vec2.h"
 #include <SDL2/SDL.h>

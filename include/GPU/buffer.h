@@ -1,11 +1,13 @@
 #ifndef __NOVA_BUFFER_H__
 #define __NOVA_BUFFER_H__
 
+// implementation: vk.c
+
 #include "../../common/stdafx.h"
 
 NOVA_HEADER_START;
 
-typedef struct nv_gpu_memory_t nv_gpu_memory;
+typedef struct nv_gpu_memory_t nv_gpu_memory_t;
 
 // This is mainly here to bar the user from using unsupported buffer types
 typedef enum nv_gpu_buffer_type {
@@ -24,7 +26,7 @@ typedef struct nv_gpu_buffer_t {
   // Even if there are multiple children, this gives only the size of ONE buffer
   size_t size, offset;
   int alignment;
-  nv_gpu_memory *memory;
+  nv_gpu_memory_t *memory;
   nv_gpu_buffer_type type;
 } nv_gpu_buffer_t;
 
@@ -38,7 +40,7 @@ extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t *buffer, size_t size, void *d
 // Note: Memory must be able to hold all the buffers!
 // You can get the size of the memory by just looking up the size of one buffer
 // and then multiplying it with the count.
-extern void nv_gpu_bind_buffer_to_memory(nv_gpu_memory *mem, size_t offset, nv_gpu_buffer_t *buffer);
+extern void nv_gpu_bind_buffer_to_memory(nv_gpu_memory_t *mem, size_t offset, nv_gpu_buffer_t *buffer);
 
 extern int nv_gpu_get_buffer_size(const nv_gpu_buffer_t *buffer);
 

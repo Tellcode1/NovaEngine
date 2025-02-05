@@ -1,47 +1,47 @@
 #ifndef __FONTC_H__
 #define __FONTC_H__
 
+// implementation: vk.c
+
+#include "../../common/rectpack.h"
 #include "../../common/stdafx.h"
 #include <stdbool.h>
 #include <stdio.h>
 
 NOVA_HEADER_START;
 
-#define FONTC_MAGIC 2222022
-#define NVM_MAX(a, b) ((a) > (b) ? (a) : (b))
-#define NVM_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define FONTC_MAGIC 0xDED
 
-typedef struct fontc_atlas_t {
-  int width, height, next_x, next_y, current_row_height;
-  unsigned char *data;
-} fontc_atlas_t;
+typedef struct fontc_file_t        fontc_file_t;
+typedef struct fontc_file_header_t fontc_file_header_t;
+typedef struct fontc_glyph_t       fontc_glyph_t;
 
-typedef struct fontc_header {
-  int magic;
+struct fontc_file_header_t
+{
+  int   magic;
   float line_height, space_width;
-  int bmpwidth, bmpheight;
-  int img_compressed_sz, glyphs_compressed_sz;
-  int numglyphs;
-} fontc_header;
+  int   bmpwidth, bmpheight;
+  int   img_compressed_sz, glyphs_compressed_sz;
+  int   numglyphs;
+};
 
-typedef struct fontc_glyph {
+struct fontc_glyph_t
+{
   unsigned codepoint;
-  float advance;
-  float x0, x1, y0, y1;
-  float l, b, r, t;
-} fontc_glyph;
+  float    advance;
+  float    x0, x1, y0, y1;
+  float    l, b, r, t;
+};
 
-typedef struct fontc_file_t {
-  fontc_header header;
-  fontc_glyph *glyphs; // numglyphs is in header.
-  unsigned char *bitmap;
-} fontc_file_t;
+struct fontc_file_t
+{
+  fontc_file_header_t header;
+  fontc_glyph_t*      glyphs; // numglyphs is in header.
+  unsigned char*      bitmap;
+};
 
-extern fontc_atlas_t fontc_atlas_init(int init_w, int init_h);
-extern bool fontc_atlas_add_image(fontc_atlas_t *__restrict__ atlas, int w, int h, const unsigned char *__restrict__ data, int *__restrict__ x,
-                                  int *__restrict__ y);
-extern void fontc_read_font(const char *path, fontc_file_t *file);
-extern void fontc_bake_font(const char *font_path, const char *out);
+extern void fontc_read_font(const char* path, fontc_file_t* file);
+extern void fontc_bake_font(const char* font_path, const char* out, int pixel_size, int atlas_w, int atlas_h);
 
 NOVA_HEADER_END;
 

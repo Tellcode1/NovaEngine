@@ -1,6 +1,8 @@
 #ifndef __LUNA_RENDERER_H__
 #define __LUNA_RENDERER_H__
 
+// implementation: vk.c
+
 // just keeping this here for reference
 // god tier article btw
 // https://zeux.io/2020/02/27/writing-an-efficient-vulkan-renderer/
@@ -22,7 +24,7 @@ NVVK_FORWARD_DECLARE(VkFence);
 
 typedef struct nv_gpu_texture nv_gpu_texture;
 
-extern nv_descriptor_pool g_pool;
+extern nv_descriptor_pool_t g_pool;
 extern struct nv_camera_t camera;
 typedef struct nv_sprite nv_sprite;
 
@@ -94,7 +96,7 @@ typedef struct nv_renderer_config {
   nv_window_vsync vsync_enabled;
 } nv_renderer_config;
 
-static inline nv_renderer_config nv_renderer_configInit() {
+static inline nv_renderer_config nv_renderer_config_init() {
   return (nv_renderer_config){
       .samples              = NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES,
       .buffer_mode          = NOVA_BUFFER_MODE_DOUBLE_BUFFERED,

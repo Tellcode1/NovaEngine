@@ -1,8 +1,10 @@
 #ifndef __VK_STDAFX_H__
 #define __VK_STDAFX_H__
 
+// implementation: none,vk.c
+
 #include "../../common/stdafx.h"
-#include "../GPU/format.h"
+#include "../../common/format.h"
 
 NOVA_HEADER_START;
 

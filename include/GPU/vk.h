@@ -1,11 +1,13 @@
 #ifndef __NOVA_VK_H__
 #define __NOVA_VK_H__
 
+// implementation: vk.c
+
 #include "../../common/containers/dynarray.h"
 #include "../../common/mem.h"
 #include "../../common/stdafx.h"
 #include "../../external/volk/volk.h"
-#include "format.h"
+#include "../../common/format.h"
 
 NOVA_HEADER_START;
 

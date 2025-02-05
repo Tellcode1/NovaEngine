@@ -1,6 +1,8 @@
 #ifndef __NOVA_CAMERA_H__
 #define __NOVA_CAMERA_H__
 
+// implementation: vk.c
+
 #include "../../common/math/mat.h"
 #include "../../common/math/vec2.h"
 #include "../../common/math/vec3.h"
@@ -11,7 +13,7 @@
 
 NOVA_HEADER_START;
 
-typedef struct nv_camera_t       nv_camera_t;
+typedef struct nv_camera_t         nv_camera_t;
 typedef struct nv_descriptor_set_t nv_descriptor_set_t;
 
 #define CAMERA_FAKE_BUFFER_COUNT 3
@@ -55,9 +57,9 @@ struct nv_camera_t
   float                     near_clip;
   float                     far_clip;
 
-  nv_gpu_buffer_t             ub;
-  nv_gpu_memory*            mem;
-  nv_descriptor_set_t*        sets;
+  nv_gpu_buffer_t           ub;
+  nv_gpu_memory_t*          mem;
+  nv_descriptor_set_t*      sets;
   nv_camera_uniform_buffer* mem_mapped;
 
   // nv_gpu_texture *render_texture;

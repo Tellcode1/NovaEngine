@@ -42,6 +42,8 @@ nv_initialize_context(const char* window_title, int window_width, int window_hei
   window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
   nv_assert(window != NULL);
 
+  nv_log_info("Created window (name=%s w=%i h=%i flags=%#x)", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+
   _nvvk_initialize_context(window_title, window_width, window_height);
 
   // This fixes really large values of delta time for the first frame.
@@ -120,11 +122,7 @@ struct nv_scene_t
 nv_object*
 nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type, uint64_t layer, uint64_t mask, vec2 position, vec2 size, unsigned flags)
 {
-  {
-    nv_object stack = {};
-    nv_dynarray_push_back(&scene->objects, &stack);
-  }
-  nv_object* obj                         = nv_dynarray_get(&scene->objects, scene->objects.m_size - 1);
+  nv_object* obj                         = nv_dynarray_push_empty(&scene->objects);
   obj->name                              = name;
   obj->scene                             = scene;
 
@@ -298,7 +296,7 @@ _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_sha
 nv_collider_t*
 nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type type, nv_collider_shape shape, uint64_t layer, uint64_t mask, bool start_enabled)
 {
-  nv_collider_t* col = calloc(1, sizeof(nv_collider_t));
+  nv_collider_t* col = nv_calloc(sizeof(nv_collider_t));
 
   col->body          = _nv_collider_body_init(scene, type, shape, position, size, layer, mask, start_enabled);
   col->position      = position;
@@ -412,12 +410,12 @@ nv_scene_t* scene_main = NULL;
 nv_scene_t*
 nv_scene_init()
 {
-  nv_scene_t* scn       = calloc(1, sizeof(nv_scene_t));
+  nv_scene_t* scn       = nv_calloc(sizeof(nv_scene_t));
 
   b2WorldDef  world_def = b2DefaultWorldDef();
   world_def.gravity     = (b2Vec2){ 0.0f, -9.8f };
   scn->world            = b2CreateWorld(&world_def);
-  scn->objects          = nv_dynarray_init(sizeof(nv_object), 4, &nv_allocator_default);
+  nv_dynarray_init(sizeof(nv_object), 4, &nv_allocator_default, &scn->objects);
 
   if (!scene_main)
   {
@@ -493,6 +491,10 @@ nv_scene_render(nv_renderer_t* rd)
 void
 nv_scene_destroy(nv_scene_t* scene)
 {
+  if (!scene)
+  {
+    return;
+  }
   b2DestroyWorld(scene->world);
   nv_dynarray_destroy(&scene->objects);
   nv_free(scene);
@@ -543,9 +545,9 @@ nvui_context nvui_ctx;
 void
 nvui_init()
 {
-  nvui_ctx.active  = 1;
-  nvui_ctx.btons   = nv_dynarray_init(sizeof(nvui_button), 4, &nv_allocator_default);
-  nvui_ctx.sliders = nv_dynarray_init(sizeof(nvui_slider), 4, &nv_allocator_default);
+  nvui_ctx.active = 1;
+  nv_dynarray_init(sizeof(nvui_button), 4, &nv_allocator_default, &nvui_ctx.btons);
+  nv_dynarray_init(sizeof(nvui_slider), 4, &nv_allocator_default, &nvui_ctx.sliders);
 }
 
 void
@@ -603,12 +605,20 @@ nvui_create_slider()
 void
 nvui_destroy_button(nvui_button* obj)
 {
+  if (!obj)
+  {
+    return;
+  }
   nv_sprite_release(obj->spr);
 }
 
 void
 nvui_destroy_slider(nvui_slider* obj)
 {
+  if (!obj)
+  {
+    return;
+  }
   nv_sprite_release(obj->slider_sprite);
   nv_sprite_release(obj->bg_sprite);
 }
@@ -719,19 +729,19 @@ LunaEditor_Render(nv_renderer_t* rd)
   // (vec4){1.0f,1.0f,1.0f,1.0f}, 5);
 }
 
-vec2                 g_nv_input_mouse_position;
-vec2                 g_nv_input_last_frame_mouse_position;
-nv_bitset_t          g_nv_input_kb_state;
-nv_bitset_t          g_nv_input_last_frame_kb_state;
-unsigned             g_nv_input_mouse_state;
-unsigned             g_nv_input_last_frame_mouse_state;
+vec2                g_nv_input_mouse_position;
+vec2                g_nv_input_last_frame_mouse_position;
+nv_bitset_t         g_nv_input_kb_state;
+nv_bitset_t         g_nv_input_last_frame_kb_state;
+unsigned            g_nv_input_mouse_state;
+unsigned            g_nv_input_last_frame_mouse_state;
 
-static nv_hashmap_t* g_nv_input_action_mapping;
+static nv_hashmap_t g_nv_input_action_mapping;
 
 int
 nv_input_signal_action(const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (!ia)
   {
     return -1;
@@ -836,10 +846,10 @@ str_equal(const void* key1, const void* key2, unsigned long keysize)
 void
 nv_input_init()
 {
-  g_nv_input_action_mapping            = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), NULL, str_equal, &nv_allocator_default);
+  nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), NULL, str_equal, &nv_allocator_default, &g_nv_input_action_mapping);
 
-  g_nv_input_kb_state                  = nv_bitset_init(SDL_NUM_SCANCODES, &nv_allocator_default);
-  g_nv_input_last_frame_kb_state       = nv_bitset_init(SDL_NUM_SCANCODES, &nv_allocator_default);
+  nv_bitset_init(SDL_NUM_SCANCODES, &nv_allocator_default, &g_nv_input_kb_state);
+  nv_bitset_init(SDL_NUM_SCANCODES, &nv_allocator_default, &g_nv_input_last_frame_kb_state);
   g_nv_input_mouse_position            = (vec2){};
   g_nv_input_last_frame_mouse_position = (vec2){};
 }
@@ -847,7 +857,7 @@ nv_input_init()
 void
 nv_input_shutdown()
 {
-  nv_hashmap_destroy(g_nv_input_action_mapping);
+  nv_hashmap_destroy(&g_nv_input_action_mapping);
   nv_bitset_destroy(&g_nv_input_kb_state);
   nv_bitset_destroy(&g_nv_input_last_frame_kb_state);
 }
@@ -874,12 +884,11 @@ nv_input_update()
     nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]);
   }
 
-  int        __i = 0;
-  ch_node_t* node;
+  int                mouse_state = SDL_GetMouseState(NULL, NULL);
 
-  int        mouse_state = SDL_GetMouseState(NULL, NULL);
-
-  while ((node = nv_hashmap_iterate(g_nv_input_action_mapping, &__i)) != NULL)
+  size_t             __i         = 0;
+  nv_hashmap_node_t* node;
+  while ((node = nv_hashmap_iterate(&g_nv_input_action_mapping, &__i)) != NULL)
   {
     nv_input_action_t* ia = (nv_input_action_t*)node->value;
 
@@ -909,7 +918,7 @@ nv_input_update()
 void
 nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn response)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (ia == NULL)
     return;
   ia->response = response;
@@ -918,11 +927,11 @@ nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn
 void
 nv_input_bind_key_to_action(SDL_Scancode key, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (!ia)
   {
     nv_input_action_t w = { .key = key };
-    nv_hashmap_insert(g_nv_input_action_mapping, action, &w);
+    nv_hashmap_insert(&g_nv_input_action_mapping, action, &w);
   }
   else
   {
@@ -940,13 +949,13 @@ nv_input_bind_mouse_to_action(int bton, const char* action)
 {
   nv_input_action_t ia = {};
   ia.mouse             = bton;
-  nv_hashmap_insert(g_nv_input_action_mapping, action, &ia);
+  nv_hashmap_insert(&g_nv_input_action_mapping, action, &ia);
 }
 
 void
 nv_input_unbind_action(const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (ia == NULL)
     return;
   ia->key      = SDL_SCANCODE_UNKNOWN;
@@ -958,7 +967,7 @@ nv_input_unbind_action(const char* action)
 bool
 nv_input_is_action_signalled(const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (ia == NULL)
     return false;
   return ia->this_frame && ia->last_frame;
@@ -967,7 +976,7 @@ nv_input_is_action_signalled(const char* action)
 bool
 nv_input_is_action_just_signalled(const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (ia == NULL)
     return false;
   return ia->this_frame && !ia->last_frame;
@@ -976,7 +985,7 @@ nv_input_is_action_just_signalled(const char* action)
 bool
 nv_input_is_action_unsignalled(const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (ia == NULL)
     return false;
   return !ia->this_frame && !ia->last_frame;
@@ -985,7 +994,7 @@ nv_input_is_action_unsignalled(const char* action)
 bool
 nv_input_is_action_just_unsignalled(const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(g_nv_input_action_mapping, action);
+  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
   if (ia == NULL)
     return false;
   return !ia->this_frame && ia->last_frame;

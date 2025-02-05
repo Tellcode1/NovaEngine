@@ -5,23 +5,25 @@
 
 NOVA_HEADER_START;
 
-typedef struct nv_string_t
+typedef struct nv_string_t nv_string_t;
+
+struct nv_string_t
 {
   unsigned         m_canary;
   char*            m_data;
   size_t           m_size;
   size_t           m_capacity;
   pthread_rwlock_t m_rwlock;
-  nv_allocator*    allocator;
-} nv_string_t;
+  nv_allocator_t*    allocator;
+};
 
 /*
     initial_size may be 0
 */
-extern nv_string_t nv_string_init(size_t initial_size, nv_allocator* allocator);
-extern nv_string_t nv_string_init_str(const char* init, nv_allocator* allocator);
-extern nv_string_t nv_string_init_ptr(const char* begin, const char* end, nv_allocator* allocator);
-extern nv_string_t nv_string_substring(const nv_string_t* str, size_t start, size_t length, nv_allocator* new_allocator);
+extern nv_string_t nv_string_init(size_t initial_size, nv_allocator_t* allocator);
+extern nv_string_t nv_string_init_str(const char* init, nv_allocator_t* allocator);
+extern nv_string_t nv_string_init_ptr(const char* begin, const char* end, nv_allocator_t* allocator);
+extern nv_string_t nv_string_substring(const nv_string_t* str, size_t start, size_t length, nv_allocator_t* new_allocator);
 extern void        nv_string_destroy(nv_string_t* str);
 
 extern void        nv_string_clear(nv_string_t* str);

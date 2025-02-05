@@ -1,5 +1,5 @@
-#ifndef __NOVA__SCENE_H__
-#define __NOVA__SCENE_H__
+#ifndef __NOVA_SCENE_H__
+#define __NOVA_SCENE_H__
 
 #include "../../common/stdafx.h"
 

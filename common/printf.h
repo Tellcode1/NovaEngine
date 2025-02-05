@@ -1,11 +1,9 @@
 #ifndef __NOVA_PRINTF_H__
 #define __NOVA_PRINTF_H__
 
+// implementation: core.c
+
 #include "stdafx.h"
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 
 NOVA_HEADER_START;
@@ -54,6 +52,9 @@ extern size_t nv_btoa2(size_t x, bool upgrade, char *buf, size_t max);
 extern intmax_t nv_atoi(const char s[]);
 
 extern double nv_atof(const char s[]);
+
+// alpha to boolean
+extern bool nv_atobool(const char s[]);
 
 static inline char *nv_itoa(intmax_t x, char out[], int base, size_t max) {
   nv_itoa2(x, out, base, max);

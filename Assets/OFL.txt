@@ -1,4 +1,4 @@
-Copyright 2024 The Beiruti Project Authors (https://github.com/googlefonts/beiruti)
+Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
@@ -78,7 +78,7 @@ remain under this license does not apply to any document created
 using the Font Software.
 
 TERMINATION
-This license becomes NULL and void if any of the above conditions are
+This license becomes null and void if any of the above conditions are
 not met.
 
 DISCLAIMER

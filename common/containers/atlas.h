@@ -1,20 +1,40 @@
 #ifndef __NOVA_ATLAS_H__
 #define __NOVA_ATLAS_H__
 
+#include "../format.h"
+#include "../image.h"
+#include "../rectpack.h"
 #include "../stdafx.h"
-#include "../mem.h"
 
 NOVA_HEADER_START;
 
-typedef struct nv_atlas_t {
-    int width, height, next_x, next_y, current_row_height;
-    unsigned char *data;
-    nv_allocator *allocator;
-} nv_atlas_t;
+// Possibly add features for removing textures?
 
-extern nv_atlas_t nv_atlas_init(int init_w, int init_h, nv_allocator *allocator);
-extern bool nv_atlas_add_image(nv_atlas_t *__restrict__ atlas, int w, int h, const unsigned char *__restrict__ data, int *__restrict__ x, int *__restrict__ y);
+typedef struct nv_texture_atlas_t nv_texture_atlas_t;
+
+struct nv_texture_atlas_t
+{
+  unsigned char*   data;
+  size_t           w, h;
+  nv_format        fmt;
+  int              padding;
+  nv_skyline_bin_t bin;
+};
+
+extern void nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv_format fmt, int padding);
+
+// Returns false if the image was not packed
+extern int  nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image_t* img, size_t* out_x, size_t* out_y);
+
+extern void nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale);
+
+// Resizes the atlas to only fit the current amount of glyphs
+// returns 1 (true) if the atlas was truncated.
+// this need not be checked.
+extern int  nv_texture_atlas_finish(nv_texture_atlas_t* atlas);
+
+extern void nv_texture_atlas_destroy(nv_texture_atlas_t* atlas);
 
 NOVA_HEADER_END;
 
-#endif//__NOVA_ATLAS_H__
+#endif //__NOVA_ATLAS_H__

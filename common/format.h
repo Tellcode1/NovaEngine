@@ -1,7 +1,9 @@
 #ifndef __NOVA_FORMAT_H__
 #define __NOVA_FORMAT_H__
 
-#include "../../common/stdafx.h"
+// implementation: core.c
+
+#include "stdafx.h"
 
 NOVA_HEADER_START;
 

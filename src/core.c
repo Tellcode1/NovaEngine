@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -17,11 +18,55 @@
 #include "../common/containers/freelist.h"
 #include "../common/containers/hashmap.h"
 #include "../common/containers/string.h"
+#include "../common/image.h"
+#include "../common/math/math.h"
 #include "../common/mem.h"
 #include "../common/printf.h"
+#include "../common/props.h"
 #include "../common/stdafx.h"
 #include "../common/string.h"
-#include "../include/engine/image.h"
+
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <time.h>
+
+#ifndef WIN32
+#include <unistd.h>
+#endif
+
+#ifdef WIN32
+#define stat _stat
+#endif
+
+#if !(NVSM_EXECUTABLE)
+
+static struct nvsm_shader_t* shader_map = NULL;
+static int                   nshaders   = 0;
+
+#endif
+
+#include "../include/engine/shadermanagerdev.h"
+
+#if defined(NVSM)
+
+const char* shader_compiler      = "glslangValidator";
+const char* shader_compiler_args = " -V ";
+const char* list                 = "../compilelist.txt";
+
+#endif
+
+#ifdef _WIN32
+#include <direct.h>
+#define MKDIR(path) _mkdir(path)
+#define PATH_SEP '\\'
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#define MKDIR(path) (mkdir(path, 0777))
+#define PATH_SEP '/'
+#endif
 
 #define ALIGN_UP(ptr, alignment) (void*)(((uintptr_t)(ptr) + (alignment - 1)) & ~(alignment - 1))
 #define ALIGN_UP_SIZE(size, align) (((size) + (align) - 1) & ~((align) - 1))
@@ -29,6 +74,8 @@
 static FILE*  g_stdstream   = NULL;
 static char*  g_writebuf    = NULL;
 static size_t g_writebufsiz = NOVA_PRINTF_BUFSIZ;
+
+#if !defined(NVSM) && !defined(FONTC)
 
 void
 _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* s, unsigned char err)
@@ -440,6 +487,16 @@ nv_atof(const char s[])
   return result;
 }
 
+bool
+nv_atobool(const char s[])
+{
+  if (nv_strcmp(s, "false") == 0 || nv_strcmp(s, "0") == 0)
+  {
+    return false;
+  }
+  return true;
+}
+
 size_t
 nv_ptoa2(void* p, char* buf, size_t max)
 {
@@ -784,7 +841,7 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
           s = va_arg(args, const char*);
           if (s == NULL)
           {
-            s = "(NULL string)";
+            s = "(null)";
           }
           written = nv_strncpy2(writep, s, max_chars - chars_written);
           chars_written += written;
@@ -915,7 +972,7 @@ _nv_log_custom(const char* func, const char* preceder, const char* fmt, ...)
   va_end(args);
 }
 
-// nv_image
+// nv_image_t
 #include <jpeglib.h>
 #include <png.h>
 #include <zlib.h>
@@ -932,7 +989,7 @@ get_file_extension(const char* path)
 }
 
 int
-nv_bufcompress(const void* nv_RESTRICT input, size_t input_size, void* nv_RESTRICT output, size_t* nv_RESTRICT output_size)
+nv_bufcompress(const void* NOVA_RESTRICT input, size_t input_size, void* NOVA_RESTRICT output, size_t* NOVA_RESTRICT output_size)
 {
   z_stream stream = (z_stream){};
 
@@ -960,7 +1017,7 @@ nv_bufcompress(const void* nv_RESTRICT input, size_t input_size, void* nv_RESTRI
 }
 
 int
-nv_bufdecompress(const void* nv_RESTRICT compressed_data, size_t compressed_size, void* nv_RESTRICT o_buf, size_t o_buf_sz)
+nv_bufdecompress(const void* NOVA_RESTRICT compressed_data, size_t compressed_size, void* NOVA_RESTRICT o_buf, size_t o_buf_sz)
 {
   z_stream strm  = { 0 };
   strm.next_in   = (unsigned char*)compressed_data;
@@ -984,29 +1041,29 @@ nv_bufdecompress(const void* nv_RESTRICT compressed_data, size_t compressed_size
   return strm.total_out;
 }
 
-nv_image
-nv_img_load(const char* path)
+nv_image_t
+nv_image_load(const char* path)
 {
   const char* ext = get_file_extension(path);
   if (nv_strcmp(ext, "jpeg") == 0 || nv_strcmp(ext, "jpg") == 0)
   {
-    return nv_img_load_jpeg(path);
+    return nv_image_load_jpeg(path);
   }
   else if (nv_strcmp(ext, "png") == 0)
   {
-    return nv_img_load_png(path);
+    return nv_image_load_png(path);
   }
   nv_assert(0);
-  return (nv_image){};
+  return (nv_image_t){};
 }
 
 unsigned char*
-nv_img_pad_channels(const nv_image* src, int dst_channels)
+nv_image_pad_channels(const nv_image_t* src, int dst_channels)
 {
   const int src_channels = nv_format_get_num_channels(src->fmt);
   nv_assert(src_channels < dst_channels);
 
-  uint8_t* dst = calloc(src->w * src->h * dst_channels, sizeof(uint8_t));
+  uint8_t* dst = nv_calloc(src->w * src->h * dst_channels * sizeof(uchar));
 
   for (int y = 0; y < src->h; y++)
   {
@@ -1036,10 +1093,140 @@ nv_img_pad_channels(const nv_image* src, int dst_channels)
   return dst;
 }
 
-nv_image
-nv_img_load_png(const char* path)
+bool
+nv_image_overlay(nv_image_t* dest, const nv_image_t* src, int dst_x_offset, int dst_y_offset, int src_x_offset, int src_y_offset)
 {
-  nv_image texture = {};
+  nv_assert(dest != NULL);
+  nv_assert(src != NULL);
+
+  const int src_channels = nv_format_get_num_channels(src->fmt);
+
+  for (int y = src_y_offset; y < src->h; y++)
+  {
+    for (int x = src_x_offset; x < src->w; x++)
+    {
+      int dst_x = dst_x_offset + (x - src_x_offset);
+      int dst_y = dst_y_offset + (y - src_y_offset);
+
+      if (dst_x >= 0 && dst_x < dest->w && dst_y >= 0 && dst_y < dest->h)
+      {
+        int src_i = (y * src->w + x) * src_channels;
+        int dst_i = (dst_y * dest->w + dst_x) * src_channels;
+
+        for (int c = 0; c < src_channels; c++)
+        {
+          dest->data[dst_i + c] = src->data[src_i + c];
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+void
+nv_image_enlarge(nv_image_t* dst, const nv_image_t* src, int scale)
+{
+  size_t new_h = src->h * scale;
+  size_t new_w = src->w * scale;
+
+  nv_assert(dst->data != NULL);
+
+  uchar*       write = dst->data;
+  const uchar* read  = src->data;
+
+  int          bpp   = nv_format_get_bytes_per_pixel(src->fmt); // bytes per pixel
+  for (int y = 0; y < src->h; y++)
+  {
+    for (int x = 0; x < src->w; x++)
+    {
+      int src_i = (y * src->w + x) * bpp;
+      for (int i = 0; i < scale; i++)
+      {
+        for (int j = 0; j < scale; j++)
+        {
+          int dst_i = ((y * scale + i) * new_w + (x * scale + j)) * bpp;
+          for (int c = 0; c < bpp; c++)
+          {
+            write[dst_i + c] = read[src_i + c];
+          }
+        }
+      }
+    }
+  }
+}
+
+void
+nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, float scale)
+{
+  const int nchannels = nv_format_get_num_channels(src->fmt);
+
+  dst->w              = src->w / scale;
+  dst->h              = src->w / scale;
+  dst->fmt            = src->fmt;
+  dst->data           = nv_calloc(dst->w * dst->h * nv_format_get_bytes_per_pixel(dst->fmt));
+
+  // Calculate the ratios for x and y coordinates
+  float x_ratio, y_ratio;
+  if (dst->w > 1)
+  {
+    x_ratio = ((float)src->w - 1.0) / ((float)dst->w - 1.0);
+  }
+  else
+  {
+    x_ratio = 0;
+  }
+
+  if (dst->h > 1)
+  {
+    y_ratio = ((float)src->h - 1.0) / ((float)dst->h - 1.0);
+  }
+  else
+  {
+    y_ratio = 0;
+  }
+  nv_log_info("%f %f", x_ratio, y_ratio);
+
+  for (int y = 0; y < dst->h; y++)
+  {
+    const float ratiod_y   = y_ratio * (float)y;
+    float       y_l        = floorf(ratiod_y);
+    float       y_h        = ceilf(ratiod_y);
+    float       y_weight   = (ratiod_y)-y_l;
+
+    const int   y_l_offset = (int)y_l * src->w * nchannels;
+    const int   y_h_offset = (int)y_h * src->w * nchannels;
+
+    for (int x = 0; x < dst->w; x++)
+    {
+      const float ratiod_x           = x_ratio * (float)x;
+
+      float       x_l                = floorf(ratiod_x);
+      float       x_h                = ceilf(ratiod_x);
+      float       x_weight           = (ratiod_x)-x_l;
+
+      const int   x_l_offset         = (int)x_l * nchannels;
+      const int   x_h_offset         = (int)x_h * nchannels;
+
+      uchar*      top_left_pixel     = &src->data[y_l_offset + x_l_offset];
+      uchar*      top_right_pixel    = &src->data[y_l_offset + x_h_offset];
+      uchar*      bottom_left_pixel  = &src->data[y_h_offset + x_l_offset];
+      uchar*      bottom_right_pixel = &src->data[y_h_offset + x_h_offset];
+      for (int c = 0; c < nchannels; c++)
+      {
+        float pixel = top_left_pixel[c] * (1.0 - x_weight) * (1.0 - y_weight) + top_right_pixel[c] * x_weight * (1.0 - y_weight)
+            + bottom_left_pixel[c] * y_weight * (1.0 - x_weight) + bottom_right_pixel[c] * x_weight * y_weight;
+
+        dst->data[(y * dst->w + x) * nchannels + c] = (unsigned char)NVM_CLAMP(pixel, 0.0f, 255.0f);
+      }
+    }
+  }
+}
+
+nv_image_t
+nv_image_load_png(const char* path)
+{
+  nv_image_t texture = {};
 
   FILE*    f       = fopen(path, "rb");
   nv_assert(f != NULL);
@@ -1123,13 +1310,13 @@ nv_img_load_png(const char* path)
   return texture;
 }
 
-nv_image
-nv_img_load_jpeg(const char* path)
+nv_image_t
+nv_image_load_jpeg(const char* path)
 {
   struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr         jerr;
   FILE*                         f;
-  nv_image                      img = {};
+  nv_image_t                      img = {};
 
   if ((f = fopen(path, "rb")) == NULL)
   {
@@ -1183,7 +1370,7 @@ nv_img_load_jpeg(const char* path)
 }
 
 void
-nv_img_write_png(const nv_image* tex, const char* path)
+nv_image_write_png(const nv_image_t* tex, const char* path)
 {
   FILE* f = fopen(path, "wb");
   nv_assert(f != NULL);
@@ -1235,7 +1422,7 @@ nv_img_write_png(const nv_image* tex, const char* path)
   fclose(f);
   png_destroy_write_struct(&png, &info);
 }
-// nv_image
+// nv_image_t
 
 void
 nv_format_to_string(nv_format format, const char** dst)
@@ -1532,7 +1719,7 @@ nv_format_get_num_channels(nv_format fmt)
 }
 
 void*
-nv_memcpy(void* nv_RESTRICT dst, const void* nv_RESTRICT src, size_t sz)
+nv_memcpy(void* NOVA_RESTRICT dst, const void* NOVA_RESTRICT src, size_t sz)
 {
   nv_assert(dst != NULL);
   nv_assert(src != NULL);
@@ -1659,6 +1846,22 @@ void*
 nv_malloc(size_t sz)
 {
   void* ptr = malloc(sz);
+  nv_assert(ptr != NULL);
+  return ptr;
+}
+
+void*
+nv_calloc(size_t sz)
+{
+  void* ptr = calloc(1, sz);
+  nv_assert(ptr != NULL);
+  return ptr;
+}
+
+void*
+nv_realloc(void* prevblock, size_t new_sz)
+{
+  void* ptr = realloc(prevblock, new_sz);
   nv_assert(ptr != NULL);
   return ptr;
 }
@@ -2175,7 +2378,7 @@ nv_allocator_stack_init(nv_allocator_stack* allocator, unsigned char* buf, size_
 }
 
 void*
-sarealloc(nv_allocator* parent, void* prevblock, size_t alignment, size_t size)
+sarealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size)
 {
   if (!prevblock)
   {
@@ -2201,7 +2404,7 @@ sarealloc(nv_allocator* parent, void* prevblock, size_t alignment, size_t size)
 }
 
 void*
-saalloc(nv_allocator* parent, size_t alignment, size_t size)
+saalloc(nv_allocator_t* parent, size_t alignment, size_t size)
 {
   nv_allocator_stack* allocator = (nv_allocator_stack*)parent->context;
   size                          = ALIGN_UP_SIZE(size, alignment);
@@ -2220,7 +2423,7 @@ saalloc(nv_allocator* parent, size_t alignment, size_t size)
 }
 
 void*
-sacalloc(nv_allocator* parent, size_t alignment, size_t size)
+sacalloc(nv_allocator_t* parent, size_t alignment, size_t size)
 {
   void* allocation = saalloc(parent, alignment, size);
   nv_memset(allocation, 0, size);
@@ -2228,7 +2431,7 @@ sacalloc(nv_allocator* parent, size_t alignment, size_t size)
 }
 
 void
-safree(nv_allocator* parent, void* block)
+safree(nv_allocator_t* parent, void* block)
 {
   nv_allocator_stack* allocator = (nv_allocator_stack*)parent->context;
   sablock*            p         = (sablock*)block;
@@ -2243,10 +2446,10 @@ safree(nv_allocator* parent, void* block)
   return;
 }
 
-nv_allocator nv_allocator_default = (nv_allocator){ .alloc = heapalloc, .calloc = heapcalloc, .realloc = heaprealloc, .free = heapfree, .context = NULL };
+nv_allocator_t nv_allocator_default = (nv_allocator_t){ .alloc = heapalloc, .calloc = heapcalloc, .realloc = heaprealloc, .free = heapfree, .context = NULL };
 
 void*
-heapalloc(nv_allocator* parent, size_t alignment, size_t size)
+heapalloc(nv_allocator_t* parent, size_t alignment, size_t size)
 {
   (void)parent;
   nv_assert((alignment & (alignment - 1)) == 0);
@@ -2263,14 +2466,14 @@ heapalloc(nv_allocator* parent, size_t alignment, size_t size)
 }
 
 void*
-heapcalloc(nv_allocator* parent, size_t alignment, size_t size)
+heapcalloc(nv_allocator_t* parent, size_t alignment, size_t size)
 {
   (void)parent;
   nv_assert((alignment & (alignment - 1)) == 0);
 
   size += alignment - 1 + sizeof(void*);
 
-  void* orig = calloc(1, size);
+  void* orig = nv_calloc(size);
   nv_assert(orig != NULL);
 
   void* p         = (void*)(((uintptr_t)orig + sizeof(void*) + alignment - 1) & ~(alignment - 1));
@@ -2280,7 +2483,7 @@ heapcalloc(nv_allocator* parent, size_t alignment, size_t size)
 }
 
 void*
-heaprealloc(nv_allocator* parent, void* prevblock, size_t alignment, size_t size)
+heaprealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size)
 {
   (void)parent;
   nv_assert((alignment & (alignment - 1)) == 0);
@@ -2297,7 +2500,7 @@ heaprealloc(nv_allocator* parent, void* prevblock, size_t alignment, size_t size
 }
 
 void
-heapfree(nv_allocator* parent, void* block)
+heapfree(nv_allocator_t* parent, void* block)
 {
   (void)parent;
   if (block)
@@ -2376,7 +2579,7 @@ heap_free_node_internal(nv_node_t* node)
 void
 nv_allocator_heap_init(nv_allocator_heap* pool)
 {
-  nv_freelist_init(0, heap_alloc_internal, heap_free_node_internal, &pool->freelist, &nv_allocator_default);
+  nv_freelist_init(0, heap_alloc_internal, heap_free_node_internal, &nv_allocator_default, &pool->freelist);
 }
 
 #if defined(__GNUC__)
@@ -2394,31 +2597,29 @@ nv_allocator_heap_init(nv_allocator_heap* pool)
 // VECTOR
 // ==============================
 
-nv_dynarray_t
-nv_dynarray_init(int typesize, size_t init_size, nv_allocator* allocator)
+void
+nv_dynarray_init(int typesize, size_t init_size, nv_allocator_t* allocator, nv_dynarray_t* vec)
 {
   nv_assert(typesize > 0);
 
-  nv_dynarray_t vec = {};
-  vec.m_size        = 0;
-  vec.m_typesize    = typesize;
-  vec.m_canary      = CONT_CANARY;
-  vec.m_rwlock      = (pthread_rwlock_t)PTHREAD_RWLOCK_INITIALIZER;
-  vec.allocator     = nv_allocator_default;
+  *vec            = (nv_dynarray_t){};
+  vec->m_size     = 0;
+  vec->m_typesize = typesize;
+  vec->m_canary   = CONT_CANARY;
+  vec->m_rwlock   = (pthread_rwlock_t)PTHREAD_RWLOCK_INITIALIZER;
+  vec->allocator  = nv_allocator_default;
 
   if (init_size > 0)
   {
-    pthread_rwlock_wrlock(&vec.m_rwlock);
-    vec.m_data     = vec.allocator.alloc(&vec.allocator, 1, vec.m_typesize * init_size);
-    vec.m_capacity = init_size;
-    pthread_rwlock_unlock(&vec.m_rwlock);
+    pthread_rwlock_wrlock(&vec->m_rwlock);
+    vec->m_data     = vec->allocator.calloc(&vec->allocator, 1, vec->m_typesize * init_size);
+    vec->m_capacity = init_size;
+    pthread_rwlock_unlock(&vec->m_rwlock);
   }
   else
   {
-    vec.m_data = NULL;
+    vec->m_data = NULL;
   }
-
-  return vec;
 }
 
 void
@@ -2622,11 +2823,32 @@ nv_dynarray_push_back(nv_dynarray_t* RESTRICT vec, const void* RESTRICT elem)
   }
 
   nv_assert(vec->m_data != NULL);
-  nv_assert(!(elem >= vec->m_data && elem <= (vec->m_data + vec->m_size)));
+  nv_assert(!(elem >= vec->m_data && elem <= (vec->m_data + vec->m_size))); // breaks restriction rules
   nv_memcpy((uchar*)vec->m_data + (vec->m_size * vec->m_typesize), elem, vec->m_typesize);
   vec->m_size++;
 
   pthread_rwlock_unlock(&vec->m_rwlock);
+}
+
+void* __restrict nv_dynarray_push_empty(nv_dynarray_t* __restrict vec)
+{
+  nv_assert(CONT_IS_VALID(vec));
+
+  pthread_rwlock_wrlock(&vec->m_rwlock);
+
+  if (vec->m_size >= vec->m_capacity)
+  {
+    nv_dynarray_resize(vec, nv_MAX(1, vec->m_capacity * 2));
+  }
+
+  nv_assert(vec->m_data != NULL);
+  void* p = (uchar*)vec->m_data + (vec->m_size * vec->m_typesize);
+  nv_memset(p, 0, vec->m_typesize);
+  vec->m_size++;
+
+  pthread_rwlock_unlock(&vec->m_rwlock);
+
+  return p;
 }
 
 void
@@ -2766,7 +2988,7 @@ nv_string_resize(nv_string_t* str, int new_capacity)
 }
 
 nv_string_t
-nv_string_init(size_t initial_size, nv_allocator* allocator)
+nv_string_init(size_t initial_size, nv_allocator_t* allocator)
 {
   nv_string_t str;
   str.allocator  = allocator;
@@ -2781,7 +3003,7 @@ nv_string_init(size_t initial_size, nv_allocator* allocator)
 }
 
 nv_string_t
-nv_string_init_str(const char* init, nv_allocator* allocator)
+nv_string_init_str(const char* init, nv_allocator_t* allocator)
 {
   nv_assert(init != NULL && nv_strlen(init) > 0);
   nv_string_t str = (nv_string_t){};
@@ -2799,7 +3021,7 @@ nv_string_init_str(const char* init, nv_allocator* allocator)
 }
 
 nv_string_t
-nv_string_substring(const nv_string_t* str, size_t start, size_t length, nv_allocator* new_allocator)
+nv_string_substring(const nv_string_t* str, size_t start, size_t length, nv_allocator_t* new_allocator)
 {
   nv_assert(CONT_IS_VALID(str));
   nv_assert(start + length <= str->m_size);
@@ -2993,71 +3215,35 @@ power_of_two_mod(unsigned int x, unsigned int n)
   return x & (n - 1);
 }
 
-unsigned
-nv_hashmap_std_hash(const void* bytes, int nbytes)
-{
-  const unsigned Fnv_PRIME    = 16777619;
-  const unsigned OFFSET_BASIS = 2166136261;
-
-  unsigned       hash         = OFFSET_BASIS;
-  for (unsigned char byte = 0; byte < nbytes; byte++)
-  {
-    hash ^= ((unsigned char*)bytes)[byte]; // xor
-    hash *= Fnv_PRIME;
-  }
-  return hash;
-};
-
-bool
-nv_hashmap_std_key_eq(const void* key1, const void* key2, unsigned long nbytes)
-{
-  if (key1 == key2)
-  {
-    return 1;
-  }
-  else
-  {
-    return nv_memcmp(key1, key2, nbytes) == 0;
-  }
-}
-
 #define _nv_hashmap_alloc(size) map->allocator->alloc(map->allocator, 1, size)
 #define _nv_hashmap_calloc(size) map->allocator->calloc(map->allocator, 1, size)
 #define _nv_hashmap_free(block) map->allocator->free(map->allocator, block)
 
-nv_hashmap_t*
-nv_hashmap_init(int init_size, int keysize, int valuesize, nv_hashmap_hash_fn hash_fn, nv_hashmap_key_equal_fn equal_fn, nv_allocator* allocator)
+void
+nv_hashmap_init(int init_size, int keysize, int valuesize, nv_hashmap_hash_fn hash_fn, nv_hashmap_key_equal_fn equal_fn, nv_allocator_t* allocator, nv_hashmap_t* dst)
 {
+  nv_assert(dst != NULL);
   nv_assert(keysize > 0 && valuesize > 0);
 
-  nv_hashmap_t* map = calloc(1, sizeof(struct nv_hashmap_t));
-  nv_assert(map != NULL);
+  *dst = (nv_hashmap_t){};
 
   if (init_size < 0)
   {
+    // we do need the root node so just allocate atleast one
     init_size = 1;
   }
-  if (hash_fn == NULL)
-  {
-    hash_fn = nv_hashmap_std_hash;
-  }
-  if (equal_fn == NULL)
-  {
-    equal_fn = nv_hashmap_std_key_eq;
-  }
 
-  map->allocator = allocator;
-  map->m_nodes   = (ch_node_t**)_nv_hashmap_calloc(init_size * sizeof(ch_node_t));
-  nv_assert(map->m_nodes != NULL);
+  dst->allocator = allocator;
+  dst->m_nodes   = (nv_hashmap_node_t**)allocator->calloc(allocator, 8, init_size * sizeof(nv_hashmap_node_t));
+  nv_assert(dst->m_nodes != NULL);
 
-  map->m_hash_fn    = hash_fn;
-  map->m_equal_fn   = equal_fn;
-  map->m_key_size   = keysize;
-  map->m_value_size = valuesize;
-  map->m_entries    = closest_power_of_two(init_size);
-  map->m_size       = 0;
-  map->m_canary     = CONT_CANARY;
-  return map;
+  dst->m_hash_fn    = hash_fn ? hash_fn : nv_hashmap_std_hash;
+  dst->m_equal_fn   = equal_fn ? equal_fn : nv_hashmap_std_key_eq;
+  dst->m_key_size   = keysize;
+  dst->m_value_size = valuesize;
+  dst->m_entries    = closest_power_of_two(init_size);
+  dst->m_size       = 0;
+  dst->m_canary     = CONT_CANARY;
 }
 
 void
@@ -3076,15 +3262,14 @@ nv_hashmap_destroy(nv_hashmap_t* map)
     }
   }
   _nv_hashmap_free(map->m_nodes);
-  nv_free(map);
 }
 
 void
 nv_hashmap_resize(nv_hashmap_t* map, int new_size)
 {
   nv_assert(CONT_IS_VALID(map));
-  ch_node_t** old_nodes     = map->m_nodes;
-  const int   old_m_entries = map->m_entries;
+  nv_hashmap_node_t** old_nodes     = map->m_nodes;
+  const int           old_m_entries = map->m_entries;
 
   if (new_size <= 0)
   {
@@ -3094,14 +3279,14 @@ nv_hashmap_resize(nv_hashmap_t* map, int new_size)
   map->m_entries = closest_power_of_two(new_size);
   map->m_size    = 0;
 
-  map->m_nodes   = _nv_hashmap_calloc(new_size * sizeof(ch_node_t));
+  map->m_nodes   = _nv_hashmap_calloc(new_size * sizeof(nv_hashmap_node_t));
   nv_assert(map->m_nodes != NULL);
 
   if (old_nodes)
   {
     for (int i = 0; i < old_m_entries; i++)
     {
-      ch_node_t* node = old_nodes[i];
+      nv_hashmap_node_t* node = old_nodes[i];
       if (node && node->is_occupied)
       {
         nv_hashmap_insert(map, node->key, node->value);
@@ -3133,41 +3318,41 @@ nv_hashmap_clear(nv_hashmap_t* map)
   map->m_entries = 0;
 }
 
-int
+size_t
 nv_hashmap_size(const nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
   return map->m_size;
 }
 
-int
+size_t
 nv_hashmap_capacity(const nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
   return map->m_entries;
 }
 
-int
+size_t
 nv_hashmap_keysize(const nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
   return map->m_key_size;
 }
 
-int
+size_t
 nv_hashmap_valuesize(const nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
   return map->m_value_size;
 }
 
-ch_node_t*
-nv_hashmap_iterate(const nv_hashmap_t* map, int* __i)
+nv_hashmap_node_t*
+nv_hashmap_iterate(const nv_hashmap_t* map, size_t* __i)
 {
   nv_assert(CONT_IS_VALID(map));
   for (; (*__i) < map->m_entries; (*__i)++)
   {
-    int i = *__i;
+    size_t i = *__i;
     if (map->m_nodes[i] && map->m_nodes[i]->is_occupied)
     {
       (*__i)++;
@@ -3177,7 +3362,7 @@ nv_hashmap_iterate(const nv_hashmap_t* map, int* __i)
   return NULL;
 }
 
-ch_node_t**
+nv_hashmap_node_t**
 nv_hashmap_root_node(const nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
@@ -3185,7 +3370,7 @@ nv_hashmap_root_node(const nv_hashmap_t* map)
 }
 
 void*
-nv_hashmap_find(const nv_hashmap_t* map, const void* key)
+nv_hashmap_find(const nv_hashmap_t* NOVA_RESTRICT map, const void* NOVA_RESTRICT key)
 {
   nv_assert(CONT_IS_VALID(map));
   if (!map->m_nodes)
@@ -3211,7 +3396,7 @@ nv_hashmap_find(const nv_hashmap_t* map, const void* key)
 }
 
 void
-nv_hashmap_insert(nv_hashmap_t* map, const void* key, const void* value)
+nv_hashmap_insert(nv_hashmap_t* map, const void* NOVA_RESTRICT key, const void* NOVA_RESTRICT value)
 {
   nv_assert(CONT_IS_VALID(map));
   // the second check
@@ -3236,10 +3421,10 @@ nv_hashmap_insert(nv_hashmap_t* map, const void* key, const void* value)
   if (!map->m_nodes[i])
   {
     // Batch allocation for the entire node at once.
-    void* alloc            = _nv_hashmap_alloc(sizeof(ch_node_t) + map->m_key_size + map->m_value_size);
+    void* alloc            = _nv_hashmap_alloc(sizeof(nv_hashmap_node_t) + map->m_key_size + map->m_value_size);
     map->m_nodes[i]        = alloc;
-    map->m_nodes[i]->key   = alloc + sizeof(ch_node_t);
-    map->m_nodes[i]->value = alloc + sizeof(ch_node_t) + map->m_key_size;
+    map->m_nodes[i]->key   = alloc + sizeof(nv_hashmap_node_t);
+    map->m_nodes[i]->value = alloc + sizeof(nv_hashmap_node_t) + map->m_key_size;
   }
 
   nv_memcpy(map->m_nodes[i]->key, key, map->m_key_size);
@@ -3249,7 +3434,7 @@ nv_hashmap_insert(nv_hashmap_t* map, const void* key, const void* value)
 }
 
 void
-nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* key, void* value)
+nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NOVA_RESTRICT key, void* NOVA_RESTRICT value)
 {
   nv_assert(CONT_IS_VALID(map));
   if (!map->m_nodes || map->m_size >= (map->m_entries * 3) / 4)
@@ -3277,10 +3462,10 @@ nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* key, void* value)
   if (!map->m_nodes[i])
   {
     // Batch allocation for the entire node at once.
-    void* alloc            = _nv_hashmap_alloc(sizeof(ch_node_t) + map->m_key_size + map->m_value_size);
+    void* alloc            = _nv_hashmap_alloc(sizeof(nv_hashmap_node_t) + map->m_key_size + map->m_value_size);
     map->m_nodes[i]        = alloc;
-    map->m_nodes[i]->key   = alloc + sizeof(ch_node_t);
-    map->m_nodes[i]->value = alloc + sizeof(ch_node_t) + map->m_key_size;
+    map->m_nodes[i]->key   = alloc + sizeof(nv_hashmap_node_t);
+    map->m_nodes[i]->value = alloc + sizeof(nv_hashmap_node_t) + map->m_key_size;
   }
 
   nv_memcpy(map->m_nodes[i]->key, key, map->m_key_size);
@@ -3329,91 +3514,273 @@ nv_hashmap_deserialize(nv_hashmap_t* map, FILE* f)
 // ATLAS
 // ==============================
 
-nv_atlas_t
-nv_atlas_init(int init_w, int init_h, nv_allocator* allocator)
+void
+nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv_format fmt, int padding)
 {
-  nv_atlas_t atlas         = {};
+  nv_assert(width != 0 && height != 0);
 
-  atlas.width              = init_w;
-  atlas.height             = init_h;
-  atlas.next_x             = 0;
-  atlas.next_y             = 0;
-  atlas.current_row_height = 0;
-  atlas.allocator          = allocator;
-  atlas.data               = atlas.allocator->calloc(atlas.allocator, 1, init_w * init_h);
-
-  return atlas;
+  atlas->w       = width;
+  atlas->h       = height;
+  atlas->fmt     = fmt;
+  atlas->padding = padding;
+  atlas->data    = (unsigned char*)nv_calloc(width * height * nv_format_get_bytes_per_pixel(atlas->fmt));
+  nv_assert(atlas->data != NULL);
+  nv_skyline_bin_init(width, height, &atlas->bin);
 }
 
-bool
-nv_atlas_add_image(nv_atlas_t* RESTRICT atlas, int w, int h, const unsigned char* RESTRICT data, int* RESTRICT x, int* RESTRICT y)
+int
+nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image_t* img, size_t* out_x, size_t* out_y)
 {
-  const int padding = 4;
-  const int prev_h = atlas->height, prev_w = atlas->width;
-  bool      nv_cont_realloc_needed = 0;
-  if (w > atlas->width)
+  if (!atlas || !img || img->w <= 0 || img->h <= 0)
   {
-    // ! This doesn't work because the old image is not correctly copied by
-    // nv_cont_realloc ! It'll be fixed by copying over the data row by row
-    // probably doesn't need fixing right now, will delay it for another eon
-    // TODO: FIXME
-    atlas->width           = w;
-    nv_cont_realloc_needed = 1;
+    return 0;
   }
 
-  if (atlas->next_x + w + padding > atlas->width)
+  nv_skyline_rect_t rect = { .w = img->w + 2 * atlas->padding, .h = img->h + 2 * atlas->padding };
+
+  size_t            x, y;
+  bool              packed = nv_skyline_bin_find_best_placement(&atlas->bin, &rect, &x, &y);
+
+  while (!packed)
   {
-    atlas->next_x = 0;
-    atlas->next_y += atlas->current_row_height + padding;
-    atlas->current_row_height = 0;
+    nv_texture_atlas_resize(atlas, 2);
+    packed = nv_skyline_bin_find_best_placement(&atlas->bin, &rect, &x, &y);
   }
 
-  if (atlas->next_y + h + padding > atlas->height)
+  nv_skyline_bin_place_rect(&atlas->bin, &rect, x, y);
+
+  *out_x       = x + atlas->padding;
+  *out_y       = y + atlas->padding;
+
+  nv_image_t dst = { .w = atlas->w, .h = atlas->h, .fmt = NOVA_FORMAT_R8, .data = atlas->data };
+  nv_image_overlay(&dst, img, *out_x, *out_y, 0, 0);
+
+  return 1;
+}
+
+void
+nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
+{
+  nv_assert(0 && "this function is not currently working. Get a bigger atlas size to fontc. Sorry!");
+  if (atlas->w == 0 || atlas->h == 0)
   {
-    atlas->height          = nv_MAX(atlas->height * 2, atlas->next_y + h + padding);
-    nv_cont_realloc_needed = 1;
+    nv_log_error("zero size atlas? possible corruption");
   }
 
-  if (nv_cont_realloc_needed)
+  size_t         new_w, new_h;
+  unsigned char* new_data;
+
+  new_w    = atlas->w * scale;
+  new_h    = atlas->h * scale;
+  new_data = nv_calloc(new_w * new_h * nv_format_get_bytes_per_channel(NOVA_FORMAT_R8));
+  nv_assert(new_data != NULL);
+
+  if (atlas->data)
   {
-    atlas->data = atlas->allocator->realloc(atlas->allocator, atlas->data, 1, atlas->width * atlas->height);
-    nv_memset(atlas->data + prev_w * prev_h, 0, (atlas->width - prev_w) * (atlas->height - prev_h));
+    size_t channels = nv_format_get_bytes_per_pixel(atlas->fmt);
+    for (size_t y = 0; y < new_h; y++)
+    {
+      for (size_t x = 0; x < new_w; x++)
+      {
+        size_t orig_x     = x / scale;
+        size_t orig_y     = y / scale;
+
+        orig_x            = nv_MIN(orig_x, atlas->w - 1);
+        orig_y            = nv_MIN(orig_y, atlas->h - 1);
+
+        size_t orig_index = (orig_y * atlas->w + orig_x) * channels;
+        size_t new_index  = (y * new_w + x) * channels;
+
+        nv_memcpy(new_data + new_index, atlas->data + orig_index, channels);
+      }
+    }
   }
 
-  for (int y = 0; y < h; y++)
+  atlas->w    = new_w;
+  atlas->h    = new_h;
+  atlas->data = new_data;
+  nv_log_info("resize to %zu %zu", atlas->w, atlas->h);
+}
+
+int
+nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
+{
+  if (!atlas)
+    return 0;
+
+  size_t max_w = 0, max_h = 0;
+  for (int i = 0; i < atlas->bin.nrects; i++)
   {
-    nv_memcpy(atlas->data + (atlas->next_x + (atlas->next_y + y) * atlas->width), data + (y * w), w);
+    nv_skyline_rect_t* r = &atlas->bin.rects[i];
+    max_w                = nv_MAX(max_w, r->x + r->w);
+    max_h                = nv_MAX(max_h, r->y + r->h);
+  }
+  size_t optimal_w = max_w, optimal_h = max_h;
+
+  if (optimal_w == atlas->w && optimal_h == atlas->h)
+  {
+    return 0;
+  }
+  else if (optimal_w == 0 || optimal_h == 0)
+  {
+    // log error?
+    return 0;
   }
 
-  *x = atlas->next_x;
-  *y = atlas->next_y;
-
-  atlas->next_x += w + padding;
-  atlas->current_row_height = nv_MAX(atlas->current_row_height, h + padding);
-
+  if (atlas->w > optimal_w || atlas->h > optimal_h)
+  {
+    const size_t   channels = nv_format_get_bytes_per_pixel(atlas->fmt);
+    unsigned char* new_data = (unsigned char*)nv_calloc(max_w * max_h * channels * sizeof(unsigned char));
+    if (new_data)
+    {
+      for (size_t y = 0; y < max_h; y++)
+      {
+        nv_memcpy(new_data + y * max_w * channels, atlas->data + y * atlas->w * channels, max_w * channels);
+      }
+      nv_free(atlas->data);
+      atlas->data = new_data;
+      atlas->w    = max_w;
+      atlas->h    = max_h;
+    }
+    return 1;
+  }
   return 0;
+}
+
+void
+nv_texture_atlas_destroy(nv_texture_atlas_t* atlas)
+{
+  if (!atlas)
+    return;
+  nv_free(atlas->data);
+  nv_free(atlas->bin.skyline);
+  nv_free(atlas->bin.rects);
+}
+
+void
+nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin)
+{
+  *bin              = (nv_skyline_bin_t){};
+  bin->w            = w;
+  bin->h            = h;
+  bin->skyline      = (size_t*)nv_calloc(w * sizeof(size_t));
+  bin->rects        = NULL;
+  bin->nrects       = 0;
+  bin->allocd_rects = 0;
+}
+
+// ==============================
+// RECTPACK
+// ==============================
+
+size_t
+nv_skyline_bin_max_height(const nv_skyline_bin_t* bin, size_t x, size_t w)
+{
+  size_t max_h = 0;
+  for (size_t i = x; i < x + w && i < bin->w; i++)
+  {
+    if (bin->skyline[i] > max_h)
+      max_h = bin->skyline[i];
+  }
+  return max_h;
+}
+
+int
+nv_skyline_bin_find_best_placement(const nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t* best_x, size_t* best_y)
+{
+  size_t min_y = SIZE_MAX;
+  *best_x      = SIZE_MAX;
+  *best_y      = SIZE_MAX;
+
+  if (rect->w > bin->w)
+  {
+    return 0;
+  }
+
+  size_t max_x = bin->w - rect->w;
+
+  for (size_t x = 0; x <= max_x; x++)
+  {
+    size_t y = nv_skyline_bin_max_height(bin, x, rect->w);
+
+    if (y + rect->h <= bin->h && y < min_y)
+    {
+      min_y   = y;
+      *best_x = x;
+      *best_y = y;
+    }
+  }
+
+  return (*best_x != SIZE_MAX);
+}
+
+void
+nv_skyline_bin_place_rect(nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t x, size_t y)
+{
+  if (bin->nrects >= bin->allocd_rects)
+  {
+    if (bin->allocd_rects == 0)
+    {
+      bin->allocd_rects = 1;
+    }
+    else
+    {
+      bin->allocd_rects = bin->allocd_rects * 2;
+    }
+    bin->rects = (nv_skyline_rect_t*)nv_realloc(bin->rects, bin->allocd_rects * sizeof(nv_skyline_rect_t));
+  }
+  bin->rects[bin->nrects++] = (nv_skyline_rect_t){ rect->w, rect->h, x, y };
+
+  for (size_t i = x; i < x + rect->w && i < bin->w; i++)
+  {
+    bin->skyline[i] = y + rect->h;
+  }
+}
+
+static int
+_nv_skyline_compare_rect(const void* a, const void* b)
+{
+  return ((const nv_skyline_rect_t*)b)->h - ((const nv_skyline_rect_t*)a)->h;
+}
+
+void
+nv_skyline_bin_pack_rects(nv_skyline_bin_t* bin, nv_skyline_rect_t* rects, size_t nrects)
+{
+  qsort(rects, nrects, sizeof(nv_skyline_rect_t), _nv_skyline_compare_rect);
+  for (size_t i = 0; i < nrects; i++)
+  {
+    size_t x, y;
+    if (nv_skyline_bin_find_best_placement(bin, &rects[i], &x, &y))
+    {
+      nv_skyline_bin_place_rect(bin, &rects[i], x, y);
+      rects[i].x = x;
+      rects[i].y = y;
+    }
+    else
+    {
+      nv_log_error("failed to pack rect %d", i);
+    }
+  }
 }
 
 // ==============================
 // BITSET
 // ==============================
 
-nv_bitset_t
-nv_bitset_init(int init_capacity, nv_allocator* allocator)
+void
+nv_bitset_init(int init_capacity, nv_allocator_t* allocator, nv_bitset_t* set)
 {
-  nv_bitset_t ret = {};
   if (init_capacity > 0)
   {
-    init_capacity = (init_capacity + 7) / 8;
-    ret.size      = init_capacity;
-    ret.allocator = allocator;
-    ret.data      = ret.allocator->calloc(ret.allocator, 1, init_capacity * sizeof(uint8_t));
+    init_capacity  = (init_capacity + 7) / 8;
+    set->size      = init_capacity;
+    set->allocator = allocator;
+    set->data      = set->allocator->calloc(set->allocator, 1, init_capacity * sizeof(uint8_t));
   }
   else
   {
-    ret.size = 0;
+    set->size = 0;
   }
-  return ret;
 }
 
 void
@@ -3501,7 +3868,7 @@ nv_freelist_mknode(const nv_freelist_t* list, size_t alignment, size_t size)
 }
 
 void
-nv_freelist_init(size_t init_size, nv_freelist_alloc_fn alloc_fn, nv_freelist_free_fn free_fn, nv_freelist_t* list, nv_allocator* allocator)
+nv_freelist_init(size_t init_size, nv_freelist_alloc_fn alloc_fn, nv_freelist_free_fn free_fn, nv_allocator_t* allocator, nv_freelist_t* list)
 {
   list->m_alloc_fn = alloc_fn;
   list->m_free_fn  = free_fn;
@@ -3669,3 +4036,1219 @@ nv_freelist_find(nv_freelist_t* list, void* alloc)
   nv_freelist_check_circle(list);
   return NULL;
 }
+
+static inline nv_option_t*
+nv_option_find(nv_option_t* options, const char* short_name, const char* long_name)
+{
+  for (nv_option_t* opt = options; opt->type != NV_OP_TYPE_SENTINEL; opt++)
+  {
+    if (short_name && opt->short_name && nv_strcmp(opt->short_name, short_name) == 0)
+    {
+      return opt;
+    }
+    if (long_name && opt->long_name && nv_strcmp(opt->long_name, long_name) == 0)
+    {
+      return opt;
+    }
+  }
+  return NULL;
+}
+
+static inline int
+_nv_props_parse_short_arg(int argc, char* argv[], nv_option_t* options, char* error, size_t error_size, int* i)
+{
+  char*        name = argv[*i] + 1;
+  nv_option_t* opt  = nv_option_find(options, name, NULL);
+
+  if (!opt)
+  {
+    nv_snprintf(error, error_size, "unknown option: -%s", name);
+    (*i)++;
+    return -1;
+  }
+
+  if (opt->type == NV_OP_TYPE_BOOL)
+  {
+    bool flag = true;
+
+    if (*i + 1 < argc)
+    {
+      char* bool_val = argv[*i + 1];
+
+      if (nv_strcmp(bool_val, "false") == 0 || nv_strcmp(bool_val, "0") == 0)
+      {
+        flag = false;
+      }
+      else if (nv_strcmp(bool_val, "true") == 0 || nv_strcmp(bool_val, "1") == 0)
+      {
+        flag = true;
+      }
+      else
+      {
+        nv_snprintf(error, error_size, "invalid boolean value for option -%s", name);
+        return -1;
+      }
+
+      *(bool*)opt->value = flag;
+      (*i)++;
+    }
+    else
+    {
+      *(bool*)opt->value = flag;
+    }
+
+    (*i)++;
+    return 0;
+  }
+
+  char* value = NULL;
+  if (nv_strlen(name) > 1)
+  {
+    value = name + 1;
+  }
+  else if (*i + 1 < argc && argv[*i + 1][0] != '-')
+  {
+    value = argv[++(*i)];
+  }
+
+  if (!value)
+  {
+    nv_snprintf(error, error_size, "option -%s requires a value", name);
+    return -1;
+  }
+
+  switch (opt->type)
+  {
+    case NV_OP_TYPE_STRING:
+      nv_strncpy((char*)opt->value, value, opt->buffer_size);
+      ((char*)opt->value)[opt->buffer_size - 1] = '\0';
+      break;
+    case NV_OP_TYPE_INT:
+      *(int*)opt->value = nv_atoi(value);
+      break;
+    case NV_OP_TYPE_FLOAT:
+      *(float*)opt->value = (float)nv_atof(value);
+      break;
+    case NV_OP_TYPE_DOUBLE:
+      *(double*)opt->value = nv_atof(value);
+      break;
+    default:
+      break;
+  }
+  (*i)++;
+  return 0;
+}
+
+static inline int
+_nv_props_parse_long_arg(int argc, char* argv[], nv_option_t* options, char* error, size_t error_size, int* i)
+{
+  char* name  = argv[*i] + 2;
+  char* value = nv_strchr(name, '=');
+  if (value)
+  {
+    *value = '\0';
+    value++;
+  }
+
+  nv_option_t* opt = nv_option_find(options, NULL, name);
+  if (!opt)
+  {
+    nv_snprintf(error, error_size, "unknown option: --%s", name);
+    (*i)++;
+    return -1;
+  }
+
+  // hands boolean options
+  // if only the option name is given, set it to 1
+  // otherwise, set it to whatever the user gave
+  if (opt->type == NV_OP_TYPE_BOOL)
+  {
+    bool flag_value = true;
+    // if theres a value after =
+    if (value)
+    {
+      if (nv_strcmp(value, "false") == 0 || nv_strcmp(value, "0") == 0)
+      {
+        flag_value = false;
+      }
+      else if (nv_strcmp(value, "true") == 0 || nv_strcmp(value, "1") == 0)
+      {
+        flag_value = true;
+      }
+      else
+      {
+        nv_snprintf(error, error_size, "invalid boolean value for option --%s", name);
+        return -1;
+      }
+    }
+
+    *(bool*)opt->value = flag_value;
+    (*i)++;
+    return 0;
+  }
+
+  if (!value)
+  {
+    (*i)++;
+    if ((*i) >= argc || argv[*i][0] == '-')
+    {
+      nv_snprintf(error, error_size, "option --%s requires a value", name);
+      return -1;
+    }
+    value = argv[*i];
+  }
+
+  switch (opt->type)
+  {
+    case NV_OP_TYPE_STRING:
+      nv_strncpy((char*)opt->value, value, opt->buffer_size);
+      ((char*)opt->value)[opt->buffer_size - 1] = '\0';
+      break;
+    case NV_OP_TYPE_INT:
+      *(int*)opt->value = nv_atoi(value);
+      break;
+    case NV_OP_TYPE_FLOAT:
+      *(float*)opt->value = (float)nv_atof(value);
+      break;
+    case NV_OP_TYPE_DOUBLE:
+      *(double*)opt->value = nv_atof(value);
+      break;
+    default:
+      break;
+  }
+  (*i)++;
+  return 0;
+}
+
+static inline const char*
+nv_props_get_tp_name(nv_option_type tp)
+{
+  switch (tp)
+  {
+    case NV_OP_TYPE_BOOL:
+      return "bool";
+    case NV_OP_TYPE_STRING:
+      return "string";
+    case NV_OP_TYPE_INT:
+      return "int";
+    case NV_OP_TYPE_FLOAT:
+      return "float";
+    case NV_OP_TYPE_DOUBLE:
+      return "double";
+    default:
+      return "unknown";
+  }
+}
+
+int
+nv_props_parse(int argc, char* argv[], nv_option_t* options, char* error, size_t error_size)
+{
+  int  i       = 1; // program name is argv[0]
+  bool success = 1;
+
+  while (i < argc)
+  {
+    char* arg = argv[i];
+
+    if (arg[0] == '-')
+    {
+      int result
+          = (arg[1] == '-') ? _nv_props_parse_long_arg(argc, argv, options, error, error_size, &i) : _nv_props_parse_short_arg(argc, argv, options, error, error_size, &i);
+
+      if (result != 0)
+      {
+        success = false;
+      }
+    }
+    else
+    {
+      break;
+    }
+  }
+  return success ? 0 : -1;
+}
+
+#endif
+
+#define NVSM_HAS_FLAG(flag) (nv_strcmp(argv[i], flag) == 0)
+
+static inline void
+_nvsm_log_error(const char* fn, const char* fmt, ...)
+{
+  const char* preceder  = " nvsm error: ";
+  const char* succeeder = "\n";
+  va_list     args;
+  va_start(args, fmt);
+  _nv_log(args, fn, succeeder, preceder, fmt, 1);
+  va_end(args);
+}
+
+#define nvsm_log_error(err, ...) _nvsm_log_error(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+
+#if defined(NVSM)
+
+#include "../common/printf.h"
+#include "../common/string.h"
+#include "../common/timer.h"
+
+#if NVSM_EXECUTABLE
+
+#include "../include/engine/shadermanager.h"
+
+#define CMD_HELP_MSG                                                                                                                                                          \
+  "cmd can be any of:\n\
+<default> compile: compile only those that have been changed since last ran,\n\
+compile-force: forcefully compile all shaders in list file,\n\
+\n"
+
+int
+main(int argc, char* argv[])
+{
+  char buf[256] = "../compilelist.txt";
+  char cmd[256] = "compile";
+
+  bool help     = 0;
+  // clang-format off
+  nv_option_t options[] = {
+    { NV_OP_TYPE_STRING, "l", "list", buf, sizeof(buf) },
+    { NV_OP_TYPE_STRING, "c", "command", cmd, sizeof(cmd) },
+    { NV_OP_TYPE_BOOL, "h", "help", &help, 0 },
+    NV_OPTION_SENTINEL
+  };
+  // clang-format on
+
+  char error[256];
+  if (nv_props_parse(argc, argv, options, error, sizeof(error)))
+  {
+    nvsm_log_error("%s", error);
+    return -1;
+  }
+
+  if (help)
+  {
+    nv_printf("usage: %s <compile list path = \"../compilelist.txt\"> <cmd = compile>\n" CMD_HELP_MSG, argv[0]);
+    return 0;
+  }
+
+  nv_log_info("Compile list: %s", buf);
+  nv_log_info("Command: %s", cmd);
+
+  list = buf;
+
+  if (nv_strcmp(cmd, "compile-force") == 0)
+  {
+    nvsm_compile_all();
+  }
+  else if (nv_strcmp(cmd, "compile") == 0)
+  {
+    nvsm_compile_updated();
+  }
+  else
+  {
+    return -1;
+  }
+
+  return 0;
+}
+
+#else
+
+int
+compare_shader_t(const void* a, const void* b)
+{
+  const struct nvsm_shader_t* shader1 = (const struct nvsm_shader_t*)a;
+  const struct nvsm_shader_t* shader2 = (const struct nvsm_shader_t*)b;
+  return nv_strncmp(shader1->name, shader2->name, 128);
+}
+
+void
+nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** dst)
+{
+  struct nvsm_shader_t* new_map = nv_malloc((nshaders + 1) * sizeof(struct nvsm_shader_t));
+  if (nshaders > 0)
+  {
+    nv_memcpy(new_map, shader_map, nshaders * sizeof(struct nvsm_shader_t));
+  }
+  if (shader_map != NULL)
+    nv_free(shader_map);
+  shader_map = new_map;
+
+  struct nvsm_shader_t add;
+  nv_strcpy(add.name, entry.name);
+  shader_map[nshaders] = add;
+
+  *dst                 = &shader_map[nshaders];
+
+  nshaders++;
+  // map is sorted after all shaders are registered.
+
+  qsort(shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
+}
+
+struct nvsm_shader_t*
+find_shader(const char* name)
+{
+  struct nvsm_shader_t shader = {};
+
+  nv_strncpy(shader.name, name, sizeof(shader.name) - 1);
+  shader.name[sizeof(shader.name) - 1] = '\0';
+
+  return (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
+}
+
+bool
+does_shader_exist(const char* name)
+{
+  return find_shader(name) != NULL;
+}
+
+int
+nvsm_load_shader(const char* name, struct nvsm_shader_t** out)
+{
+  if (name == NULL || nv_strlen(name) == 0)
+  {
+    return -1;
+  }
+
+  struct nvsm_shader_t shader = {};
+
+  nv_strncpy(shader.name, name, sizeof(shader.name) - 1);
+  shader.name[sizeof(shader.name) - 1] = '\0';
+
+  struct nvsm_shader_t* shaderptr      = (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
+
+  if (shaderptr)
+  {
+    *out = shaderptr;
+  }
+  else
+  {
+    // should we check out is NULL before setting it or not
+    *out = NULL;
+    return -1;
+  }
+
+  return 0;
+}
+
+int
+nvsm_load_shader_from_disk(const char* path, nvsm_shader_t** out)
+{
+  (void)path;
+  (void)out;
+  // nvsm_shader_entry_t entry = {0};
+
+  // char line[256];
+  // strcpy(line, path);
+
+  // nvsm_load_shader_file(line, &entry);
+
+  // nvsm_shader_cache_entry_t cache_e = {};
+  // strcpy(cache_e.path, entry.path);
+  // strcpy(cache_e.output_path, entry.output_path);
+  // strcpy(cache_e.name, entry.name);
+  // cache_e.last_modified = entry.last_modified;
+
+  // nvsm_add_shader_to_map(cache_e, out);
+  nv_assert(0);
+  return 0;
+}
+
+int
+read_shader_spirv(const char* output, unsigned** spirv, int* spirvsize)
+{
+  FILE* f = fopen(output, "rb");
+  if (f == NULL)
+  {
+    nv_log_error("%s : %s", output, strerror(errno));
+    goto err;
+  }
+
+  // I'm sorry i used goto please spare me i have a loving family please no
+
+  fseek(f, 0, SEEK_END);
+  size_t fsize = ftell(f);
+  if (fsize == (size_t)-1)
+  {
+    goto err;
+  }
+  fseek(f, 0, SEEK_SET);
+
+  unsigned* buffer = nv_malloc(fsize);
+  if (!buffer)
+  {
+    goto err;
+  }
+
+  fread(buffer, 1, fsize, f);
+
+  fclose(f);
+
+  *spirv     = buffer;
+  *spirvsize = fsize;
+  return 0;
+
+err:
+  nvsm_log_error("Could not read in spirv for output path \"%s\"", output);
+  if (f)
+  {
+    fclose(f);
+    *spirv     = NULL;
+    *spirvsize = 0;
+  }
+  return -1;
+}
+
+#include "../external/volk/volk.h"
+#include "../include/GPU/pipeline.h"
+
+void
+_nvsm_create_shader(VkDevice vkdevice, const unsigned* bytes, int nbytes, struct nvsm_shader_t* out)
+{
+  // SpvReflectShaderModule reflect_module;
+  // spvReflectCreateShaderModule(nbytes, bytes, &reflect_module);
+
+  // reflect_shader_descriptors(&reflect_module, out);
+
+  // spvReflectDestroyShaderModule(&reflect_module);
+
+  const VkShaderModuleCreateInfo info = {
+    .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+    .codeSize = nbytes,
+    .pCode    = bytes,
+  };
+  nvvk_result_check(vkCreateShaderModule(vkdevice, &info, NOVA_VK_ALLOCATOR, (VkShaderModule*)&out->shader_module));
+
+  nv_free((void*)bytes);
+}
+
+void
+nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries, int nentries)
+{
+  struct nvsm_shader_t* new_shader_map = nv_malloc((nshaders + nentries) * sizeof(struct nvsm_shader_t));
+  if (shader_map)
+  {
+    nv_memcpy(new_shader_map, shader_map, nshaders * sizeof(struct nvsm_shader_t));
+    nv_free(shader_map);
+  }
+  shader_map = new_shader_map;
+
+  int index  = 0;
+  for (int i = 0; i < nentries; i++)
+  {
+    if (nv_strncmp(entries[i].stage, "vert", 4) == 0)
+    {
+      shader_map[nshaders + index].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    }
+    else if (nv_strncmp(entries[i].stage, "frag", 4) == 0)
+    {
+      shader_map[nshaders + index].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
+    else if (nv_strncmp(entries[i].stage, "tese", 4) == 0)
+    {
+      shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    }
+    else if (nv_strncmp(entries[i].stage, "tesc", 4) == 0)
+    {
+      shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    }
+    else if (nv_strncmp(entries[i].stage, "geom", 4) == 0)
+    {
+      shader_map[nshaders + index].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+    }
+    else if (nv_strncmp(entries[i].stage, "comp", 4) == 0)
+    {
+      shader_map[nshaders + index].stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    }
+    else
+    {
+      nvsm_log_error("Invalid stage for shader \"%s\". It will not be added.", entries[i].name);
+      continue;
+    }
+    nv_strncpy(shader_map[nshaders + index].name, entries[i].name, 127);
+    shader_map[nshaders + index].name[127] = '\0';
+
+    unsigned* spirv;
+    int       spirvsize = 0;
+    if (read_shader_spirv((const char*)entries[i].output_path, &spirv, &spirvsize) != 0)
+    {
+      nv_free(spirv);
+      continue;
+    }
+    _nvsm_create_shader(vkdevice, spirv, spirvsize, &shader_map[nshaders + index]);
+
+    nshaders++;
+  }
+  qsort(shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
+}
+
+#endif // NVSM_EXECUTABLE != 1
+
+void
+nvsm_set_list_file(const char* path)
+{
+  list = path;
+}
+
+void
+nvsm_set_shader_compiler(const char* exec)
+{
+  shader_compiler = exec;
+}
+
+void
+nvsm_set_shader_compiler_args(const char* args)
+{
+  shader_compiler_args = args;
+}
+
+char const*
+nvsm_get_shader_compiler_args(void)
+{
+  return shader_compiler_args;
+}
+
+nvsm_shader_cache_entry_t*
+load_cache(int* count)
+{
+  FILE* f = fopen("shaders.cache", "rb");
+  if (f == NULL)
+  {
+    *count = 0;
+    return NULL; // safe to return. nvsm will gracefully handle this.
+  }
+
+  nv_assert(fread(count, sizeof(int), 1, f) == 1);
+  nvsm_shader_disk_t* write = (nvsm_shader_disk_t*)nv_calloc(*count * sizeof(nvsm_shader_disk_t));
+  nv_assert(fread(write, sizeof(nvsm_shader_disk_t), *count, f) == (size_t)(*count));
+
+  nvsm_shader_cache_entry_t* entries = nv_calloc(*count * sizeof(nvsm_shader_cache_entry_t));
+  for (int i = 0; i < (*count); i++)
+  {
+    nv_strncpy(entries[i].name, write[i].name, 128);
+    nv_strncpy(entries[i].path, write[i].path, 128);
+    entries[i].last_modified = write[i].last_modified;
+  }
+
+  nv_free(write);
+
+  fclose(f);
+  return entries;
+}
+
+void
+update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count)
+{
+  FILE* f = fopen("shaders.cache", "wb");
+  if (!f)
+  {
+    nvsm_log_error("Could not open cache file for update due to %s", strerror(errno));
+    return;
+  }
+
+  nvsm_shader_disk_t* write = nv_malloc(sizeof(nvsm_shader_disk_t) * count);
+
+  for (int i = 0; i < count; i++)
+  {
+    nv_strncpy(write[i].name, entries[i].name, 128);
+    nv_strncpy(write[i].path, entries[i].path, 128);
+    write[i].last_modified = entries[i].last_modified;
+  }
+
+  nv_assert(fwrite(&count, sizeof(int), 1, f) == 1);
+  nv_assert(fwrite(write, sizeof(nvsm_shader_disk_t), count, f) == (size_t)count);
+
+  nv_free(write);
+
+  fclose(f);
+}
+
+void
+write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
+{
+  FILE* f = fopen("shaders.cache", "wb");
+  nv_assert(f != NULL); // writing
+
+  nvsm_shader_disk_t* write = nv_malloc(sizeof(nvsm_shader_disk_t) * count);
+
+  for (int i = 0; i < count; i++)
+  {
+    nv_strncpy(write[i].name, entries[i].name, 128);
+    nv_strncpy(write[i].path, entries[i].path, 128);
+    write[i].last_modified = entries[i].last_modified;
+  }
+
+  nv_assert(fwrite(&count, sizeof(int), 1, f) == 1);
+  nv_assert(fwrite(write, sizeof(nvsm_shader_disk_t), count, f) == (size_t)count);
+
+  fclose(f);
+
+  nv_log_info("NVSM cache written successfully");
+}
+
+void
+create_parent_dirs(const char path[256])
+{
+  char* last_separator = nv_strrchr(path, PATH_SEP);
+  if (last_separator != NULL)
+  {
+    *last_separator = '\0';
+
+    char buffer[256];
+
+    nv_strcpy(buffer, path);
+    int len = nv_strlen(buffer);
+
+    if (buffer[len - 1] == PATH_SEP)
+    {
+      buffer[len - 1] = 0;
+    }
+
+    for (char* p = buffer + 1; *p; p++)
+    {
+      if (*p == PATH_SEP)
+      {
+        *p = 0;
+        MKDIR(buffer);
+        *p = PATH_SEP;
+      }
+    }
+
+    MKDIR(buffer);
+  }
+}
+
+time_t
+get_mtime(const char* fpath)
+{
+  struct stat file_stats;
+  if (stat(fpath, &file_stats) == 0)
+  {
+    return file_stats.st_mtime;
+  }
+  else
+  {
+    nvsm_log_error("stat error: %s", strerror(errno));
+  }
+  return -1;
+}
+
+nvsm_shader_entry_t*
+load_all_entries(const char* shader_list_file_path, int* count)
+{
+  FILE* f = fopen(shader_list_file_path, "r");
+  if (f == NULL)
+  {
+    nvsm_log_error("Could not open list file for reading: %s", strerror(errno));
+    return NULL;
+  }
+
+  int                  currallocsize = 16;
+  nvsm_shader_entry_t* entries       = nv_malloc(currallocsize * sizeof(nvsm_shader_entry_t));
+  nv_assert(entries != NULL);
+
+  char line[256];
+  for (int i = 0;; i++)
+  {
+    if (!fgets(line, 256, f))
+    {
+      break;
+    }
+    else if (nv_strlen(line) == 1)
+      continue; // line only contains \n
+    line[nv_strcspn(line, "\n")] = 0;
+
+    if (i >= currallocsize)
+    {
+      currallocsize *= 2;
+      entries = realloc(entries, currallocsize * sizeof(nvsm_shader_entry_t));
+      nv_assert(entries != NULL);
+    }
+
+    entries[*count]            = (nvsm_shader_entry_t){};
+    nvsm_shader_entry_t* entry = &entries[*count];
+
+    nv_strncpy(entry->path, line, 256);
+
+    // to get stage + verify that it exists
+    FILE* shader_file = fopen(entry->path, "r");
+    if (shader_file == NULL)
+    {
+      nvsm_log_error("Could not open shader file \"%s\": %s", entry->path, strerror(errno));
+      continue;
+    }
+
+    nv_assert(fgets(line, 256, shader_file) != NULL);
+
+    const char* li = line;
+    while (*li == ' ')
+    {
+      li++;
+    }
+    if (nv_strncmp(li, "//", 2) == 0)
+    {
+      sscanf(li, "// output: %s stage: %s name: %s", entry->output_path, entry->stage, entry->name);
+    }
+    else
+    {
+      nv_strcpy(entry->stage, "000");
+      nv_strcpy(entry->output_path, "");
+      nvsm_log_error("Shader \"%s\": has invalid or no header.\nHeader Format "
+                     "-> // output: "
+                     "{output} stage: {stage} name: {name}",
+          entry->path);
+    }
+
+    fclose(shader_file);
+
+    entry->last_modified = get_mtime(entry->path);
+
+    (*count)++;
+  }
+
+  fclose(f);
+  return entries;
+}
+
+#if defined(__linux)
+// int _nvsm_linux_run() {
+
+// }
+// #define system _nvsm_linux_run
+#endif
+
+static char* g_Buffer = NULL;
+int
+compile_shader(const struct nvsm_shader_entry_t* entry)
+{
+  if (!g_Buffer)
+  {
+    g_Buffer = nv_calloc(1024);
+  }
+  char copy[256];
+  copy[255] = '\0';
+  nv_strncpy(copy, entry->output_path, 255);
+  create_parent_dirs(copy);
+
+  nv_snprintf(g_Buffer, 1024, "%s %s %s -o %s -S %s", shader_compiler, shader_compiler_args, entry->path, nv_strcmp(entry->output_path, "") != 0 ? entry->output_path : "",
+      entry->stage);
+
+  if (system(g_Buffer) != 0)
+  {
+    return -1;
+  }
+  g_Buffer[1023] = 0;
+
+  return 0;
+}
+
+void
+nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_cache_entry_t* cacheentries, int cachecount)
+{
+  for (int i = 0; i < nentries; i++)
+  {
+    for (int j = 0; j < cachecount; j++)
+    {
+      if (nv_strcmp(cacheentries[j].path, entries[i].path) == 0)
+      {
+        if (cacheentries[j].last_modified != entries[i].last_modified)
+        {
+          if (compile_shader(&entries[i]) != 0)
+          {
+            nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path);
+          }
+          cacheentries[j].last_modified = entries[i].last_modified;
+        }
+        break;
+      }
+    }
+  }
+}
+
+void
+nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries)
+{
+  for (int i = 0; i < nentries; i++)
+  {
+    if (compile_shader(&entries[i]) != 0)
+    {
+      nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path);
+    }
+  }
+}
+
+void
+nvsm_compile_updated()
+{
+  nv_log_custom(" nvsm: ", "Shader compilation begin");
+  timer                      stopwatch    = timer_begin(0.1);
+
+  int                        nentries     = 0;
+  nvsm_shader_entry_t*       entries      = load_all_entries(list, &nentries);
+
+  int                        cachecount   = 0;
+  nvsm_shader_cache_entry_t* cacheentries = load_cache(&cachecount);
+
+  if (cacheentries == NULL)
+  {
+    nvsm_log_error("Could not open cache for reading. return.");
+    nvsm_compile_without_cache(entries, nentries);
+  }
+  else
+  {
+    nvsm_compile_from_cache(entries, nentries, cacheentries, cachecount);
+  }
+
+  if (cacheentries == NULL)
+  {
+    nvsm_log_error("No cache or modified cache. Writing new cache file...");
+    write_new_cache(entries, nentries);
+  }
+  else
+  {
+    update_cache(cacheentries, nentries);
+  }
+
+#if NVSM_EXECUTABLE != 1
+  nvsm_register_all_shaders(device, entries, nentries);
+#endif // NVSM_EXECUTABLE != 1
+
+  nv_free(entries);
+
+  if (cacheentries)
+    nv_free(cacheentries);
+
+  nv_log_custom(" nvsm: ", "Shader compilation end (Task took %f seconds)", timer_time_since_start(&stopwatch));
+}
+
+void
+nvsm_compile_all()
+{
+  nv_log_custom(" nvsm: ", "Shader compilation begin");
+  timer                stopwatch = timer_begin(0.1);
+
+  int                  count     = 0;
+  nvsm_shader_entry_t* entries   = load_all_entries(list, &count);
+
+#if NVSM_EXECUTABLE != 1
+  nvsm_register_all_shaders(device, entries, count);
+#endif // #if NVSM_EXECUTABLE != 1
+
+  for (int i = 0; i < count; i++)
+  {
+    compile_shader(&entries[i]);
+  }
+
+  write_new_cache(entries, count);
+
+  nv_free(entries);
+
+  nv_log_custom(" nvsm: ", "Shader compilation end (Task took %f seconds)", timer_time_since_start(&stopwatch));
+}
+
+void
+nvsm_shutdown()
+{
+#if !(NVSM_EXECUTABLE)
+  for (int i = 0; i < nshaders; i++)
+  {
+    nvsm_shader_t* shader = &shader_map[i];
+    vkDestroyShaderModule(device, shader->shader_module, NOVA_VK_ALLOCATOR);
+  }
+#endif
+}
+
+#endif // NVSM
+
+#if (FONTC)
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "../include/engine/fontc.h"
+
+#if (FONTC_EXECUTABLE)
+#include "../common/timer.h"
+
+static const char* FONTC_HELP_MSG = "usage:\n./fontc -i < Font file path to bake "
+                                    "> (optionally, ) -o < output file=bakedfont >";
+
+int
+main(int argc, char* argv[])
+{
+  char input[256]  = "No path given";
+  char output[256] = "bakedfont";
+
+  int  pixel_size  = 256;
+  bool help        = 0;
+  int  atlas_w = 2048, atlas_h = 1024;
+  // clang-format off
+  nv_option_t options[] = {
+    { NV_OP_TYPE_STRING, "i", "input", input, sizeof(input) },
+    { NV_OP_TYPE_STRING, "o", "output", output, sizeof(output) },
+    { NV_OP_TYPE_INT, "p", "pixel-size", &pixel_size, 0 },
+    { NV_OP_TYPE_INT, "w", "atlas-width", &atlas_w, 0 },
+    { NV_OP_TYPE_INT, "h", "atlas-height", &atlas_h, 0 },
+    { NV_OP_TYPE_BOOL, "h", "help", &help, 0 },
+    NV_OPTION_SENTINEL
+  };
+  // clang-format on
+
+  char error[256];
+  if (nv_props_parse(argc, argv, options, error, sizeof(error)))
+  {
+    nvsm_log_error("%s", error);
+    return -1;
+  }
+
+  if (help)
+  {
+    nv_log_custom("help", "%s", FONTC_HELP_MSG);
+    return 0;
+  }
+
+  char buffer[512] = {};
+  getcwd(buffer, 511);
+  nv_strcat(buffer, "/");
+  nv_strcat(buffer, argv[1]);
+  buffer[511] = 0;
+
+  nv_log_info("read:  %s", input);
+  nv_log_info("write: %s", output);
+  nv_log_info("pixel size: %i", pixel_size);
+  nv_log_info("atlas size: w=%i h=%i", atlas_w, atlas_h);
+
+  timer tm = timer_begin(__FLT_MAX__);
+  fontc_bake_font(input, output, pixel_size, atlas_w, atlas_h);
+  nv_log_info("finished in %.2f s", timer_time_since_start(&tm));
+  return 0;
+}
+
+#endif // FONTC_EXECUTABLE
+
+void
+fontc_read_font(const char* path, fontc_file_t* file)
+{
+  FILE* f = fopen(path, "rb");
+  if (!f)
+  {
+    nv_log_error("Failed to open font file for reading: %s", strerror(errno));
+    return;
+  }
+  fread(&file->header, sizeof(fontc_file_header_t), 1, f);
+  if (file->header.magic != FONTC_MAGIC)
+  {
+    nv_log_error("Invalid magic number for font file");
+    return;
+  }
+
+  size_t total_glyph_size          = file->header.numglyphs * sizeof(fontc_glyph_t);
+
+  file->glyphs                     = nv_malloc(total_glyph_size);
+  file->bitmap                     = nv_malloc(file->header.bmpwidth * file->header.bmpheight);
+  fontc_glyph_t* compressed_glyphs = nv_malloc(file->header.glyphs_compressed_sz);
+  unsigned char* compressed_image  = nv_malloc(file->header.img_compressed_sz);
+
+  fread(compressed_glyphs, file->header.glyphs_compressed_sz, 1, f);
+  fread(compressed_image, file->header.img_compressed_sz, 1, f);
+
+  nv_assert(nv_bufdecompress(compressed_glyphs, file->header.glyphs_compressed_sz, file->glyphs, total_glyph_size) != -1);
+  nv_assert(nv_bufdecompress(compressed_image, file->header.img_compressed_sz, file->bitmap, file->header.bmpwidth * file->header.bmpheight) != -1);
+
+  nv_free(compressed_glyphs);
+  nv_free(compressed_image);
+
+  fclose(f);
+}
+
+#include <freetype2/ft2build.h>
+#include <string.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
+
+void
+fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init_atlas_w, int init_atlas_h)
+{
+  FT_Library lib;
+  FT_Face    face;
+  if (FT_Init_FreeType(&lib))
+  {
+    nv_log_error("Failed to initialize ft");
+    return;
+  }
+
+  if (FT_New_Face(lib, font_path, 0, &face))
+  {
+    nv_log_error("Failed to load font file: %s", font_path);
+    FT_Done_FreeType(lib);
+    return;
+  }
+  FT_Set_Pixel_Sizes(face, 0, pixel_size);
+
+  fontc_file_t       file = {};
+  nv_texture_atlas_t atlas;
+  nv_texture_atlas_init(&atlas, init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4);
+
+  file.header.magic               = FONTC_MAGIC;
+  file.header.line_height         = -face->size->metrics.height / (float)face->height;
+
+  int            glyph_alloc_size = 256;
+  fontc_glyph_t* glyphs           = nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_size);
+  if (!glyphs)
+  {
+    nv_log_error("Failed to allocate memory for glyphs");
+    return;
+  }
+
+  int glyph_count = 0;
+
+  for (int i = 0; i < 256; i++)
+  {
+    if (glyph_count >= glyph_alloc_size)
+    {
+      glyph_alloc_size *= 2;
+      glyphs = nv_realloc(glyphs, sizeof(fontc_glyph_t) * glyph_alloc_size);
+    }
+
+    FT_UInt glyph_index = FT_Get_Char_Index(face, i);
+    if (glyph_index == 0)
+    {
+      continue;
+    }
+
+    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT))
+    {
+      continue;
+    }
+
+    if (i == ' ')
+    {
+      file.header.space_width = (float)face->glyph->metrics.horiAdvance / (float)face->units_per_EM;
+      continue;
+    }
+
+    FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF);
+    FT_GlyphSlot         g      = face->glyph;
+
+    const int            w      = g->bitmap.width;
+    const int            h      = g->bitmap.rows;
+    const unsigned char* buffer = g->bitmap.buffer;
+
+    size_t               x = SIZE_MAX, y = SIZE_MAX;
+    if (buffer)
+    {
+      nv_image_t glyph_image = (nv_image_t){ .w = w, .h = h, .fmt = NOVA_FORMAT_R8, .data = (unsigned char*)buffer };
+      if (!nv_texture_atlas_add(&atlas, &glyph_image, &x, &y))
+      {
+        nv_log_error("atlas error");
+        continue;
+      }
+    }
+    if (x == SIZE_MAX || y == SIZE_MAX)
+    {
+    }
+
+    FT_Glyph gl;
+    FT_Get_Glyph(face->glyph, &gl);
+
+    FT_BBox box;
+    FT_Glyph_Get_CBox(gl, FT_GLYPH_BBOX_UNSCALED, &box);
+
+    FT_Done_Glyph(gl);
+
+    // clang-format off
+    fontc_glyph_t glyph = {
+      .codepoint = i,
+      .x0 = box.xMin,
+      .x1 = box.xMax,
+      .y0 = box.yMin,
+      .y1 = box.yMax,
+      .l = x,
+      .r = x + w,
+      .b = y + h,
+      .t = y,
+      .advance = face->glyph->metrics.horiAdvance
+    };
+    // clang-format on
+
+    glyphs[glyph_count] = glyph;
+    glyph_count++;
+  }
+  nv_texture_atlas_finish(&atlas);
+
+  nv_log_info("atlas size w=%i h=%i", atlas.w, atlas.h);
+
+  const float atlas_w = atlas.w, atlas_h = atlas.h;
+  const float units_per_em = (float)face->units_per_EM;
+  nv_assert(atlas_w != 0.0);
+  nv_assert(atlas_h != 0.0);
+  nv_assert(units_per_em != 0.0);
+
+  for (int i = 0; i < glyph_count; i++)
+  {
+    fontc_glyph_t* glyph = &glyphs[i];
+    glyph->x0 /= units_per_em;
+    glyph->x1 /= units_per_em;
+    glyph->y0 /= units_per_em;
+    glyph->y1 /= units_per_em;
+    glyph->l /= atlas_w;
+    glyph->r /= atlas_w;
+    glyph->b /= atlas_h;
+    glyph->t /= atlas_h;
+    glyph->advance /= units_per_em;
+  }
+  nv_log_info("%i glyphs processed", glyph_count);
+
+  FT_Done_Face(face);
+  FT_Done_FreeType(lib);
+
+  file.header.bmpwidth             = atlas_w;
+  file.header.bmpheight            = atlas_h;
+  file.header.numglyphs            = glyph_count;
+
+  size_t         image_o_size      = atlas_w * atlas_h;
+  size_t         glyph_o_size      = file.header.numglyphs * sizeof(fontc_glyph_t);
+
+  unsigned char* compressed_image  = nv_malloc(image_o_size);
+  fontc_glyph_t* compressed_glyphs = nv_malloc(glyph_o_size);
+
+  nv_bufcompress(atlas.data, image_o_size, compressed_image, &image_o_size);
+  nv_bufcompress(glyphs, glyph_o_size, compressed_glyphs, &glyph_o_size);
+
+  nv_free(atlas.data);
+  nv_free(glyphs);
+
+  file.glyphs                      = compressed_glyphs;
+
+  file.header.img_compressed_sz    = image_o_size;
+  file.header.glyphs_compressed_sz = glyph_o_size;
+
+  FILE* f                          = fopen(out, "wb");
+  nv_assert(f != NULL); // writing
+
+  fwrite(&file.header, sizeof(fontc_file_header_t), 1, f);
+  fwrite(compressed_glyphs, glyph_o_size, 1, f);
+  fwrite(compressed_image, image_o_size, 1, f);
+
+  fclose(f);
+
+  size_t bytes_written = 0;
+
+  bytes_written += sizeof(fontc_file_header_t);
+  bytes_written += glyph_o_size;
+  bytes_written += image_o_size;
+
+  char buf[128];
+  nv_btoa(bytes_written, 1, buf, 127);
+  buf[127] = 0;
+  nv_log_info("Wrote %s to %s", buf, out);
+  nv_log_info("Here's a summary of what was written:");
+  nv_log_info("file header:    %b of %b (%.2f%%)", sizeof(fontc_file_header_t), bytes_written, (sizeof(fontc_file_header_t) / (float)bytes_written) * 100.0);
+  nv_log_info("glyph vertices: %b of %b (%.2f%%)", glyph_o_size, bytes_written, (glyph_o_size / (float)bytes_written) * 100.0);
+  nv_log_info("the bitmap:     %b of %b (%.2f%%)", image_o_size, bytes_written, (image_o_size / (float)bytes_written) * 100.0);
+
+  nv_free(compressed_image);
+  nv_free(compressed_glyphs);
+}
+
+#endif // FONTC

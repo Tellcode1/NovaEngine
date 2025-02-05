@@ -1,6 +1,8 @@
 #ifndef __NOVA_SPRITE_RENDERER_H__
 #define __NOVA_SPRITE_RENDERER_H__
 
+// implementation: none
+
 #include "../../common/math/vec2.h"
 #include "../../common/math/vec4.h"
 #include "sprite.h"
