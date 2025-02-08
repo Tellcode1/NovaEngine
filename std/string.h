@@ -78,6 +78,13 @@ extern size_t nv_strncpy2(char* dest, const char* src, size_t max);
 // It will stop when it reaches the NULL terminator, no segv
 extern int nv_strncmp(const char* s1, const char* s2, size_t max);
 
+// Compare two strings case insensitively
+// Does not care whether s1 or s2 has 'a' or 'A', they're the same thing
+extern int nv_strcasencmp(const char *s1, const char *s2, size_t max);
+
+// Case insensitively compare no more than max chars
+extern int nv_strcasencmp(const char *s1, const char *s2, size_t max);
+
 // Find the first occurence of a character in a string
 extern char* nv_strchr(const char* s, int chr);
 

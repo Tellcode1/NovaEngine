@@ -759,11 +759,11 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 
   if (conf->multisampling_enable)
   {
-    nv_gpu_vk_flag_register |= CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING;
+    nv_gpu_vk_flag_register |= NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING;
     rd->attachment_count++;
   }
-  nv_gpu_vk_flag_register |= CVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK;
-  nv_gpu_vk_flag_register |= CVK_PIPELINE_FLAGS_FORCE_CULLING;
+  nv_gpu_vk_flag_register |= NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK;
+  nv_gpu_vk_flag_register |= NVVK_PIPELINE_FLAGS_FORCE_CULLING;
   rd->attachment_count++;
 
   VkCommandPoolCreateInfo cmdPoolCreateInfo = {};
@@ -2687,7 +2687,7 @@ __BakeCtextPipeline(nv_renderer_t* rd)
   nvsm_shader_t*                    shaders[] = { vertex, fragment };
   VkDescriptorSetLayout             layouts[] = { camera.sets->layout, rd->ctext->desc_set->layout };
 
-  const nv_gpu_pipeline_blend_state blend     = nv_gpu_init_pipeline_blend_state(CVK_BLEND_PRESET_ALPHA);
+  const nv_gpu_pipeline_blend_state blend     = nv_gpu_init_pipeline_blend_state(NVVK_BLEND_PRESET_ALPHA);
 
   nv_gpu_pipeline_create_info       pc        = nv_gpu_init_pipeline_create_info();
   pc.format                                   = swap_chain_image_format;
@@ -2743,7 +2743,7 @@ __BakeDebugLinePipeline(nv_renderer_t* rd)
   nvsm_shader_t*                    shaders[] = { vertex, fragment };
   VkDescriptorSetLayout             layouts[] = { camera.sets->layout };
 
-  const nv_gpu_pipeline_blend_state blend     = nv_gpu_init_pipeline_blend_state(CVK_BLEND_PRESET_ALPHA);
+  const nv_gpu_pipeline_blend_state blend     = nv_gpu_init_pipeline_blend_state(NVVK_BLEND_PRESET_ALPHA);
 
   nv_gpu_pipeline_create_info       pc        = nv_gpu_init_pipeline_create_info();
   pc.format                                   = swap_chain_image_format;
@@ -2819,7 +2819,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   NVVK_NOT_EQUAL_TO(pCreateInfo->extent.width, 0);
   NVVK_NOT_EQUAL_TO(pCreateInfo->extent.height, 0);
 
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
   {
     // Vulkan requires samples to not be 1.
     NVVK_NOT_EQUAL_TO(pCreateInfo->samples, VK_SAMPLE_COUNT_1_BIT);
@@ -2864,7 +2864,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   rasterizerPipelineStateCreateInfo.rasterizerDiscardEnable                = VK_FALSE;
   rasterizerPipelineStateCreateInfo.polygonMode                            = VK_POLYGON_MODE_FILL;
 
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_CULLING))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_CULLING))
     rasterizerPipelineStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT; // No one uses other culling modes. If you do, I
                                                                         // hate you.
   else
@@ -2885,7 +2885,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   multisamplerPipelineStageCreateInfo.minSampleShading                     = 1.0f;
   multisamplerPipelineStageCreateInfo.pSampleMask                          = VK_NULL_HANDLE;
 
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
     multisamplerPipelineStageCreateInfo.rasterizationSamples = pCreateInfo->samples;
   else
     multisamplerPipelineStageCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -2950,7 +2950,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
 
   VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
   const VkDynamicState             dynamicStates[]  = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT))
   {
   }
   else
@@ -2962,7 +2962,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   }
 
   VkPipelineDepthStencilStateCreateInfo depthStencilState = { .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
   {
     depthStencilState.sType                       = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencilState.depthTestEnable             = VK_TRUE;
@@ -2994,22 +2994,22 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
   NVVK_REQUIRED_PTR(dstRenderPass);
   NVVK_NOT_EQUAL_TO(pCreateInfo->format, NOVA_FORMAT_UNDEFINED);
 
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
   {
     NVVK_NOT_EQUAL_TO(pCreateInfo->depthBufferFormat, NOVA_FORMAT_UNDEFINED);
   }
 
   VkAttachmentDescription colorAttachmentDescription = {};
   colorAttachmentDescription.format                  = nv_format_to_vk_format(pCreateInfo->format);
-  colorAttachmentDescription.samples                 = HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING) ? pCreateInfo->samples : VK_SAMPLE_COUNT_1_BIT;
+  colorAttachmentDescription.samples                 = HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING) ? pCreateInfo->samples : VK_SAMPLE_COUNT_1_BIT;
   colorAttachmentDescription.loadOp                  = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  colorAttachmentDescription.storeOp                 = HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING) ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachmentDescription.storeOp                 = HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING) ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
   colorAttachmentDescription.stencilLoadOp           = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   colorAttachmentDescription.stencilStoreOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   colorAttachmentDescription.initialLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
   colorAttachmentDescription.finalLayout             = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
   // colorAttachmentDescription.finalLayout =
-  // (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING)) ?
+  // (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING)) ?
   // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
   VkAttachmentReference colorAttachmentReference = {};
@@ -3027,7 +3027,7 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
 
   VkAttachmentDescription depthAttachment    = {};
   VkAttachmentReference   depthAttachmentRef = {};
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
   {
     depthAttachment.format         = nv_format_to_vk_format(pCreateInfo->depthBufferFormat); // Why wasn't this being used?
     depthAttachment.samples        = pCreateInfo->samples;
@@ -3037,7 +3037,7 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    // if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
+    // if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
     // 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     // else
     depthAttachment.finalLayout     = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -3052,7 +3052,7 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
 
   VkAttachmentReference   colorAttachmentResolveRef = {};
   VkAttachmentDescription colorAttachmentResolve    = {};
-  if (HAS_FLAG(CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
   {
     colorAttachmentResolve.format         = nv_format_to_vk_format(pCreateInfo->format);
     colorAttachmentResolve.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -3153,7 +3153,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
 
   switch (preset)
   {
-    case CVK_BLEND_PRESET_NONE:
+    case NVVK_BLEND_PRESET_NONE:
       ret.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -3161,7 +3161,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
       ret.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.alphaBlendOp        = VK_BLEND_OP_ADD;
       break;
-    case CVK_BLEND_PRESET_ALPHA:
+    case NVVK_BLEND_PRESET_ALPHA:
       ret.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
       ret.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
       ret.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -3169,7 +3169,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
       ret.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.alphaBlendOp        = VK_BLEND_OP_ADD;
       break;
-    case CVK_BLEND_PRESET_ADDITIVE:
+    case NVVK_BLEND_PRESET_ADDITIVE:
       ret.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
       ret.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
       ret.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -3177,7 +3177,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
       ret.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
       ret.alphaBlendOp        = VK_BLEND_OP_ADD;
       break;
-    case CVK_BLEND_PRESET_MULTIPLICATIVE:
+    case NVVK_BLEND_PRESET_MULTIPLICATIVE:
       ret.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
       ret.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -3185,7 +3185,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
       ret.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.alphaBlendOp        = VK_BLEND_OP_ADD;
       break;
-    case CVK_BLEND_PRESET_PREMULTIPLIED_ALPHA:
+    case NVVK_BLEND_PRESET_PREMULTIPLIED_ALPHA:
       ret.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
       ret.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
       ret.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -3193,7 +3193,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
       ret.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
       ret.alphaBlendOp        = VK_BLEND_OP_ADD;
       break;
-    case CVK_BLEND_PRESET_SUBTRACTIVE:
+    case NVVK_BLEND_PRESET_SUBTRACTIVE:
       ret.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
       ret.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
       ret.colorBlendOp        = VK_BLEND_OP_REVERSE_SUBTRACT;

@@ -4,10 +4,10 @@
 // implementation: vk.c
 
 #include "../../common/containers/dynarray.h"
-#include "../../common/mem.h"
-#include "../../std/stdafx.h"
-#include "../../external/volk/volk.h"
 #include "../../common/format.h"
+#include "../../common/mem.h"
+#include "../../external/volk/volk.h"
+#include "../../std/stdafx.h"
 
 NOVA_HEADER_START;
 
@@ -38,25 +38,25 @@ extern VkCommandBuffer nv_vk_begin_command_buffer();
 /* WARNING: waitForExecution = false implies you take responsibility of freeing the commandBuffer! */
 extern VkResult nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecution);
 
-extern void     nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height, int image_size);
+extern void nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height, int image_size);
 
-extern void     nv_vk_create_texture_from_memory(u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
+extern void nv_vk_create_texture_from_memory(u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
 
-extern u8*      nv_vk_create_texture_from_disk(const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
+extern u8* nv_vk_create_texture_from_disk(const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
 
-extern void     nv_vk_create_texture_empty(
-        u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, int* image_size, VkImage* dst, VkDeviceMemory* dstMem);
+extern void nv_vk_create_texture_empty(
+    u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, int* image_size, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern void nv_vk_transition_texture_layout(VkCommandBuffer cmd, VkImage image, u32 mipLevels, VkImageAspectFlagBits aspect, VkImageLayout oldLayout, VkImageLayout newLayout,
     VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags sourceStage, VkPipelineStageFlags destinationStage);
 
 extern nv_format nv_vk_get_supported_format_for_draw(nv_format fmt);
 
-extern bool      nv_vk_get_supported_format(VkPhysicalDevice phys_device, VkSurfaceKHR surface, nv_format* dstFormat, VkColorSpaceKHR* dstColorSpace);
+extern bool nv_vk_get_supported_format(VkPhysicalDevice phys_device, VkSurfaceKHR surface, nv_format* dstFormat, VkColorSpaceKHR* dstColorSpace);
 
-extern u32       nv_vk_get_surface_image_count(VkPhysicalDevice phys_device, VkSurfaceKHR surface);
+extern u32 nv_vk_get_surface_image_count(VkPhysicalDevice phys_device, VkSurfaceKHR surface);
 
-extern void      nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize);
+extern void nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize);
 
 NOVA_HEADER_END;
 

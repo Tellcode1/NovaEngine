@@ -28,18 +28,18 @@ typedef void (*nv_gpu_result_check_fn)(const VkResult result, const char* __rest
 
 #define _NVVK_TO_BIT(n) (1 << n)
 
-typedef enum cvk_pipeline_flags_bits
+typedef enum nvvk_pipeline_flags_bits
 {
-  CVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK        = _NVVK_TO_BIT(0),
-  CVK_PIPELINE_FLAGS_UNFORCE_DEPTH_CHECK      = ~CVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK,
-  CVK_PIPELINE_FLAGS_FORCE_CULLING            = _NVVK_TO_BIT(1),
-  CVK_PIPELINE_FLAGS_UNFORCE_CULLING          = ~CVK_PIPELINE_FLAGS_FORCE_CULLING, // Disables culling for resulting pipeline
-  CVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT   = _NVVK_TO_BIT(2),
-  CVK_PIPELINE_FLAGS_UNFORCE_DYNAMIC_VIEWPORT = ~CVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT,
-  CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING      = _NVVK_TO_BIT(3),
-  CVK_PIPELINE_FLAGS_UNFORCE_MULTISAMPLING    = ~CVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING
-} cvk_pipeline_flags_bits;
-typedef u32 cvk_pipeline_flags;
+  NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK        = _NVVK_TO_BIT(0),
+  NVVK_PIPELINE_FLAGS_UNFORCE_DEPTH_CHECK      = ~NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK,
+  NVVK_PIPELINE_FLAGS_FORCE_CULLING            = _NVVK_TO_BIT(1),
+  NVVK_PIPELINE_FLAGS_UNFORCE_CULLING          = ~NVVK_PIPELINE_FLAGS_FORCE_CULLING, // Disables culling for resulting pipeline
+  NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT   = _NVVK_TO_BIT(2),
+  NVVK_PIPELINE_FLAGS_UNFORCE_DYNAMIC_VIEWPORT = ~NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT,
+  NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING      = _NVVK_TO_BIT(3),
+  NVVK_PIPELINE_FLAGS_UNFORCE_MULTISAMPLING    = ~NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING
+} nvvk_pipeline_flags_bits;
+typedef u32 nvvk_pipeline_flags;
 
 #define nvvk_result_check(func) _nvvk_result_fn(func, nv_basename(__FILE__), #func, __LINE__)
 
@@ -109,13 +109,13 @@ extern nv_baked_pipelines g_Pipelines;
 
 typedef enum nv_gpu_pipeline_blend_preset
 {
-  CVK_BLEND_PRESET_NONE                = 0,
-  CVK_BLEND_PRESET_ALPHA               = 1,
-  CVK_BLEND_PRESET_ADDITIVE            = 2,
-  CVK_BLEND_PRESET_MULTIPLICATIVE      = 3,
-  CVK_BLEND_PRESET_PREMULTIPLIED_ALPHA = 4,
-  CVK_BLEND_PRESET_SUBTRACTIVE         = 5,
-  CVK_BLEND_PRESET_SCREEN              = 6,
+  NVVK_BLEND_PRESET_NONE                = 0,
+  NVVK_BLEND_PRESET_ALPHA               = 1,
+  NVVK_BLEND_PRESET_ADDITIVE            = 2,
+  NVVK_BLEND_PRESET_MULTIPLICATIVE      = 3,
+  NVVK_BLEND_PRESET_PREMULTIPLIED_ALPHA = 4,
+  NVVK_BLEND_PRESET_SUBTRACTIVE         = 5,
+  NVVK_BLEND_PRESET_SCREEN              = 6,
 } nv_gpu_pipeline_blend_preset;
 
 struct nv_gpu_pipeline_blend_state

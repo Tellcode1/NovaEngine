@@ -24,6 +24,7 @@ set(SOURCES
     src/core.c
     src/engine.c
     src/vk.c
+    src/preprocessors.c
 )
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/box2d)
@@ -43,12 +44,12 @@ add_library(core STATIC src/core.c)
 target_compile_options(core PRIVATE -g)
 target_link_libraries(core jpeg png z)
 
-add_executable(shadermanager src/core.c)
+add_executable(shadermanager src/preprocessors.c)
 target_compile_definitions(shadermanager PRIVATE NVSM=1 NVSM_EXECUTABLE=1)
 target_link_libraries(shadermanager m core)
 target_compile_options(shadermanager PRIVATE --fast-math)
 
-add_executable(fontc src/core.c)
+add_executable(fontc src/preprocessors.c)
 target_compile_definitions(fontc PRIVATE FONTC=1 FONTC_EXECUTABLE=1)
 target_link_libraries(fontc freetype m core)
 target_compile_options(fontc PRIVATE -g)
