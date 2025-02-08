@@ -12,9 +12,9 @@
 #include "../GPU/vkstdafx.h"
 #include "../GPU/descriptors.h"
 
-#include "../../common/math/vec2.h"
-#include "../../common/math/vec3.h"
-#include "../../common/math/vec4.h"
+#include "../../std/math/vec2.h"
+#include "../../std/math/vec3.h"
+#include "../../std/math/vec4.h"
 
 NOVA_HEADER_START;
 

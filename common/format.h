@@ -3,7 +3,7 @@
 
 // implementation: core.c
 
-#include "stdafx.h"
+#include "../std/stdafx.h"
 
 NOVA_HEADER_START;
 

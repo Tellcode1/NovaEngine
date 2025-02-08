@@ -3,7 +3,7 @@
 
 // implementation: engine.c
 
-#include "../../common/math/vec2.h"
+#include "../../std/math/vec2.h"
 
 NOVA_HEADER_START;
 

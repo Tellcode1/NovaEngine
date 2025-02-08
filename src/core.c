@@ -19,12 +19,12 @@
 #include "../common/containers/hashmap.h"
 #include "../common/containers/string.h"
 #include "../common/image.h"
-#include "../common/math/math.h"
 #include "../common/mem.h"
-#include "../common/printf.h"
-#include "../common/props.h"
-#include "../common/stdafx.h"
-#include "../common/string.h"
+#include "../std/math/math.h"
+#include "../std/io.h"
+#include "../std/props.h"
+#include "../std/stdafx.h"
+#include "../std/string.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -73,14 +73,14 @@ const char* list                 = "../compilelist.txt";
 
 static FILE*  g_stdstream   = NULL;
 static char*  g_writebuf    = NULL;
-static size_t g_writebufsiz = NOVA_PRINTF_BUFSIZ;
+static size_t g_writebufsiz = NOVA_WBUF_SIZE;
 
 #if !defined(NVSM) && !defined(FONTC)
 
 void
 _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* s, unsigned char err)
 {
-  FILE*      out  = (err) ? stderr : stdout;
+  FILE* out = (err) ? stderr : stdout;
 
   struct tm* time = _nv_get_time();
 
@@ -93,22 +93,14 @@ _nv_log(va_list args, const char* fn, const char* succeeder, const char* precede
 // printf
 
 void
-nv_setprintbuf(char* buf, size_t size)
+nv_setwbuf(char* buf, size_t size)
 {
   nv_assert(size > 0);
   if (g_writebuf)
     nv_free(g_writebuf);
 
-  if (!buf)
-  {
-    g_writebufsiz = NOVA_PRINTF_BUFSIZ;
-    g_writebuf    = nv_malloc(NOVA_PRINTF_BUFSIZ);
-  }
-  else
-  {
-    g_writebufsiz = size;
-    g_writebuf    = buf;
-  }
+  g_writebufsiz = size == 0 ? NOVA_WBUF_SIZE : size;
+  g_writebuf    = buf ? buf : nv_malloc(size);
 }
 
 void
@@ -117,19 +109,11 @@ nv_setstdout(FILE* stream)
   g_stdstream = stream;
 }
 
-bool
-nv_is_format_specifier(char c)
-{
-  // c == 'l' isn't technically a format specifier, it's generally followd by
-  // one.
-  return (c == 'f') || (c == 'i') || (c == 'd') || (c == 'u') || (c == 'l') || (c == 'p') || (c == 's') || (c == 'L');
-}
-
 // This works for non base 10 integers, unlike the original
-static inline long long
-get_highest_pwr(long long x, int base)
+static inline uintmax_t
+get_highest_pwr(intmax_t x, int base)
 {
-  long long pwr = 1;
+  uintmax_t pwr = 1;
   while (pwr * base <= x)
   {
     pwr *= base;
@@ -157,10 +141,16 @@ nv_itoa2(intmax_t x, char out[], int base, size_t max)
 
   if (x == 0)
   {
-    return nv_strncpy2(out, "0", max);
+    *out       = '0';
+    *(out + 1) = 0;
+    return 1;
   }
 
-  size_t pwr = get_highest_pwr(x, base), i = 0;
+  size_t    i   = 0;
+  uintmax_t pwr = 1;
+
+  while (x / base >= pwr)
+    pwr *= base;
 
   if (x < 0 && base == 10)
   {
@@ -170,24 +160,24 @@ nv_itoa2(intmax_t x, char out[], int base, size_t max)
 
   // we need 1 space for NULL terminator!!
   // max will be greater or equal to 1 due to past checks
-  const size_t imax = max - 1;
-  while (pwr > 0)
+  max--;
+  do
   {
-    if (i >= imax)
+    if (i >= max)
     {
       out[i] = 0;
       return i;
     }
-    int dig = x / pwr;
-    // this is for non base 10 digits
-    // it'll still work for base 10 though
+
+    int dig  = x / pwr;
     out[i++] = (dig < 10) ? '0' + dig : 'A' + (dig - 10);
-    // lmao I accidentally removed the code because it wasn't working...
+
     x %= pwr;
     pwr /= base;
-  }
-  out[i++] = 0;
-  return i - 1;
+  } while (pwr > 0);
+
+  out[i] = 0;
+  return i;
 }
 
 size_t
@@ -197,47 +187,38 @@ nv_itoa_u2(uintmax_t x, char out[], int base, size_t max)
   nv_assert(out != NULL);
 
   if (max == 0)
-  {
-    return 0; // this shouldn't be an error
-  }
-  else if (max == 1)
+    return 0;
+  if (max == 1)
   {
     out[0] = 0;
     return 0;
   }
 
-  // now, max should atleast be 1
+  size_t    i   = 0;
+  uintmax_t pwr = 1;
 
-  if (x == 0)
-  {
-    return nv_strncpy2(out, "0", max);
-  }
-
-  size_t i = 0, pwr = 1;
-  while (pwr * base <= x)
-  {
+  while (x / base >= pwr)
     pwr *= base;
-  }
 
-  // we need 1 space for NULL terminator!!
-  const uintmax_t imax = max - 1;
-  while (pwr > 0)
+  max--;
+
+  do
   {
-    if (i >= imax)
+    if (i >= max)
     {
       out[i] = 0;
       return i;
     }
-    int dig = x / pwr;
-    // this is for non base 10 digits
-    // it'll still work for base 10 though
+
+    int dig  = x / pwr;
     out[i++] = (dig < 10) ? '0' + dig : 'A' + (dig - 10);
-    // lmao I accidentally removed the code because it wasn't working...
+
     x %= pwr;
     pwr /= base;
-  }
-  out[i++] = 0;
-  return i - 1;
+  } while (pwr > 0);
+
+  out[i] = 0;
+  return i;
 }
 
 #define NOVA_FTOA_HANDLE_CASE(fn, n, str)                                                                                                                                     \
@@ -255,10 +236,8 @@ size_t
 nv_ftoa2(double n, char s[], int precision, size_t max, bool remove_zeros)
 {
   if (max == 0)
-  {
     return 0;
-  }
-  else if (max == 1)
+  if (max == 1)
   {
     s[0] = 0;
     return 0;
@@ -268,109 +247,82 @@ nv_ftoa2(double n, char s[], int precision, size_t max, bool remove_zeros)
   NOVA_FTOA_HANDLE_CASE(isinf, n, "inf");
   NOVA_FTOA_HANDLE_CASE(0.0 ==, n, "0.0");
 
-  int   digit, m, m1;
   char* c   = s;
   int   neg = (n < 0);
   if (neg)
   {
-    n = -n;
-  }
-
-  m          = log10(n);
-  int useExp = (m >= 14 || (neg && m >= 9) || m <= -9);
-  if (neg)
-  {
+    n      = -n;
     *(c++) = '-';
   }
 
+  int exp    = (n == 0.0) ? 0 : (int)log10(n);
+  int useExp = (exp >= 14 || (neg && exp >= 9) || exp <= -9);
   if (useExp)
   {
-    if (m < 0)
-      m -= 1.0;
-    n  = n / pow(10.0, m);
-    m1 = m;
-    m  = 0;
+    n /= pow(10.0, exp);
   }
 
-  if (m < 1.0)
+  double rounding = pow(10.0, -precision) * 0.5;
+  n += rounding;
+
+  uint64_t int_part  = (uint64_t)n;
+  double   frac_part = n - int_part;
+
+  char* start = c;
+  do
   {
-    m = 0;
-  }
+    *(c++) = '0' + (int_part % 10);
+    int_part /= 10;
+  } while (int_part && (c - s) < max - 1);
 
-  const double proc               = 1.0 / pow(10.0, precision);
-  bool         decimal_point_seen = false;
-
-  while (n > proc || m >= 0)
+  char* end = c - 1;
+  while (start < end)
   {
-    double weight = pow(10.0, m);
-    if (weight > 0 && !isinf(weight))
-    {
-      digit = floor(n / weight);
-      n -= (digit * weight);
-      *(c++) = '0' + digit;
-    }
-
-    if (m == 0 && n > 0 && !decimal_point_seen)
-    {
-      *(c++)             = '.';
-      decimal_point_seen = true;
-    }
-
-    m--;
+    char tmp = *start;
+    *start++ = *end;
+    *end--   = tmp;
   }
 
-  // remove useless zeros if user asked for it.
-  if (remove_zeros && decimal_point_seen)
+  if (precision > 0 && (c - s) < max - 2)
+  {
+    *(c++) = '.';
+    for (int i = 0; i < precision && (c - s) < max - 1; i++)
+    {
+      frac_part *= 10;
+      int digit = (int)frac_part;
+      *(c++)    = '0' + digit;
+      frac_part -= digit;
+    }
+  }
+
+  if (remove_zeros && precision > 0)
   {
     while (*(c - 1) == '0')
-    {
       c--;
-    }
-    // if theres no digit after the decimal, remove the decimal as well
     if (*(c - 1) == '.')
-    {
       c--;
-    }
   }
 
-  // scientific notation
-  if (useExp)
+  if (useExp && (c - s) < max - 4)
   {
-    int i, j;
     *(c++) = 'e';
-    if (m1 > 0)
-    {
-      *(c++) = '+';
-    }
-    else
-    {
-      *(c++) = '-';
-      m1     = -m1;
-    }
+    *(c++) = (exp >= 0) ? '+' : '-';
+    exp    = (exp >= 0) ? exp : -exp;
 
-    m = 0;
-    while (m1 > 0)
-    {
-      *(c++) = '0' + m1 % 10;
-      m1 /= 10;
-      m++;
-    }
-    c -= m;
-
-    for (i = 0, j = m - 1; i < j; i++, j--)
-    {
-      // swap without temporary
-      c[i] ^= c[j];
-      c[j] ^= c[i];
-      c[i] ^= c[j];
-    }
-
-    c += m;
+    if (exp >= 100)
+      *(c++) = '0' + (exp / 100);
+    if (exp >= 10)
+      *(c++) = '0' + ((exp / 10) % 10);
+    *(c++) = '0' + (exp % 10);
   }
 
   *c = 0;
   return c - s;
 }
+
+#define NV_SKIP_WHITSPACE(s)                                                                                                                                                  \
+  while (*(s) && isspace(*(s)))                                                                                                                                               \
+  (s)++
 
 intmax_t
 nv_atoi(const char s[])
@@ -378,10 +330,7 @@ nv_atoi(const char s[])
   const char* i   = s;
   intmax_t    ret = 0;
 
-  while (isspace(*i))
-  {
-    i++;
-  }
+  NV_SKIP_WHITSPACE(i);
 
   bool neg = 0;
   if (*i == '-')
@@ -423,8 +372,7 @@ nv_atof(const char s[])
   bool        neg     = 0;
   const char* i       = s;
 
-  while (isspace(*i))
-    i++;
+  NV_SKIP_WHITSPACE(i);
 
   if (*i == '-')
   {
@@ -490,6 +438,7 @@ nv_atof(const char s[])
 bool
 nv_atobool(const char s[])
 {
+  NV_SKIP_WHITSPACE(s);
   if (nv_strcmp(s, "false") == 0 || nv_strcmp(s, "0") == 0)
   {
     return false;
@@ -508,7 +457,7 @@ nv_ptoa2(void* p, char* buf, size_t max)
   unsigned long addr   = (unsigned long)p;
   char          digs[] = "0123456789abcdef";
 
-  size_t        w      = 0;
+  size_t w = 0;
 
   w += nv_strncpy2(buf, "0x", max);
 
@@ -577,14 +526,9 @@ nv_fprintf(FILE* f, const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  char*  buf           = nv_malloc(g_writebufsiz);
-  size_t chars_written = nv_vsnprintf(buf, g_writebufsiz, fmt, args);
-
-  fputs(buf, f);
+  size_t chars_written = _nv_vsfnprintf(f, 1, SIZE_MAX, fmt, args);
 
   va_end(args);
-
-  nv_free(buf);
 
   return chars_written;
 }
@@ -595,7 +539,7 @@ nv_sprintf(char* dest, const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  size_t chars_written = nv_vsnprintf(dest, g_writebufsiz, fmt, args);
+  size_t chars_written = _nv_vsfnprintf(dest, 0, SIZE_MAX, fmt, args);
 
   va_end(args);
 
@@ -605,21 +549,13 @@ nv_sprintf(char* dest, const char* fmt, ...)
 size_t
 nv_vprintf(const char* fmt, va_list args)
 {
-  char*  buf           = nv_malloc(g_writebufsiz);
-  size_t chars_written = nv_vsnprintf(buf, g_writebufsiz, fmt, args);
-  fputs(buf, g_stdstream);
-  nv_free(buf);
-  return chars_written;
+  return _nv_vsfnprintf(g_stdstream, 1, SIZE_MAX, fmt, args);
 }
 
 size_t
 nv_vfprintf(FILE* f, const char* fmt, va_list args)
 {
-  char*  buf           = nv_malloc(g_writebufsiz);
-  size_t chars_written = nv_vsnprintf(buf, g_writebufsiz, fmt, args);
-  fputs(buf, f);
-  nv_free(buf);
-  return chars_written;
+  return _nv_vsfnprintf(f, 1, SIZE_MAX, fmt, args);
 }
 
 size_t
@@ -627,11 +563,6 @@ nv_snprintf(char* dest, size_t max_chars, const char* fmt, ...)
 {
   va_list args;
   va_start(args, fmt);
-
-  if (max_chars >= g_writebufsiz)
-  {
-    max_chars = g_writebufsiz;
-  }
 
   size_t chars_written = nv_vsnprintf(dest, max_chars, fmt, args);
 
@@ -646,7 +577,7 @@ nv_nprintf(size_t max_chars, const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  size_t chars_written = nv_vnprintf(max_chars, args, fmt);
+  size_t chars_written = _nv_vsfnprintf(g_stdstream, 1, max_chars, fmt, args);
 
   va_end(args);
 
@@ -656,29 +587,7 @@ nv_nprintf(size_t max_chars, const char* fmt, ...)
 size_t
 nv_vnprintf(size_t max_chars, va_list args, const char* fmt)
 {
-  if (max_chars > g_writebufsiz)
-  {
-    max_chars = g_writebufsiz;
-  }
-
-  char*  buf           = nv_malloc(g_writebufsiz);
-  size_t chars_written = nv_vsnprintf(buf, max_chars, fmt, args);
-
-  fputs(buf, g_stdstream);
-  nv_free(buf);
-
-  return chars_written;
-}
-
-void
-nv_printf_write_to_buf(char** write, size_t* chars_written, size_t max_chars, const char* write_buffer, size_t written)
-{
-  if (*write && written > 0)
-  {
-    nv_strncpy(*write, write_buffer, max_chars - (*chars_written));
-    (*write) += written;
-  }
-  (*chars_written) += written;
+  return _nv_vsfnprintf(g_stdstream, 0, max_chars, fmt, args);
 }
 
 void
@@ -693,11 +602,46 @@ _nv_free_write_buffer()
 size_t
 nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
 {
-  nv_assert(max_chars <= g_writebufsiz && "Can't write with smaller buffer size than max_chars");
+  return _nv_vsfnprintf(dest, 0, max_chars, fmt, src);
+}
 
+void
+_nv_printf_write(void* _write, bool file, size_t* chars_written, size_t max_chars, const char* write_buffer, size_t written)
+{
+  if (*chars_written >= max_chars)
+    return;
+
+  size_t remaining = max_chars - *chars_written;
+  size_t to_write  = (written > remaining) ? remaining : written;
+
+  if (file)
+  {
+    FILE* f = (FILE*)_write;
+    for (size_t i = 0; i < to_write; i++)
+    {
+      fputc(write_buffer[i], f);
+    }
+  }
+  else
+  {
+    char** write = (char**)_write;
+    if (*write && to_write > 0)
+    {
+      nv_strncpy(*write, write_buffer, to_write);
+      (*write) += to_write;
+    }
+  }
+
+  *chars_written += to_write;
+}
+
+size_t
+_nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_list src)
+{
   if (!g_writebuf)
   {
     g_writebuf = nv_malloc(g_writebufsiz);
+    nv_assert(g_writebuf != NULL);
     atexit(_nv_free_write_buffer);
   }
   if (!g_stdstream)
@@ -705,22 +649,39 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
     g_stdstream = stdout;
   }
 
-  size_t            chars_written = 0;
-  size_t            written       = 0;
+  if (file && !vdest)
+  {
+    vdest = g_stdstream;
+  }
 
-  char*             writep        = dest;
+  void* _writeptr = NULL;
 
-  const char* const dest_end      = dest + max_chars;
+  size_t chars_written = 0;
+  size_t written       = 0;
+  int    padding       = 0;
 
-  intmax_t          n;
-  uintmax_t         u;
-  const char*       s;
-  double            f;
-  const char*       iter = fmt;
-  void*             p;
-  size_t            b;
+  char* writep = (char*)vdest;
+  if (file)
+  {
+    _writeptr = (FILE*)vdest;
+  }
+  else
+  {
+    _writeptr = &writep;
+  }
 
-  va_list           args;
+  const char* const dest_end = writep + max_chars;
+
+  const char* s = NULL;
+  void*       p = NULL;
+  intmax_t    n = 0;
+  uintmax_t   u = 0;
+  double      f = 0;
+  size_t      b = 0;
+
+  const char* iter = fmt;
+
+  va_list args;
   va_copy(args, src);
 
   for (; *iter && chars_written < max_chars; iter++)
@@ -729,59 +690,106 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
     {
       iter++;
 
-      switch (*iter)
-      {
-        case '.':
-        {
-          iter++;
-          int precision = 6;
+      // did we write directly into the write pointer, surpassing the write buffer?
+      bool wbuffer_used = 1;
+      bool pad_zero     = 0;
+      bool left_align   = 0;
+      int  padding_w    = 0;
+      int  precision    = 6;
 
-          if (*iter == '*')
+      // I feel like there is a better way to do this
+      if (*iter == '-')
+      {
+        left_align = 1;
+        iter++;
+      }
+
+      // is the first character after the % sign a zero?
+      if (*iter == '0')
+      {
+        pad_zero = 1;
+        iter++;
+      }
+
+      if (*iter == '*')
+      {
+        padding_w = va_arg(args, int);
+        if (padding_w < 0) // negative width means left align
+        {
+          left_align = 1;
+          padding_w  = -padding_w;
+        }
+        iter++;
+      }
+      else // if user did not specify dynamic width
+      {
+        while (isdigit(*iter))
+        {
+          padding_w = padding_w * 10 + (*iter - '0');
+          iter++;
+        }
+      }
+
+      if (*iter == '.')
+      {
+        iter++;
+        if (*iter == '*')
+        {
+          precision = va_arg(args, int);
+          if (precision < 0) // negative precision means default precision
+            precision = 6;
+          iter++;
+        }
+        else
+        {
+          precision = 0;
+          while (isdigit(*iter))
           {
-            precision = va_arg(args, int);
+            precision = precision * 10 + (*iter - '0');
             iter++;
           }
-          else
-          {
-            if (isdigit(*iter))
-            {
-              precision = 0;
-              while (isdigit(*iter))
-              {
-                precision = precision * 10 + (*iter - '0');
-                iter++;
-              }
-            }
-          }
-
-          f       = va_arg(args, double);
-          written = nv_ftoa2(f, g_writebuf, precision, max_chars - chars_written, 0);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
-          break;
         }
+      }
+
+      switch (*iter)
+      {
+        case 'F':
         case 'f':
         {
           f       = va_arg(args, double);
-          written = nv_ftoa2(f, g_writebuf, 6, max_chars - chars_written, 0);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
+          written = nv_ftoa2(f, g_writebuf, precision, max_chars - chars_written, 0);
           break;
         }
         case 'l':
-          if ((iter + 1) != dest_end && (*(iter + 1) == 'd' || *(iter + 1) == 'i' || *(iter + 1) == 'u'))
+          if ((iter + 1) != dest_end)
           {
             iter++;
           }
+          else if (*iter == 'd' || *iter == 'i')
+          {
+            n       = va_arg(args, long int);
+            written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
+          }
+          else if (*iter == 'u')
+          {
+            u       = va_arg(args, long unsigned);
+            written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
+          }
+          else if (*iter == 'f' || *iter == 'F')
+          {
+            f       = va_arg(args, long double);
+            written = nv_ftoa2(f, g_writebuf, precision, max_chars - chars_written, 0);
+          }
           else
           {
-            nv_log_error("Expected D/d/i/u after l");
-            break;
+            // let the for loop process the char normally
+            iter--;
           }
           break;
         case 'd':
         case 'i':
-          n       = va_arg(args, intmax_t);
+          n       = va_arg(args, int);
           written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           break;
         case 'z':
           // If the next format is not an i and neither a u, just use size_t
@@ -792,37 +800,39 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
           if ((*iter) == 'i')
           {
             iter++;
-            n       = va_arg(args, intmax_t);
+            n       = va_arg(args, ssize_t); // signed size_t. Who the F*(#$) Uses it anyway??
             written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
-            nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           }
           else
           {
             iter++;
-            u       = va_arg(args, uintmax_t);
+            u       = va_arg(args, size_t);
             written = nv_itoa_u2(u, g_writebuf, 10, max_chars - chars_written);
-            nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           }
           break;
         case 'u':
-          u       = va_arg(args, uintmax_t);
+          u       = va_arg(args, unsigned);
           written = nv_itoa_u2(u, g_writebuf, 10, max_chars - chars_written);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           break;
         case '#':
           if ((iter + 1) != dest_end && (*(iter + 1) == 'x'))
           {
             iter++;
-            u       = va_arg(args, uintmax_t);
-            written = nv_strncpy2(g_writebuf, "0x", max_chars - chars_written);
-            written += nv_itoa_u2(u, g_writebuf + written, 16, max_chars - chars_written);
-            nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
+            u = va_arg(args, uintmax_t);
+
+            written = 2;
+            _nv_printf_write(_writeptr, file, &chars_written, max_chars, "0x", written);
+
+            written = nv_itoa_u2(u, g_writebuf, 16, max_chars - chars_written);
+
+            // 0x was not accomodated for
+            written += 2;
           }
           break;
+
         case 'x':
           n       = va_arg(args, intmax_t);
           written = nv_itoa2(n, g_writebuf, 16, max_chars - chars_written);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           break;
         case 'D':
           nv_assert(0 && "%%D is not corrently accepted");
@@ -830,12 +840,10 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
         case 'p':
           p       = va_arg(args, void*);
           written = nv_ptoa2(p, g_writebuf, max_chars - chars_written);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           break;
         case 'b': // bytes
           b       = va_arg(args, size_t);
           written = nv_btoa2(b, 1, g_writebuf, max_chars - chars_written);
-          nv_printf_write_to_buf(&writep, &chars_written, max_chars, g_writebuf, written);
           break;
         case 's':
           s = va_arg(args, const char*);
@@ -843,21 +851,25 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
           {
             s = "(null)";
           }
-          written = nv_strncpy2(writep, s, max_chars - chars_written);
-          chars_written += written;
-          if (writep)
-          {
-            writep += written;
-          }
+          written = nv_strlen(s);
+          // wrote is not set because we copy into _write directly
+          // surpassing the write buffer
+          _nv_printf_write(_writeptr, file, &chars_written, max_chars, s, written);
+          wbuffer_used = 0;
           break;
         case '%':
           if (chars_written < max_chars - 1)
           {
-            if (writep)
+            if (file)
+            {
+              fputc('%', (FILE*)_writeptr);
+            }
+            else if (writep)
             {
               *writep = '%';
               writep++;
             }
+            wbuffer_used = 0;
             chars_written++;
           }
           break;
@@ -870,20 +882,55 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
           // dumbass %n is not \n
           // I keep talking to myself through comments, this is great
           // who needs friends.
-          if (writep)
+          if (file)
+          {
+            fputc('%', (FILE*)_writeptr);
+          }
+          else if (writep)
           {
             *writep = *iter;
             writep++;
           }
+          wbuffer_used = 0;
           chars_written++;
           break;
       }
-    }
+
+      if (wbuffer_used)
+      {
+        padding       = padding_w - written;
+        char pad_char = pad_zero ? '0' : ' ';
+
+        if (!left_align) // left alignment, pad then write
+        {
+          for (int i = 0; i < padding; i++)
+          {
+            _nv_printf_write(_writeptr, file, &chars_written, max_chars, &pad_char, 1);
+          }
+        }
+
+        // write to stream/string
+        _nv_printf_write(_writeptr, file, &chars_written, max_chars, g_writebuf, written);
+
+        if (left_align) // right alignment, write then pad
+        {
+          for (int i = 0; i < padding; i++)
+          {
+            _nv_printf_write(_writeptr, file, &chars_written, max_chars, &pad_char, 1);
+          }
+        }
+      }
+
+    } // if (*iter == '%')
     else
     {
       if (chars_written < max_chars - 1)
       {
-        if (writep)
+        if (file)
+        {
+          fputc(*iter, (FILE*)_writeptr);
+        }
+        else if (writep)
         {
           *writep = *iter;
           writep++;
@@ -893,10 +940,10 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
     }
   }
 
-  if (dest && max_chars > 0)
+  if (!file && writep && max_chars > 0)
   {
-    size_t w = (chars_written < max_chars) ? chars_written : max_chars - 1;
-    dest[w]  = 0;
+    size_t w          = (chars_written < max_chars) ? chars_written : max_chars - 1;
+    ((char*)vdest)[w] = 0;
   }
 
   va_end(args);
@@ -998,8 +1045,8 @@ nv_bufcompress(const void* NOVA_RESTRICT input, size_t input_size, void* NOVA_RE
     return -1;
   }
 
-  stream.next_in   = (unsigned char*)input;
-  stream.avail_in  = input_size;
+  stream.next_in  = (unsigned char*)input;
+  stream.avail_in = input_size;
 
   stream.next_out  = output;
   stream.avail_out = *output_size;
@@ -1135,7 +1182,7 @@ nv_image_enlarge(nv_image_t* dst, const nv_image_t* src, int scale)
   uchar*       write = dst->data;
   const uchar* read  = src->data;
 
-  int          bpp   = nv_format_get_bytes_per_pixel(src->fmt); // bytes per pixel
+  int bpp = nv_format_get_bytes_per_pixel(src->fmt); // bytes per pixel
   for (int y = 0; y < src->h; y++)
   {
     for (int x = 0; x < src->w; x++)
@@ -1161,10 +1208,10 @@ nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, float scale)
 {
   const int nchannels = nv_format_get_num_channels(src->fmt);
 
-  dst->w              = src->w / scale;
-  dst->h              = src->w / scale;
-  dst->fmt            = src->fmt;
-  dst->data           = nv_calloc(dst->w * dst->h * nv_format_get_bytes_per_pixel(dst->fmt));
+  dst->w    = src->w / scale;
+  dst->h    = src->w / scale;
+  dst->fmt  = src->fmt;
+  dst->data = nv_calloc(dst->w * dst->h * nv_format_get_bytes_per_pixel(dst->fmt));
 
   // Calculate the ratios for x and y coordinates
   float x_ratio, y_ratio;
@@ -1189,29 +1236,29 @@ nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, float scale)
 
   for (int y = 0; y < dst->h; y++)
   {
-    const float ratiod_y   = y_ratio * (float)y;
-    float       y_l        = floorf(ratiod_y);
-    float       y_h        = ceilf(ratiod_y);
-    float       y_weight   = (ratiod_y)-y_l;
+    const float ratiod_y = y_ratio * (float)y;
+    float       y_l      = floorf(ratiod_y);
+    float       y_h      = ceilf(ratiod_y);
+    float       y_weight = (ratiod_y)-y_l;
 
-    const int   y_l_offset = (int)y_l * src->w * nchannels;
-    const int   y_h_offset = (int)y_h * src->w * nchannels;
+    const int y_l_offset = (int)y_l * src->w * nchannels;
+    const int y_h_offset = (int)y_h * src->w * nchannels;
 
     for (int x = 0; x < dst->w; x++)
     {
-      const float ratiod_x           = x_ratio * (float)x;
+      const float ratiod_x = x_ratio * (float)x;
 
-      float       x_l                = floorf(ratiod_x);
-      float       x_h                = ceilf(ratiod_x);
-      float       x_weight           = (ratiod_x)-x_l;
+      float x_l      = floorf(ratiod_x);
+      float x_h      = ceilf(ratiod_x);
+      float x_weight = (ratiod_x)-x_l;
 
-      const int   x_l_offset         = (int)x_l * nchannels;
-      const int   x_h_offset         = (int)x_h * nchannels;
+      const int x_l_offset = (int)x_l * nchannels;
+      const int x_h_offset = (int)x_h * nchannels;
 
-      uchar*      top_left_pixel     = &src->data[y_l_offset + x_l_offset];
-      uchar*      top_right_pixel    = &src->data[y_l_offset + x_h_offset];
-      uchar*      bottom_left_pixel  = &src->data[y_h_offset + x_l_offset];
-      uchar*      bottom_right_pixel = &src->data[y_h_offset + x_h_offset];
+      uchar* top_left_pixel     = &src->data[y_l_offset + x_l_offset];
+      uchar* top_right_pixel    = &src->data[y_l_offset + x_h_offset];
+      uchar* bottom_left_pixel  = &src->data[y_h_offset + x_l_offset];
+      uchar* bottom_right_pixel = &src->data[y_h_offset + x_h_offset];
       for (int c = 0; c < nchannels; c++)
       {
         float pixel = top_left_pixel[c] * (1.0 - x_weight) * (1.0 - y_weight) + top_right_pixel[c] * x_weight * (1.0 - y_weight)
@@ -1228,7 +1275,7 @@ nv_image_load_png(const char* path)
 {
   nv_image_t texture = {};
 
-  FILE*    f       = fopen(path, "rb");
+  FILE* f = fopen(path, "rb");
   nv_assert(f != NULL);
 
   png_struct* png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -1316,7 +1363,7 @@ nv_image_load_jpeg(const char* path)
   struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr         jerr;
   FILE*                         f;
-  nv_image_t                      img = {};
+  nv_image_t                    img = {};
 
   if ((f = fopen(path, "rb")) == NULL)
   {
@@ -1332,8 +1379,8 @@ nv_image_load_jpeg(const char* path)
 
   jpeg_start_decompress(&cinfo);
 
-  img.w        = cinfo.output_width;
-  img.h        = cinfo.output_height;
+  img.w = cinfo.output_width;
+  img.h = cinfo.output_height;
 
   int channels = cinfo.output_components;
 
@@ -1734,8 +1781,8 @@ nv_memcpy(void* NOVA_RESTRICT dst, const void* NOVA_RESTRICT src, size_t sz)
   // do you know how much I just get an ITCH to write memcpy myself?
   if (((uintptr_t)src & 0x3) == 0 && ((uintptr_t)dst & 0x3) == 0)
   {
-    const int*   read      = (const int*)src;
-    int*         writep    = (int*)dst;
+    const int* read   = (const int*)src;
+    int*       writep = (int*)dst;
 
     const size_t int_count = sz / sizeof(int);
     for (size_t i = 0; i < int_count; i++)
@@ -1778,9 +1825,9 @@ nv_memset(void* dst, char to, size_t sz)
 
   if (((uintptr_t)dst & 0x3) == 0)
   {
-    int*         write     = (int*)dst;
+    int* write = (int*)dst;
 
-    int          i_to      = (to << 24) | (to << 16) | (to << 8) | to;
+    int i_to = (to << 24) | (to << 16) | (to << 8) | to;
 
     const size_t int_count = sz / sizeof(int);
     for (size_t i = 0; i < int_count; i++)
@@ -1975,7 +2022,9 @@ nv_strncpy2(char* dest, const char* src, size_t max)
   }
 
 #if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
-  return __builtin_strlen(__builtin_strncpy(dest, src, max));
+  __builtin_strncpy(dest, src, max);
+  size_t slen = nv_strlen(src);
+  return nv_MIN(slen, max);
 #endif
 
   max--; // -1 so we can fit the NULL terminator
@@ -2068,6 +2117,31 @@ nv_strncat(char* dest, const char* src, size_t max)
     src++;
     dest++;
   }
+  *dest = 0;
+  return dest;
+}
+
+char*
+nv_strcat_max(char* dest, const char* src, size_t dest_size)
+{
+  while (*dest)
+  {
+    dest++;
+    dest_size--;
+    if (dest_size == 1) // null terminator
+      return dest;
+  }
+
+  size_t i = 0;
+
+  while (*src && i < dest_size - 1)
+  {
+    *dest = *src;
+    i++;
+    src++;
+    dest++;
+  }
+
   *dest = 0;
   return dest;
 }
@@ -2538,13 +2612,13 @@ heap_alloc_internal(size_t alignment, size_t size)
   chk->mapping_size = total_size;
   chk->available    = total_size;
 
-  nv_node_t* p      = (nv_node_t*)((nv_chunk_t*)mapping + 1);
-  *p                = (nv_node_t){
-                   .payload      = ALIGN_UP(p + 1, alignment),
-                   .mapping      = mapping,
-                   .mapping_size = total_size,
-                   .canary       = NOVA_ALLOCATION_CANARY,
-                   .in_use       = 1,
+  nv_node_t* p = (nv_node_t*)((nv_chunk_t*)mapping + 1);
+  *p           = (nv_node_t){
+              .payload      = ALIGN_UP(p + 1, alignment),
+              .mapping      = mapping,
+              .mapping_size = total_size,
+              .canary       = NOVA_ALLOCATION_CANARY,
+              .in_use       = 1,
   };
   chk->root = p;
   return p;
@@ -3279,7 +3353,7 @@ nv_hashmap_resize(nv_hashmap_t* map, int new_size)
   map->m_entries = closest_power_of_two(new_size);
   map->m_size    = 0;
 
-  map->m_nodes   = _nv_hashmap_calloc(new_size * sizeof(nv_hashmap_node_t));
+  map->m_nodes = _nv_hashmap_calloc(new_size * sizeof(nv_hashmap_node_t));
   nv_assert(map->m_nodes != NULL);
 
   if (old_nodes)
@@ -3538,8 +3612,8 @@ nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image_t* img, size_t* o
 
   nv_skyline_rect_t rect = { .w = img->w + 2 * atlas->padding, .h = img->h + 2 * atlas->padding };
 
-  size_t            x, y;
-  bool              packed = nv_skyline_bin_find_best_placement(&atlas->bin, &rect, &x, &y);
+  size_t x, y;
+  bool   packed = nv_skyline_bin_find_best_placement(&atlas->bin, &rect, &x, &y);
 
   while (!packed)
   {
@@ -3549,8 +3623,8 @@ nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image_t* img, size_t* o
 
   nv_skyline_bin_place_rect(&atlas->bin, &rect, x, y);
 
-  *out_x       = x + atlas->padding;
-  *out_y       = y + atlas->padding;
+  *out_x = x + atlas->padding;
+  *out_y = y + atlas->padding;
 
   nv_image_t dst = { .w = atlas->w, .h = atlas->h, .fmt = NOVA_FORMAT_R8, .data = atlas->data };
   nv_image_overlay(&dst, img, *out_x, *out_y, 0, 0);
@@ -3582,11 +3656,11 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
     {
       for (size_t x = 0; x < new_w; x++)
       {
-        size_t orig_x     = x / scale;
-        size_t orig_y     = y / scale;
+        size_t orig_x = x / scale;
+        size_t orig_y = y / scale;
 
-        orig_x            = nv_MIN(orig_x, atlas->w - 1);
-        orig_y            = nv_MIN(orig_y, atlas->h - 1);
+        orig_x = nv_MIN(orig_x, atlas->w - 1);
+        orig_y = nv_MIN(orig_y, atlas->h - 1);
 
         size_t orig_index = (orig_y * atlas->w + orig_x) * channels;
         size_t new_index  = (y * new_w + x) * channels;
@@ -4287,9 +4361,9 @@ _nvsm_log_error(const char* fn, const char* fmt, ...)
 
 #if defined(NVSM)
 
-#include "../common/printf.h"
-#include "../common/string.h"
-#include "../common/timer.h"
+#include "../std/stdafx.h"
+#include "../std/string.h"
+#include "../std/timer.h"
 
 #if NVSM_EXECUTABLE
 
@@ -4307,7 +4381,7 @@ main(int argc, char* argv[])
   char buf[256] = "../compilelist.txt";
   char cmd[256] = "compile";
 
-  bool help     = 0;
+  bool help = 0;
   // clang-format off
   nv_option_t options[] = {
     { NV_OP_TYPE_STRING, "l", "list", buf, sizeof(buf) },
@@ -4377,7 +4451,7 @@ nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** d
   nv_strcpy(add.name, entry.name);
   shader_map[nshaders] = add;
 
-  *dst                 = &shader_map[nshaders];
+  *dst = &shader_map[nshaders];
 
   nshaders++;
   // map is sorted after all shaders are registered.
@@ -4415,7 +4489,7 @@ nvsm_load_shader(const char* name, struct nvsm_shader_t** out)
   nv_strncpy(shader.name, name, sizeof(shader.name) - 1);
   shader.name[sizeof(shader.name) - 1] = '\0';
 
-  struct nvsm_shader_t* shaderptr      = (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
+  struct nvsm_shader_t* shaderptr = (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
 
   if (shaderptr)
   {
@@ -4533,7 +4607,7 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
   }
   shader_map = new_shader_map;
 
-  int index  = 0;
+  int index = 0;
   for (int i = 0; i < nentries; i++)
   {
     if (nv_strncmp(entries[i].stage, "vert", 4) == 0)
@@ -4881,10 +4955,10 @@ void
 nvsm_compile_updated()
 {
   nv_log_custom(" nvsm: ", "Shader compilation begin");
-  timer                      stopwatch    = timer_begin(0.1);
+  timer stopwatch = timer_begin(0.1);
 
-  int                        nentries     = 0;
-  nvsm_shader_entry_t*       entries      = load_all_entries(list, &nentries);
+  int                  nentries = 0;
+  nvsm_shader_entry_t* entries  = load_all_entries(list, &nentries);
 
   int                        cachecount   = 0;
   nvsm_shader_cache_entry_t* cacheentries = load_cache(&cachecount);
@@ -4925,10 +4999,10 @@ void
 nvsm_compile_all()
 {
   nv_log_custom(" nvsm: ", "Shader compilation begin");
-  timer                stopwatch = timer_begin(0.1);
+  timer stopwatch = timer_begin(0.1);
 
-  int                  count     = 0;
-  nvsm_shader_entry_t* entries   = load_all_entries(list, &count);
+  int                  count   = 0;
+  nvsm_shader_entry_t* entries = load_all_entries(list, &count);
 
 #if NVSM_EXECUTABLE != 1
   nvsm_register_all_shaders(device, entries, count);
@@ -4968,7 +5042,7 @@ nvsm_shutdown()
 #include "../include/engine/fontc.h"
 
 #if (FONTC_EXECUTABLE)
-#include "../common/timer.h"
+#include "../std/timer.h"
 
 static const char* FONTC_HELP_MSG = "usage:\n./fontc -i < Font file path to bake "
                                     "> (optionally, ) -o < output file=bakedfont >";
@@ -4979,8 +5053,8 @@ main(int argc, char* argv[])
   char input[256]  = "No path given";
   char output[256] = "bakedfont";
 
-  int  pixel_size  = 256;
-  bool help        = 0;
+  int  pixel_size = 256;
+  bool help       = 0;
   int  atlas_w = 2048, atlas_h = 1024;
   // clang-format off
   nv_option_t options[] = {
@@ -5042,7 +5116,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
     return;
   }
 
-  size_t total_glyph_size          = file->header.numglyphs * sizeof(fontc_glyph_t);
+  size_t total_glyph_size = file->header.numglyphs * sizeof(fontc_glyph_t);
 
   file->glyphs                     = nv_malloc(total_glyph_size);
   file->bitmap                     = nv_malloc(file->header.bmpwidth * file->header.bmpheight);
@@ -5089,8 +5163,8 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_texture_atlas_t atlas;
   nv_texture_atlas_init(&atlas, init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4);
 
-  file.header.magic               = FONTC_MAGIC;
-  file.header.line_height         = -face->size->metrics.height / (float)face->height;
+  file.header.magic       = FONTC_MAGIC;
+  file.header.line_height = -face->size->metrics.height / (float)face->height;
 
   int            glyph_alloc_size = 256;
   fontc_glyph_t* glyphs           = nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_size);
@@ -5128,13 +5202,13 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
     }
 
     FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF);
-    FT_GlyphSlot         g      = face->glyph;
+    FT_GlyphSlot g = face->glyph;
 
     const int            w      = g->bitmap.width;
     const int            h      = g->bitmap.rows;
     const unsigned char* buffer = g->bitmap.buffer;
 
-    size_t               x = SIZE_MAX, y = SIZE_MAX;
+    size_t x = SIZE_MAX, y = SIZE_MAX;
     if (buffer)
     {
       nv_image_t glyph_image = (nv_image_t){ .w = w, .h = h, .fmt = NOVA_FORMAT_R8, .data = (unsigned char*)buffer };
@@ -5202,12 +5276,12 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   FT_Done_Face(face);
   FT_Done_FreeType(lib);
 
-  file.header.bmpwidth             = atlas_w;
-  file.header.bmpheight            = atlas_h;
-  file.header.numglyphs            = glyph_count;
+  file.header.bmpwidth  = atlas_w;
+  file.header.bmpheight = atlas_h;
+  file.header.numglyphs = glyph_count;
 
-  size_t         image_o_size      = atlas_w * atlas_h;
-  size_t         glyph_o_size      = file.header.numglyphs * sizeof(fontc_glyph_t);
+  size_t image_o_size = atlas_w * atlas_h;
+  size_t glyph_o_size = file.header.numglyphs * sizeof(fontc_glyph_t);
 
   unsigned char* compressed_image  = nv_malloc(image_o_size);
   fontc_glyph_t* compressed_glyphs = nv_malloc(glyph_o_size);
@@ -5218,12 +5292,12 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_free(atlas.data);
   nv_free(glyphs);
 
-  file.glyphs                      = compressed_glyphs;
+  file.glyphs = compressed_glyphs;
 
   file.header.img_compressed_sz    = image_o_size;
   file.header.glyphs_compressed_sz = glyph_o_size;
 
-  FILE* f                          = fopen(out, "wb");
+  FILE* f = fopen(out, "wb");
   nv_assert(f != NULL); // writing
 
   fwrite(&file.header, sizeof(fontc_file_header_t), 1, f);

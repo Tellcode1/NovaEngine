@@ -5,8 +5,8 @@
 
 #include "../../external/volk/volk.h"
 
-#include "../../common/printf.h"
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
+#include "../../std/io.h"
 #include "../engine/renderer.h"
 #include "vk.h"
 #include "vkstdafx.h"

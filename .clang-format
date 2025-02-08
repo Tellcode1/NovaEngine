@@ -5,8 +5,8 @@ UseTab: Never
 ColumnLimit: 175
 AllowAllParametersOfDeclarationOnNextLine: true
 AlignAfterOpenBracket: DontAlign
-AlignConsecutiveAssignments: AcrossEmptyLines
-AlignConsecutiveDeclarations: AcrossEmptyLines
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: Consecutive
 AlignOperands: DontAlign
 AlignTrailingComments: true
 BreakBeforeBraces: Allman

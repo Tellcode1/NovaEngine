@@ -2,7 +2,7 @@
 #define __NOVA_BITSET_H__
 
 #include "../mem.h"
-#include "../stdafx.h"
+#include "../../std/stdafx.h"
 
 typedef struct nv_bitset_t nv_bitset_t;
 typedef unsigned char      nv_bitset_bit;

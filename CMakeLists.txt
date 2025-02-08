@@ -62,7 +62,7 @@ set(LIBS
     box2d
 )
 
-target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/common/stdafx.h)
+target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/std/stdafx.h)
 target_link_options(Nova PRIVATE -g)
 target_compile_options(Nova PRIVATE -g)
 target_compile_definitions(Nova PRIVATE NVSM=1 FONTC=1 FONTC_EXECUTABLE=0 NVSM_EXECUTABLE=0) # avoid making multiple main's 

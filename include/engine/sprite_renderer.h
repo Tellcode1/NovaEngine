@@ -3,8 +3,8 @@
 
 // implementation: none
 
-#include "../../common/math/vec2.h"
-#include "../../common/math/vec4.h"
+#include "../../std/math/vec2.h"
+#include "../../std/math/vec4.h"
 #include "sprite.h"
 
 NOVA_HEADER_START;

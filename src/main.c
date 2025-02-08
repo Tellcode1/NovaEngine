@@ -1,8 +1,9 @@
 #include "../common/cvar.h"
 #include "../common/mem.h"
+#include "../std/stdafx.h"
 #include "../common/props.h"
-#include "../common/stdafx.h"
-#include "../common/timer.h"
+#include "../std/stdafx.h"
+#include "../std/timer.h"
 #include "../external/volk/volk.h"
 #include "../include/engine/camera.h"
 #include "../include/engine/ctext.h"
@@ -34,7 +35,7 @@ hoover(nvui_button* self)
 __attribute__((__used__, __noinline__)) void
 test_allocator(void)
 {
-  uchar              buf[1024];
+  uchar buf[1024];
 
   nv_allocator_stack stack;
   nv_allocator_stack_init(&stack, buf, 1024);
@@ -42,8 +43,8 @@ test_allocator(void)
   nv_allocator_t ac;
   nv_allocator_bind_stack_allocator(&ac, &stack);
 
-  size_t*         allocations[32];
-  bool            pass                = 1;
+  size_t* allocations[32];
+  bool    pass = 1;
 
   volatile uchar* TestLargeAllocation = ac.alloc(&ac, 1, 100);
   for (int i = 0; i < 100; i++)
@@ -139,7 +140,7 @@ main(int argc, char* argv[])
   nv_option_t options[]         = { { NV_OP_TYPE_STRING, NULL, "window-name", windowname, sizeof(windowname) }, { NV_OP_TYPE_INT, NULL, "window-width", &window_width, 0 },
             { NV_OP_TYPE_INT, NULL, "window-height", &window_height, 0 }, { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 }, NV_OPTION_SENTINEL };
 
-  char        error[256];
+  char error[256];
   if (nv_props_parse(argc, argv, options, error, sizeof(error)) == -1)
   {
     nv_log_error("PROPS error: %s", error);
@@ -193,12 +194,12 @@ recompile-shaders=false : bool -> Recompile all shaders)");
   float       totalTime  = 0.0f;
   u32         numFrames  = 0;
 
-  cfont_t* OpenSans;
+  cfont_t OpenSans;
   ctext_load_font(rd, "./OpenSans.ff", 1.0f, &OpenSans);
 
-  int         curr_showing_fps = 0;
+  int curr_showing_fps = 0;
 
-  const float scale            = 2.0f;
+  const float scale = 2.0f;
 
   nv_log_info("Initialized in %fs", timer_time_since_start(&tm));
 
@@ -207,7 +208,7 @@ recompile-shaders=false : bool -> Recompile all shaders)");
     nv_update();
     const double dt = nv_get_delta_time();
 
-    SDL_Event    event;
+    SDL_Event event;
     while (SDL_PollEvent(&event))
     {
       nv_consume_event(&event);
@@ -227,17 +228,17 @@ recompile-shaders=false : bool -> Recompile all shaders)");
 
     if (nv_renderer_begin(rd))
     {
-      struct tm*               time       = _nv_get_time();
+      struct tm* time = _nv_get_time();
 
-      const char*              day        = get_day_str(time);
-      const char*              mon        = get_month_str(time);
-      size_t                   year       = time->tm_year + 1900;
+      const char* day  = get_day_str(time);
+      const char* mon  = get_month_str(time);
+      size_t      year = time->tm_year + 1900;
 
       ctext_text_render_info_t clock_info = ctext_init_text_render_info();
       clock_info.scale                    = scale;
       clock_info.bbox                     = (vec2){ camera.ortho_size.x, camera.ortho_size.y };
       clock_info.scale_for_fit            = 1;
-      ctext_render(OpenSans, &clock_info, "%i %s %s %d\n%d:%d:%zu", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
+      ctext_render(&OpenSans, &clock_info, "%i %s %s %d\n%d:%d:%zu", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
 
       nv_renderer_end(rd);
     }
@@ -246,6 +247,6 @@ recompile-shaders=false : bool -> Recompile all shaders)");
   nv_input_shutdown();
 
   vkDeviceWaitIdle(device);
-  ctext_destroy_font(OpenSans);
+  ctext_destroy_font(&OpenSans);
   nv_renderer_destroy(rd);
 }

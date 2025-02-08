@@ -3,7 +3,7 @@
 
 // implementation: vk.c
 
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
 #include "../engine/renderer.h"
 #include "../../common/format.h"
 #include "vkstdafx.h"

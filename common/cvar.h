@@ -1,7 +1,7 @@
 #ifndef __CVARS_H__
 #define __CVARS_H__
 
-#include "stdafx.h"
+#include "../std/stdafx.h"
 #include "string.h"
 
 NOVA_HEADER_START;

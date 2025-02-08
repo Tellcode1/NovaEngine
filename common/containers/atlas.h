@@ -4,7 +4,7 @@
 #include "../format.h"
 #include "../image.h"
 #include "../rectpack.h"
-#include "../stdafx.h"
+#include "../../std/stdafx.h"
 
 NOVA_HEADER_START;
 

@@ -4,7 +4,7 @@
 // implementation: vk.c
 
 #include "../../common/rectpack.h"
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
 #include <stdbool.h>
 #include <stdio.h>
 

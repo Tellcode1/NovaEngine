@@ -2,7 +2,7 @@
 #define __NOVA_IMAGE_H__
 
 #include "format.h"
-#include "stdafx.h"
+#include "../std/stdafx.h"
 
 NOVA_HEADER_START;
 

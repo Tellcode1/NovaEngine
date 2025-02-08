@@ -3,9 +3,9 @@
 
 // implementation: vk.c
 
-#include "../../common/math/mat.h"
-#include "../../common/math/vec2.h"
-#include "../../common/math/vec3.h"
+#include "../../std/math/mat.h"
+#include "../../std/math/vec2.h"
+#include "../../std/math/vec3.h"
 
 #include "../GPU/buffer.h"
 #include "../engine/input.h"

@@ -6,9 +6,9 @@
 #include "object.h"
 #include "scene.h"
 
-#include "../../common/math/mat.h"
-#include "../../common/math/vec2.h"
-#include "../../common/math/vec3.h"
+#include "../../std/math/mat.h"
+#include "../../std/math/vec2.h"
+#include "../../std/math/vec3.h"
 
 #include "../../common/containers/atlas.h"
 #include "../../common/containers/dynarray.h"
@@ -70,7 +70,7 @@ extern void           ctext_label_set_text_scale(ctext_label_t* label, float sca
 extern void ctext_init(struct nv_renderer_t* rd);
 extern void ctext_shutdown(struct nv_renderer_t* rd);
 
-extern void ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t** dst);
+extern void ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
 
 extern void ctext_destroy_font(cfont_t* fnt);
 

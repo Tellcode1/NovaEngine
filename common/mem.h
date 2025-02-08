@@ -4,7 +4,7 @@
 // implementation: core.c
 
 #include "../common/containers/freelist.h"
-#include "stdafx.h"
+#include "../std/stdafx.h"
 #include "string.h"
 #include <stddef.h>
 

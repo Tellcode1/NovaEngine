@@ -1,7 +1,7 @@
 #ifndef __NOVA_ERR_H__
 #define __NOVA_ERR_H__
 
-#include "stdafx.h"
+#include "../std/stdafx.h"
 
 NOVA_HEADER_START;
 

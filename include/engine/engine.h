@@ -1,7 +1,7 @@
 #ifndef __NOVA_ENGINE_H__
 #define __NOVA_ENGINE_H__
 
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
 
 NOVA_HEADER_START;
 

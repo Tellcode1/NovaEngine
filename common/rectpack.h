@@ -1,7 +1,7 @@
 #ifndef __NOVA_RECT_PACK_H__
 #define __NOVA_RECT_PACK_H__
 
-#include "stdafx.h"
+#include "../std/stdafx.h"
 
 typedef struct nv_skyline_bin_t  nv_skyline_bin_t;
 typedef struct nv_skyline_rect_t nv_skyline_rect_t;

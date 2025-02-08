@@ -5,7 +5,7 @@
 
 #include "../../common/containers/dynarray.h"
 #include "../../common/mem.h"
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
 #include "../../external/volk/volk.h"
 #include "../../common/format.h"
 

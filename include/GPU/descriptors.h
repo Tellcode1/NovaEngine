@@ -3,8 +3,8 @@
 
 // implementation: vk.c
 
-#include "../../common/math/math.h"
-#include "../../common/stdafx.h"
+#include "../../std/math/math.h"
+#include "../../std/stdafx.h"
 #include "../../external/volk/volk.h"
 #include "vkstdafx.h"
 

@@ -10,7 +10,7 @@
 #include "../include/engine/scene.h"
 #include "../include/engine/ui.h"
 
-#include "../common/string.h"
+#include "../std/string.h"
 #include <SDL2/SDL.h>
 
 u8         nv_current_frame              = 0;

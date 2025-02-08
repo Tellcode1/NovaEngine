@@ -36,9 +36,9 @@ extern int nv_memcmp(const void* p1, const void* p2, size_t max);
 // god is dead and I killed him
 extern void* nv_malloc(size_t sz);
 
-extern void *nv_calloc(size_t sz);
+extern void* nv_calloc(size_t sz);
 
-extern void *nv_realloc(void *prevblock, size_t new_sz);
+extern void* nv_realloc(void* prevblock, size_t new_sz);
 
 extern void  nv_free(void* block);
 
@@ -62,10 +62,14 @@ extern char* nv_strcpy(char* dest, const char* src);
 extern char* nv_strncpy(char* dest, const char* src, size_t max);
 
 // Concatenate src to dest
-extern char *nv_strcat(char *dest, const char *src);
+extern char* nv_strcat(char* dest, const char* src);
 
 // Concatenate src to dest
-extern char *nv_strncat(char *dest, const char *src, size_t max);
+extern char* nv_strncat(char* dest, const char* src, size_t max);
+
+// Copy from src to dest while ensuring that there are no more than dest_size characters in dest
+// If nv_strlen(dest) > dest_size, this function will return and do nothing.
+extern char* nv_strcat_max(char* dest, const char* src, size_t dest_size);
 
 // Return the number of characters copied.
 extern size_t nv_strncpy2(char* dest, const char* src, size_t max);

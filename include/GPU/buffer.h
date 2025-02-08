@@ -3,7 +3,7 @@
 
 // implementation: vk.c
 
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
 
 NOVA_HEADER_START;
 

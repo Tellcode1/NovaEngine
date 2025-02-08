@@ -2,6 +2,7 @@
 #define __NOVA_HASHMAP_H__
 
 #include "../../common/mem.h"
+#include "../../std/string.h"
 #include <stdbool.h>
 #include <stdio.h>
 

@@ -2,8 +2,8 @@
 
 #include "../common/containers/dynarray.h"
 #include "../common/image.h"
-#include "../common/printf.h"
-#include "../common/string.h"
+#include "../std/stdafx.h"
+#include "../std/string.h"
 #include "../include/GPU/buffer.h"
 #include "../include/GPU/memory.h"
 #include "../include/GPU/pipeline.h"
@@ -1712,7 +1712,7 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
 /* I have no idea what any of this is */
 
 void
-ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t** dst)
+ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst)
 {
   if (!rd || !dst)
   {
@@ -1724,25 +1724,24 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t** d
     nv_log_error("attempting to load a font with 0 fontscale.");
   }
 
-  *dst            = nv_dynarray_push_empty(&rd->ctext->fonts);
+  *(cfont_t**)nv_dynarray_push_empty(&rd->ctext->fonts) = dst;
+  *dst                                                  = (cfont_t){ 0 };
 
-  cfont_t* dstref = *dst;
+  dst->rd                                               = rd;
 
-  dstref->rd      = rd;
-
-  nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dstref->glyph_map);
-  nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dstref->drawcalls);
+  nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
+  nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
 
   fontc_file_t f_file;
   fontc_read_font(font_path, &f_file);
 
   nv_texture_atlas_t atlas;
 
-  dstref->line_height = f_file.header.line_height;
-  dstref->space_width = f_file.header.space_width;
-  atlas.w             = f_file.header.bmpwidth;
-  atlas.h             = f_file.header.bmpheight;
-  atlas.data          = f_file.bitmap;
+  dst->line_height = f_file.header.line_height;
+  dst->space_width = f_file.header.space_width;
+  atlas.w          = f_file.header.bmpwidth;
+  atlas.h          = f_file.header.bmpheight;
+  atlas.data       = f_file.bitmap;
 
   for (int i = 0; i < f_file.header.numglyphs; i++)
   {
@@ -1756,7 +1755,7 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t** d
        .t                        = f_file.glyphs[i].t,
        .advance                  = f_file.glyphs[i].advance };
     char          glyphi = f_file.glyphs[i].codepoint;
-    nv_hashmap_insert(&dstref->glyph_map, &glyphi, &glyph);
+    nv_hashmap_insert(&dst->glyph_map, &glyphi, &glyph);
   }
 
   nv_gpu_texture_create_info image_info = { .format = NOVA_FORMAT_R8,
@@ -1766,25 +1765,25 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t** d
     .extent                                         = (nv_extent3D){ .width = atlas.w, .height = atlas.h, .depth = 1 },
     .arraylayers                                    = 1,
     .miplevels                                      = 1 };
-  nv_gpu_create_texture(&image_info, &dstref->texture);
+  nv_gpu_create_texture(&image_info, &dst->texture);
 
   VkMemoryRequirements imageMemoryRequirements;
-  vkGetImageMemoryRequirements(device, nv_gpu_texture_get(dstref->texture), &imageMemoryRequirements);
+  vkGetImageMemoryRequirements(device, nv_gpu_texture_get(dst->texture), &imageMemoryRequirements);
 
-  nv_gpu_allocate_memory(imageMemoryRequirements.size, NOVA_GPU_MEMORY_USAGE_GPU_LOCAL, &dstref->texture_mem);
-  nv_gpu_bind_texture_to_memory(dstref->texture_mem, 0, dstref->texture);
+  nv_gpu_allocate_memory(imageMemoryRequirements.size, NOVA_GPU_MEMORY_USAGE_GPU_LOCAL, &dst->texture_mem);
+  nv_gpu_bind_texture_to_memory(dst->texture_mem, 0, dst->texture);
 
-  const int atlas_w = atlas.w, atlas_h = atlas.h;
+  const int  atlas_w = atlas.w, atlas_h = atlas.h;
 
-  nv_image_t  atlas_img = (nv_image_t){ .w = atlas_w, .h = atlas_h, .fmt = NOVA_FORMAT_R8, .data = atlas.data };
-  nv_gpu_write_to_texture(dstref->texture, &atlas_img);
+  nv_image_t atlas_img = (nv_image_t){ .w = atlas_w, .h = atlas_h, .fmt = NOVA_FORMAT_R8, .data = atlas.data };
+  nv_gpu_write_to_texture(dst->texture, &atlas_img);
 
   const nv_gpu_sampler_create_info sampler_info = { .filter = VK_FILTER_LINEAR, .mipmap_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR, .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT };
-  nv_gpu_create_sampler(&sampler_info, &dstref->sampler);
+  nv_gpu_create_sampler(&sampler_info, &dst->sampler);
 
   const VkDescriptorImageInfo ctext_bitmap_image_info = {
-    .sampler     = nv_gpu_sampler_get(dstref->sampler),
-    .imageView   = nv_gpu_texture_get_view(dstref->texture),
+    .sampler     = nv_gpu_sampler_get(dst->sampler),
+    .imageView   = nv_gpu_texture_get_view(dst->texture),
     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
 
@@ -1820,7 +1819,7 @@ ctext_destroy_font(cfont_t* fnt)
 }
 
 bool
-ctext__font_resize_buffer(cfont_t* fnt, int new_buffer_size)
+_ctext_font_resize_buffer(cfont_t* fnt, int new_buffer_size)
 {
   int new_allocation_size;
 
@@ -2161,7 +2160,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
   va_list arg;
   va_start(arg, fmt);
 
-  num    = nv_vsnprintf(NULL, NOVA_PRINTF_BUFSIZ, fmt, arg);
+  num    = nv_vsnprintf(NULL, NOVA_WBUF_SIZE, fmt, arg);
   buffer = nv_malloc(num + 1);
   va_start(arg, fmt);
 
@@ -2202,11 +2201,11 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
     return;
   }
 
-  nv_dynarray_push_back(&fnt->drawcalls, &drawcall);
-
   nv_free(buffer);
 
   fnt->rendered_this_frame = 1;
+
+  nv_dynarray_push_back(&fnt->drawcalls, &drawcall);
 }
 
 void
@@ -2238,7 +2237,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
   const u32  total_index_byte_size = total_index_count * sizeof(u32);
   const u32  total_buffer_size     = total_index_byte_size + total_vertex_byte_size;
 
-  const bool fnt_buffer_resized    = ctext__font_resize_buffer(fnt, total_buffer_size);
+  const bool fnt_buffer_resized    = _ctext_font_resize_buffer(fnt, total_buffer_size);
 
   if (fnt->to_render && !fnt_buffer_resized)
   {
@@ -2281,7 +2280,7 @@ ctext_flush_renders(nv_renderer_t* rd)
 {
   for (int i = 0; i < (int)rd->ctext->fonts.m_size; i++)
   {
-    cfont_t* fnt = nv_dynarray_get(&rd->ctext->fonts, i);
+    cfont_t* fnt = *(cfont_t **)nv_dynarray_get(&rd->ctext->fonts, i);
     _ctext_flush_font(rd, fnt);
   }
 }
@@ -2341,7 +2340,7 @@ ctext_init(struct nv_renderer_t* rd)
   rd->ctext              = nv_calloc(sizeof(nv_ctext_module));
   nv_ctext_module* ctext = rd->ctext;
 
-  nv_dynarray_init(sizeof(cfont_t), 4, &nv_allocator_default, &ctext->fonts);
+  nv_dynarray_init(sizeof(cfont_t*), 4, &nv_allocator_default, &ctext->fonts);
   nv_dynarray_init(sizeof(ctext_label_t), 4, &nv_allocator_default, &ctext->labels);
 
   const VkDescriptorSetLayoutBinding bindings[] = {
@@ -4349,7 +4348,7 @@ nv_sprite_load_from_memory(const unsigned char* data, int w, int h, nv_format fm
 nv_sprite*
 nv_sprite_load_from_disk(const char* path)
 {
-  nv_image_t   tex = nv_image_load(path);
+  nv_image_t tex = nv_image_load(path);
   nv_sprite* spr = nv_sprite_load_from_memory(tex.data, tex.w, tex.h, tex.fmt);
   spr->rcount    = 1;
   nv_free(tex.data);

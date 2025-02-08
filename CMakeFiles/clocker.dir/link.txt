@@ -1,1 +1,0 @@
-/usr/bin/cc -Wl,--dependency-file=CMakeFiles/clocker.dir/link.d CMakeFiles/clocker.dir/src/main.c.o -o clocker  CarbonEngine/libNova.a CarbonEngine/libcore.a -ljpeg -lpng -lz CarbonEngine/external/volk/libvolk.a -ldl -lm -lSDL2 -lfreetype CarbonEngine/external/box2d/src/libbox2d.a

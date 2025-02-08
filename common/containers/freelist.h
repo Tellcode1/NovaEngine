@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "../stdafx.h"
-#include "../string.h"
+#include "../../std/stdafx.h"
+#include "../../std/string.h"
 
 typedef struct nv_chunk_t     nv_chunk_t;
 typedef struct nv_node_t      nv_node_t;

@@ -8,7 +8,7 @@
 
 // This header should be fragmented into multiple, each for their own object.
 
-#include "../../common/stdafx.h"
+#include "../../std/stdafx.h"
 #include "vkstdafx.h"
 
 NOVA_HEADER_START;

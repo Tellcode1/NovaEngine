@@ -3,7 +3,7 @@
 
 // implementation: engine.c
 
-#include "../../common/math/vec4.h"
+#include "../../std/math/vec4.h"
 #include "object.h"
 #include "sprite.h"
 
