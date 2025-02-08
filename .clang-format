@@ -19,11 +19,5 @@ PointerAlignment: Left
 SortIncludes: CaseSensitive
 SpaceBeforeAssignmentOperators: true
 IndentPPDirectives: AfterHash
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterFunction: true
-  AfterStruct: true
-  AfterClass: true
-  AfterControlStatement: Always
-  IndentBraces: true
+BreakBeforeBraces: Allman
 PPIndentWidth: 2

@@ -5,11 +5,11 @@
 #include <time.h>
 
 #ifndef WIN32
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 #ifdef WIN32
-#define stat _stat
+#  define stat _stat
 #endif
 
 #if !(NVSM_EXECUTABLE)
@@ -30,14 +30,14 @@ const char* list                 = "../compilelist.txt";
 #endif
 
 #ifdef _WIN32
-#include <direct.h>
-#define MKDIR(path) _mkdir(path)
-#define PATH_SEP '\\'
+#  include <direct.h>
+#  define MKDIR(path) _mkdir(path)
+#  define PATH_SEP '\\'
 #else
-#include <sys/stat.h>
-#include <sys/types.h>
-#define MKDIR(path) (mkdir(path, 0777))
-#define PATH_SEP '/'
+#  include <sys/stat.h>
+#  include <sys/types.h>
+#  define MKDIR(path) (mkdir(path, 0777))
+#  define PATH_SEP '/'
 #endif
 
 #define NVSM_HAS_FLAG(flag) (nv_strcmp(argv[i], flag) == 0)
@@ -57,19 +57,19 @@ _nvsm_log_error(const char* fn, const char* fmt, ...)
 
 #if defined(NVSM)
 
-#include "../std/io.h"
-#include "../std/props.h"
-#include "../std/stdafx.h"
-#include "../std/string.h"
-#include "../std/timer.h"
-#include <errno.h>
+#  include "../std/io.h"
+#  include "../std/props.h"
+#  include "../std/stdafx.h"
+#  include "../std/string.h"
+#  include "../std/timer.h"
+#  include <errno.h>
 
-#if NVSM_EXECUTABLE
+#  if NVSM_EXECUTABLE
 
-#include "../include/engine/shadermanager.h"
+#    include "../include/engine/shadermanager.h"
 
-#define CMD_HELP_MSG                                                                                                                                                          \
-  "cmd can be any of:\n\
+#    define CMD_HELP_MSG                                                                                                                                                      \
+      "cmd can be any of:\n\
 <default> compile: compile only those that have been changed since last ran,\n\
 compile-force: forcefully compile all shaders in list file,\n\
 \n"
@@ -124,7 +124,7 @@ main(int argc, char* argv[])
   return 0;
 }
 
-#else
+#  else
 
 int
 compare_shader_t(const void* a, const void* b)
@@ -272,8 +272,8 @@ err:
   return -1;
 }
 
-#include "../external/volk/volk.h"
-#include "../include/GPU/pipeline.h"
+#    include "../external/volk/volk.h"
+#    include "../include/GPU/pipeline.h"
 
 void
 _nvsm_create_shader(VkDevice vkdevice, const unsigned* bytes, int nbytes, struct nvsm_shader_t* out)
@@ -355,7 +355,7 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
   qsort(shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
 }
 
-#endif // NVSM_EXECUTABLE != 1
+#  endif // NVSM_EXECUTABLE != 1
 
 void
 nvsm_set_list_file(const char* path)
@@ -583,12 +583,12 @@ load_all_entries(const char* shader_list_file_path, int* count)
   return entries;
 }
 
-#if defined(__linux)
+#  if defined(__linux)
 // int _nvsm_linux_run() {
 
 // }
 // #define system _nvsm_linux_run
-#endif
+#  endif
 
 static char* g_Buffer = NULL;
 int
@@ -618,6 +618,7 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
 void
 nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_cache_entry_t* cacheentries, int cachecount)
 {
+  int compiled = 0;
   for (int i = 0; i < nentries; i++)
   {
     for (int j = 0; j < cachecount; j++)
@@ -630,12 +631,17 @@ nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_
           {
             nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path);
           }
+          else
+          {
+            compiled++;
+          }
           cacheentries[j].last_modified = entries[i].last_modified;
         }
         break;
       }
     }
   }
+  nv_log_custom(" nvsm: ", "Compiled %i shaders", compiled);
 }
 
 void
@@ -682,16 +688,16 @@ nvsm_compile_updated()
     update_cache(cacheentries, nentries);
   }
 
-#if NVSM_EXECUTABLE != 1
+#  if NVSM_EXECUTABLE != 1
   nvsm_register_all_shaders(device, entries, nentries);
-#endif // NVSM_EXECUTABLE != 1
+#  endif // NVSM_EXECUTABLE != 1
 
   nv_free(entries);
 
   if (cacheentries)
     nv_free(cacheentries);
 
-  nv_log_custom(" nvsm: ", "Shader compilation end (Task took %f seconds)", timer_time_since_start(&stopwatch));
+  nv_log_custom(" nvsm: ", "Shader compilation end in %fs", timer_time_since_start(&stopwatch));
 }
 
 void
@@ -703,9 +709,9 @@ nvsm_compile_all()
   int                  count   = 0;
   nvsm_shader_entry_t* entries = load_all_entries(list, &count);
 
-#if NVSM_EXECUTABLE != 1
+#  if NVSM_EXECUTABLE != 1
   nvsm_register_all_shaders(device, entries, count);
-#endif // #if NVSM_EXECUTABLE != 1
+#  endif // #if NVSM_EXECUTABLE != 1
 
   for (int i = 0; i < count; i++)
   {
@@ -722,32 +728,32 @@ nvsm_compile_all()
 void
 nvsm_shutdown()
 {
-#if !(NVSM_EXECUTABLE)
+#  if !(NVSM_EXECUTABLE)
   for (int i = 0; i < nshaders; i++)
   {
     nvsm_shader_t* shader = &shader_map[i];
     vkDestroyShaderModule(device, shader->shader_module, NOVA_VK_ALLOCATOR);
   }
-#endif
+#  endif
 }
 
 #endif // NVSM
 
 #if (FONTC)
 
-#include "../std/io.h"
-#include "../std/props.h"
-#include "../std/stdafx.h"
-#include "../std/string.h"
-#include "../std/timer.h"
+#  include "../std/io.h"
+#  include "../std/props.h"
+#  include "../std/stdafx.h"
+#  include "../std/string.h"
+#  include "../std/timer.h"
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
+#  include <errno.h>
+#  include <stdio.h>
+#  include <stdlib.h>
 
-#include "../include/engine/fontc.h"
+#  include "../include/engine/fontc.h"
 
-#if (FONTC_EXECUTABLE)
+#  if (FONTC_EXECUTABLE)
 
 static const char* FONTC_HELP_MSG = "usage:\n./fontc -i < Font file path to bake "
                                     "> (optionally, ) -o < output file=bakedfont >";
@@ -803,7 +809,7 @@ main(int argc, char* argv[])
   return 0;
 }
 
-#endif // FONTC_EXECUTABLE
+#  endif // FONTC_EXECUTABLE
 
 void
 fontc_read_font(const char* path, fontc_file_t* file)
@@ -840,12 +846,12 @@ fontc_read_font(const char* path, fontc_file_t* file)
   fclose(f);
 }
 
-#include <freetype2/ft2build.h>
-#include <string.h>
-#include FT_FREETYPE_H
-#include FT_GLYPH_H
+#  include <freetype2/ft2build.h>
+#  include <string.h>
+#  include FT_FREETYPE_H
+#  include FT_GLYPH_H
 
-#include "../common/containers/atlas.h"
+#  include "../common/containers/atlas.h"
 
 void
 fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init_atlas_w, int init_atlas_h)

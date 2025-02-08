@@ -1,7 +1,7 @@
 #include "../common/cvar.h"
 #include "../common/mem.h"
 #include "../std/stdafx.h"
-#include "../common/props.h"
+#include "../std/props.h"
 #include "../std/stdafx.h"
 #include "../std/timer.h"
 #include "../external/volk/volk.h"
@@ -29,7 +29,7 @@ leave_game(nvui_button* self)
 void
 hoover(nvui_button* self)
 {
-  self->color = (vec4){ 0.6f, 0.6f, 0.6f, 1.0f };
+  self->color = (vec4f){ 0.6f, 0.6f, 0.6f, 1.0f };
 }
 
 __attribute__((__used__, __noinline__)) void
