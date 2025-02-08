@@ -17,7 +17,6 @@
 #include "../std/string.h"
 
 #include <SDL2/SDL_vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #define HAS_FLAG(flag) ((nv_gpu_vk_flag_register & flag) || (flags & flag))
 #define STR(s) #s
@@ -306,24 +305,12 @@ nv_Quad_Visible(const vec3* pos, const vec3* siz)
 }
 
 void
-nv_renderer_render_textured_quad(nv_renderer_t* rd, const nv_sprite_renderer* sprite_renderer, vec3f position, vec3f size, int layer)
-{
-  nv_draw_call_t drawcall = { .type = NOVA_DRAWCALL_QUAD,
-    .layer                          = layer,
-    .drawcall
-    = { .quad = { .spr = sprite_renderer->spr, .tex_multiplier = sprite_renderer->tex_coord_multiplier, .pos = position, .siz = size, .col = sprite_renderer->color } } };
-  nv_dynarray_push_back(&rd->drawcalls, &drawcall);
-}
-
-void
 nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer)
 {
-  // create a temporary sprite renderer and render an untextured quad with it
-  nv_sprite_renderer sprite_renderer   = nv_sprite_renderer_init();
-  sprite_renderer.spr                  = spr;
-  sprite_renderer.tex_coord_multiplier = tex_coord_multiplier;
-  sprite_renderer.color                = color;
-  nv_renderer_render_textured_quad(rd, &sprite_renderer, position, size, layer);
+  nv_draw_call_t drawcall = { .type     = NOVA_DRAWCALL_QUAD,
+                              .layer    = layer,
+                              .drawcall = { .quad = { .spr = spr, .tex_multiplier = tex_coord_multiplier, .pos = position, .siz = size, .col = color } } };
+  nv_dynarray_push_back(&rd->drawcalls, &drawcall);
 }
 
 void
@@ -438,11 +425,12 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
 void
 nv_renderer_prepare_quad_renderer(nv_renderer_t* rd)
 {
-  nv_memcpy(quad_vertices,
+  nv_memcpy(
+      quad_vertices,
       (const quad_vertex[4]){ (const quad_vertex){ .position = (vec3f){ +0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 0.0f } },
-          (const quad_vertex){ .position = (vec3f){ -0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 0.0f } },
-          (const quad_vertex){ .position = (vec3f){ -0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 1.0f } },
-          (const quad_vertex){ .position = (vec3f){ +0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 1.0f } } },
+                              (const quad_vertex){ .position = (vec3f){ -0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 0.0f } },
+                              (const quad_vertex){ .position = (vec3f){ -0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 1.0f } },
+                              (const quad_vertex){ .position = (vec3f){ +0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 1.0f } } },
       sizeof(quad_vertices));
 
   nv_gpu_create_buffer(
@@ -461,10 +449,7 @@ nv_renderer_prepare_quad_renderer(nv_renderer_t* rd)
 void
 nv_renderer_destroy(nv_renderer_t* rd)
 {
-  if (!rd)
-  {
-    return;
-  }
+  if (!rd) { return; }
 
   vkDeviceWaitIdle(device);
 
@@ -474,7 +459,8 @@ nv_renderer_destroy(nv_renderer_t* rd)
   {
     nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
     nv_gpu_destroy_texture(data->depth_image);
-    vkDestroyImageView(device, nv_gpu_texture_get_view(data->sc_image),
+    vkDestroyImageView(
+        device, nv_gpu_texture_get_view(data->sc_image),
         NOVA_VK_ALLOCATOR); // as the view was silently smushed into the
                             // structure, we just kinda smush it out as well.
     vkDestroyFramebuffer(device, data->color_framebuffer, NOVA_VK_ALLOCATOR);
@@ -547,8 +533,9 @@ create_optional_images(nv_renderer_t* rd)
   if (rd->flags & NOVA_RENDERER_MULTISAMPLING_ENABLE)
   {
     int color_image_size = 0;
-    nv_vk_create_texture_empty(rd->render_extent.width, rd->render_extent.height, swap_chain_image_format, samples,
-        VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &color_image_size, &rd->color_image->image, NULL);
+    nv_vk_create_texture_empty(
+        rd->render_extent.width, rd->render_extent.height, swap_chain_image_format, samples, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        &color_image_size, &rd->color_image->image, NULL);
     nv_gpu_allocate_memory(color_image_size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT, &rd->color_image_memory);
     nv_gpu_bind_texture_to_memory(rd->color_image_memory, 0, rd->color_image);
   }
@@ -622,10 +609,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
     {
       nv_dynarray_push_set(&attachments, (VkImageView[]){ nv_gpu_texture_get_view(rd->color_image), depth_image_view, swapchain_image_view }, 3);
     }
-    else
-    {
-      nv_dynarray_push_set(&attachments, (VkImageView[]){ swapchain_image_view, depth_image_view }, 2);
-    }
+    else { nv_dynarray_push_set(&attachments, (VkImageView[]){ swapchain_image_view, depth_image_view }, 2); }
 
     VkFramebufferCreateInfo framebufferInfo = {};
     framebufferInfo.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -644,10 +628,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 void
 nv_renderer_initialize_graphics_singleton()
 {
-  if (!nv_vk_get_supported_format(phys_device, surface, &swap_chain_image_format, &swap_chain_color_space))
-  {
-    nv_log_and_abort("No supported format for display.");
-  }
+  if (!nv_vk_get_supported_format(phys_device, surface, &swap_chain_image_format, &swap_chain_color_space)) { nv_log_and_abort("No supported format for display."); }
   swap_chain_image_count = nv_vk_get_surface_image_count(phys_device, surface);
 
   u32 queueCount = 0;
@@ -691,8 +672,7 @@ nv_renderer_initialize_graphics_singleton()
       presentFamily      = i;
       foundPresentFamily = true;
     }
-    if (foundGraphicsFamily && foundGraphicsAndComputeFamily && foundPresentFamily && foundComputeFamily && foundTransferFamily)
-      break;
+    if (foundGraphicsFamily && foundGraphicsAndComputeFamily && foundPresentFamily && foundComputeFamily && foundTransferFamily) break;
 
     i++;
   }
@@ -721,20 +701,13 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   {
     switch (conf->buffer_mode)
     {
-      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED:
-        present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-        break;
+      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED: present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR; break;
       case NOVA_BUFFER_MODE_SINGLE_BUFFERED:
       case NOVA_BUFFER_MODE_DOUBLE_BUFFERED:
-      default:
-        present_mode = VK_PRESENT_MODE_FIFO_KHR;
-        break;
+      default: present_mode = VK_PRESENT_MODE_FIFO_KHR; break;
     };
   }
-  else
-  {
-    present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
-  }
+  else { present_mode = VK_PRESENT_MODE_MAILBOX_KHR; }
 
   nv_gpu_swapchain_create_info scio = {};
   scio.extent.width                 = rd->render_extent.width;
@@ -746,14 +719,8 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   nv_gpu_create_swapchain(&scio, &rd->swapchain);
 
   VkSampleCountFlagBits conf_samples;
-  if (conf->samples == NOVA_SAMPLE_COUNT_MAX_SUPPORTED)
-  {
-    conf_samples = MAX_SAMPLES;
-  }
-  else
-  {
-    conf_samples = (VkSampleCountFlagBits)conf->samples;
-  }
+  if (conf->samples == NOVA_SAMPLE_COUNT_MAX_SUPPORTED) { conf_samples = MAX_SAMPLES; }
+  else { conf_samples = (VkSampleCountFlagBits)conf->samples; }
   const VkSampleCountFlagBits _samples = conf->multisampling_enable ? conf_samples : VK_SAMPLE_COUNT_1_BIT;
   samples                              = _samples;
 
@@ -813,28 +780,16 @@ nv_renderer_init(const nv_renderer_config* conf)
 
   // how many frames the renderer will render at once
   int frames_in_flight = (1 + (int)conf->buffer_mode);
-  if (frames_in_flight <= 0)
-  {
-    frames_in_flight = 1;
-  }
+  if (frames_in_flight <= 0) { frames_in_flight = 1; }
 
   nv_dynarray_init(sizeof(nv_gpu_sampler), 4, &nv_allocator_default, &g_Samplers);
   nv_dynarray_init(sizeof(nv_draw_call_t), 4, &nv_allocator_default, &rd->drawcalls);
   nv_dynarray_init(sizeof(VkCommandBuffer), frames_in_flight, &nv_allocator_default, &rd->drawBuffers);
   nv_dynarray_init(sizeof(nv_renderer_frame_render_info), frames_in_flight, &nv_allocator_default, &rd->renderData);
 
-  if (conf->multisampling_enable)
-  {
-    rd->flags |= NOVA_RENDERER_MULTISAMPLING_ENABLE;
-  }
-  if (conf->window_resizable)
-  {
-    rd->flags |= NOVA_RENDERER_WINDOW_RESIZABLE;
-  }
-  if (conf->vsync_enabled)
-  {
-    rd->flags |= NOVA_RENDERER_VSYNC_ENABLE;
-  }
+  if (conf->multisampling_enable) { rd->flags |= NOVA_RENDERER_MULTISAMPLING_ENABLE; }
+  if (conf->window_resizable) { rd->flags |= NOVA_RENDERER_WINDOW_RESIZABLE; }
+  if (conf->vsync_enabled) { rd->flags |= NOVA_RENDERER_VSYNC_ENABLE; }
   rd->buffer_mode = conf->buffer_mode;
 
   rd->render_extent.width  = conf->initial_window_size.width;
@@ -859,8 +814,11 @@ nv_renderer_init(const nv_renderer_config* conf)
 
   const unsigned char empty_data[3] = { 255, 255, 255 }; // fill rgb with 255 so it's white
   nv_sprite_empty                   = nv_sprite_load_from_memory(empty_data, 1, 1, NOVA_FORMAT_RGB8);
+  nv_assert(nv_sprite_empty != NULL);
 
-  camera = nv_camera_init();
+  nv_log_info("loaded backup sprite");
+
+  nv_camera_init(&camera);
 
   ctext_init(rd);
   nv_vk_bake_global_pipelines(rd);
@@ -903,7 +861,8 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
   for (u32 i = 0; i < swap_chain_image_count; i++)
   {
     nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
-    vkDestroyImageView(device, nv_gpu_texture_get_view(data->sc_image),
+    vkDestroyImageView(
+        device, nv_gpu_texture_get_view(data->sc_image),
         NOVA_VK_ALLOCATOR); // as the view was silently smushed into the
                             // structure, we just kinda smush it out as well.
     vkDestroyFramebuffer(device, data->color_framebuffer, NOVA_VK_ALLOCATOR);
@@ -936,20 +895,13 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
   {
     switch (rd->buffer_mode)
     {
-      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED:
-        present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-        break;
+      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED: present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR; break;
       case NOVA_BUFFER_MODE_SINGLE_BUFFERED:
       case NOVA_BUFFER_MODE_DOUBLE_BUFFERED:
-      default:
-        present_mode = VK_PRESENT_MODE_FIFO_KHR;
-        break;
+      default: present_mode = VK_PRESENT_MODE_FIFO_KHR; break;
     };
   }
-  else
-  {
-    present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-  }
+  else { present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR; }
 
   nv_gpu_swapchain_create_info scio = {};
   scio.extent.width                 = rd->render_extent.width;
@@ -1014,7 +966,7 @@ nv_renderer_begin(nv_renderer_t* rd)
     .renderArea      = (VkRect2D){ .extent = (VkExtent2D){ rd->render_extent.width, rd->render_extent.height }, .offset = {} },
     .clearValueCount = 2,
     .pClearValues    = (VkClearValue[2]){ { .color = (VkClearColorValue){ { rd->clear_color.x, rd->clear_color.y, rd->clear_color.z, rd->clear_color.w } } },
-           { .depthStencil = (VkClearDepthStencilValue){ 1.0f, 0 } } },
+                                          { .depthStencil = (VkClearDepthStencilValue){ 1.0f, 0 } } },
   };
 
   const VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, NULL, 0, NULL };
@@ -1102,10 +1054,7 @@ nv_renderer_end(nv_renderer_t* rd)
   VkResult result = VK_SUCCESS;
   result          = vkQueuePresentKHR(present_queue, &presentInfo);
 
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized())
-  {
-    _nvvk_renderer_resize(rd);
-  }
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized()) { _nvvk_renderer_resize(rd); }
 
   rd->renderer_frame = (rd->renderer_frame + 1) % (1 + (int)rd->buffer_mode);
 }
@@ -1161,8 +1110,9 @@ _VK_DEBUG_LOG(const char* fmt, ...)
 }
 
 static SDL_UNUSED VKAPI_ATTR VkBool32 VKAPI_CALL
-nvvk_debug_messenger(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+nvvk_debug_messenger(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
 {
   (void)messageSeverity;
   (void)messageType;
@@ -1185,13 +1135,9 @@ setify(u32 i1, u32 i2, u32 i3, u32 i4)
     bool      already_in = false;
     for (int i = 0; i < (int)nv_dynarray_size(&ret); i++)
     {
-      if (e == *(u32*)nv_dynarray_get(&ret, i))
-        already_in = true;
+      if (e == *(u32*)nv_dynarray_get(&ret, i)) already_in = true;
     }
-    if (!already_in)
-    {
-      nv_dynarray_push_back(&ret, &e);
-    }
+    if (!already_in) { nv_dynarray_push_back(&ret, &e); }
   }
   return ret;
 }
@@ -1288,24 +1234,17 @@ nvvk_create_instance(const char* title)
     {
       for (uint32_t i = 0; i < layerCount; i++)
       {
-        if (nv_strcmp(ValidationLayers[j], ((VkLayerProperties*)nv_dynarray_data(&layerProperties))[i].layerName) == 0)
-        {
-          validationLayersAvailable = true;
-        }
+        if (nv_strcmp(ValidationLayers[j], ((VkLayerProperties*)nv_dynarray_data(&layerProperties))[i].layerName) == 0) { validationLayersAvailable = true; }
       }
     }
 
     if (!validationLayersAvailable)
     {
       nv_log_error("Failed to initialize validation layers\nRequested layers:");
-      for (int i = 0; i < nv_arrlen(ValidationLayers); i++)
-      {
-        nv_log_error("\t%s", ValidationLayers[i]);
-      }
+      for (int i = 0; i < nv_arrlen(ValidationLayers); i++) { nv_log_error("\t%s", ValidationLayers[i]); }
 
       nv_log_error("Available Layers::");
-      for (uint32_t i = 0; i < layerCount; i++)
-        nv_log_error("\t%s", ((VkLayerProperties*)nv_dynarray_data(&layerProperties))[i].layerName);
+      for (uint32_t i = 0; i < layerCount; i++) nv_log_error("\t%s", ((VkLayerProperties*)nv_dynarray_data(&layerProperties))[i].layerName);
 
       nv_log_error("But instance asked for (i.e. are not available):");
 
@@ -1324,11 +1263,9 @@ nvvk_create_instance(const char* title)
             break;
           }
         }
-        if (!layerAvailable)
-          nv_dynarray_push_back(&missingLayers, &layer);
+        if (!layerAvailable) nv_dynarray_push_back(&missingLayers, &layer);
       }
-      for (int i = 0; i < (int)nv_dynarray_size(&missingLayers); i++)
-        nv_log_error("\t%s", (const char*)nv_dynarray_get(&missingLayers, i));
+      for (int i = 0; i < (int)nv_dynarray_size(&missingLayers); i++) nv_log_error("\t%s", (const char*)nv_dynarray_get(&missingLayers, i));
 
       nv_dynarray_destroy(&missingLayers);
 
@@ -1403,41 +1340,26 @@ nvvk_print_device_info(VkPhysicalDevice device)
   const char* device_driver_vendor;
   switch (properties.deviceType)
   {
-    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-      device_type_str = "Discrete";
-      break;
-    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-      device_type_str = "Integrated";
-      break;
-    case VK_PHYSICAL_DEVICE_TYPE_CPU:
-      device_type_str = "Software/CPU";
-      break;
-    default:
-      device_type_str = "Unknown";
-      break;
+    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: device_type_str = "Discrete"; break;
+    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: device_type_str = "Integrated"; break;
+    case VK_PHYSICAL_DEVICE_TYPE_CPU: device_type_str = "Software/CPU"; break;
+    default: device_type_str = "Unknown"; break;
   }
 
   switch (properties.vendorID)
   {
-    case 0x1002:
-      device_driver_vendor = "AMD";
-      break;
-    case 0x10DE:
-      device_driver_vendor = "NVIDIA";
-      break;
-    case 0x8086:
-      device_driver_vendor = "Intel";
-      break;
-    default:
-      device_driver_vendor = "Unknown Vendor";
-      break;
+    case 0x1002: device_driver_vendor = "AMD"; break;
+    case 0x10DE: device_driver_vendor = "NVIDIA"; break;
+    case 0x8086: device_driver_vendor = "Intel"; break;
+    default: device_driver_vendor = "Unknown Vendor"; break;
   }
 
   // I think it looks cleaner this way
   nv_log_info("(%s) %s", device_type_str, properties.deviceName);
   nv_log_info("Vulkan API Version: %u.%u.%u", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
-  nv_log_info("Driver Vendor: %s Version: %u.%u.%u Device ID: %x", device_driver_vendor, VK_VERSION_MAJOR(properties.driverVersion),
-      VK_VERSION_MINOR(properties.driverVersion), VK_VERSION_PATCH(properties.driverVersion), properties.deviceID);
+  nv_log_info(
+      "Driver Vendor: %s Version: %u.%u.%u Device ID: %x", device_driver_vendor, VK_VERSION_MAJOR(properties.driverVersion), VK_VERSION_MINOR(properties.driverVersion),
+      VK_VERSION_PATCH(properties.driverVersion), properties.deviceID);
 }
 
 VkPhysicalDevice
@@ -1447,10 +1369,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
 
   VkResult r = VK_SUCCESS;
 
-  if ((r = vkEnumeratePhysicalDevices(instance, &phys_device_count, NULL)) != VK_SUCCESS)
-  {
-    nv_log_and_abort("Error fetching physical devices. VkResult=%i", r);
-  }
+  if ((r = vkEnumeratePhysicalDevices(instance, &phys_device_count, NULL)) != VK_SUCCESS) { nv_log_and_abort("Error fetching physical devices. VkResult=%i", r); }
 
   if (phys_device_count == 0)
   {
@@ -1486,8 +1405,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
       bool        validated = false;
       for (u32 j = 0; j < extension_count; j++)
       {
-        if (nv_strcmp(extension, ((VkExtensionProperties*)nv_dynarray_data(&available_extensions))[j].extensionName) == 0)
-          validated = true;
+        if (nv_strcmp(extension, ((VkExtensionProperties*)nv_dynarray_data(&available_extensions))[j].extensionName) == 0) validated = true;
       }
       if (!validated)
       {
@@ -1569,8 +1487,7 @@ nvvk_create_device()
       present_family       = i;
       found_present_family = true;
     }
-    if (found_graphics_family && found_compute_family && found_present_family && found_transfer_family)
-      break;
+    if (found_graphics_family && found_compute_family && found_present_family && found_transfer_family) break;
 
     i++;
   }
@@ -1606,10 +1523,7 @@ nvvk_create_device()
     for (u32 i = 0; i < extension_count; i++)
     {
       VkExtensionProperties ext = ((VkExtensionProperties*)nv_dynarray_data(&extensions))[i];
-      if (nv_strcmp(wanted, ext.extensionName) == 0)
-      {
-        nv_dynarray_push_back(&enabled_extensions, &ext.extensionName);
-      }
+      if (nv_strcmp(wanted, ext.extensionName) == 0) { nv_dynarray_push_back(&enabled_extensions, &ext.extensionName); }
     }
   }
 
@@ -1627,8 +1541,7 @@ nvvk_create_device()
       }
     }
 
-    if (!validated)
-      nv_log_error("Failed to validate required extension with name %s", required);
+    if (!validated) nv_log_error("Failed to validate required extension with name %s", required);
   }
 
   VkDeviceCreateInfo deviceCreateInfo      = {};
@@ -1656,10 +1569,7 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
   instance = nvvk_create_instance(title);
   nv_assert(instance != NULL);
 
-  if (SDL_Vulkan_CreateSurface(window, instance, &surface) != SDL_TRUE)
-  {
-    nv_log_and_abort("Surface creation failed.\nSDL reports: %s", SDL_GetError());
-  }
+  if (SDL_Vulkan_CreateSurface(window, instance, &surface) != SDL_TRUE) { nv_log_and_abort("Surface creation failed.\nSDL reports: %s", SDL_GetError()); }
 
   phys_device = _nvvk_choose_physical_device(instance, surface);
 
@@ -1675,30 +1585,12 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
   SUPPORTS_MULTISAMPLING = true;
 
   const VkSampleCountFlags samples = props.limits.framebufferColorSampleCounts;
-  if (samples & VK_SAMPLE_COUNT_64_BIT)
-  {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_64_BIT;
-  }
-  else if (samples & VK_SAMPLE_COUNT_32_BIT)
-  {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_32_BIT;
-  }
-  else if (samples & VK_SAMPLE_COUNT_16_BIT)
-  {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_16_BIT;
-  }
-  else if (samples & VK_SAMPLE_COUNT_8_BIT)
-  {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_8_BIT;
-  }
-  else if (samples & VK_SAMPLE_COUNT_4_BIT)
-  {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_4_BIT;
-  }
-  else if (samples & VK_SAMPLE_COUNT_2_BIT)
-  {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_2_BIT;
-  }
+  if (samples & VK_SAMPLE_COUNT_64_BIT) { MAX_SAMPLES = VK_SAMPLE_COUNT_64_BIT; }
+  else if (samples & VK_SAMPLE_COUNT_32_BIT) { MAX_SAMPLES = VK_SAMPLE_COUNT_32_BIT; }
+  else if (samples & VK_SAMPLE_COUNT_16_BIT) { MAX_SAMPLES = VK_SAMPLE_COUNT_16_BIT; }
+  else if (samples & VK_SAMPLE_COUNT_8_BIT) { MAX_SAMPLES = VK_SAMPLE_COUNT_8_BIT; }
+  else if (samples & VK_SAMPLE_COUNT_4_BIT) { MAX_SAMPLES = VK_SAMPLE_COUNT_4_BIT; }
+  else if (samples & VK_SAMPLE_COUNT_2_BIT) { MAX_SAMPLES = VK_SAMPLE_COUNT_2_BIT; }
   else
   {
     MAX_SAMPLES            = VK_SAMPLE_COUNT_1_BIT;
@@ -1714,15 +1606,9 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
 void
 ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst)
 {
-  if (!rd || !dst)
-  {
-    nv_log_error("pInfo or dst is NULL!");
-  }
+  if (!rd || !dst) { nv_log_error("pInfo or dst is NULL!"); }
 
-  if (scale <= 0.0f)
-  {
-    nv_log_error("attempting to load a font with 0 fontscale.");
-  }
+  if (scale <= 0.0f) { nv_log_error("attempting to load a font with 0 fontscale."); }
 
   *(cfont_t**)nv_dynarray_push_empty(&rd->ctext->fonts) = dst;
   *dst                                                  = (cfont_t){ 0 };
@@ -1745,26 +1631,26 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
 
   for (int i = 0; i < f_file.header.numglyphs; i++)
   {
-    ctext_glyph_t glyph  = { .x0 = f_file.glyphs[i].x0,
-       .x1                       = f_file.glyphs[i].x1,
-       .y0                       = f_file.glyphs[i].y0,
-       .y1                       = f_file.glyphs[i].y1,
-       .l                        = f_file.glyphs[i].l,
-       .r                        = f_file.glyphs[i].r,
-       .b                        = f_file.glyphs[i].b,
-       .t                        = f_file.glyphs[i].t,
-       .advance                  = f_file.glyphs[i].advance };
+    ctext_glyph_t glyph  = { .x0      = f_file.glyphs[i].x0,
+                             .x1      = f_file.glyphs[i].x1,
+                             .y0      = f_file.glyphs[i].y0,
+                             .y1      = f_file.glyphs[i].y1,
+                             .l       = f_file.glyphs[i].l,
+                             .r       = f_file.glyphs[i].r,
+                             .b       = f_file.glyphs[i].b,
+                             .t       = f_file.glyphs[i].t,
+                             .advance = f_file.glyphs[i].advance };
     char          glyphi = f_file.glyphs[i].codepoint;
     nv_hashmap_insert(&dst->glyph_map, &glyphi, &glyph);
   }
 
-  nv_gpu_texture_create_info image_info = { .format = NOVA_FORMAT_R8,
-    .samples                                        = NOVA_SAMPLE_COUNT_1_SAMPLES,
-    .type                                           = VK_IMAGE_TYPE_2D,
-    .usage                                          = NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE,
-    .extent                                         = (nv_extent3D){ .width = atlas.w, .height = atlas.h, .depth = 1 },
-    .arraylayers                                    = 1,
-    .miplevels                                      = 1 };
+  nv_gpu_texture_create_info image_info = { .format      = NOVA_FORMAT_R8,
+                                            .samples     = NOVA_SAMPLE_COUNT_1_SAMPLES,
+                                            .type        = VK_IMAGE_TYPE_2D,
+                                            .usage       = NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE,
+                                            .extent      = (nv_extent3D){ .width = atlas.w, .height = atlas.h, .depth = 1 },
+                                            .arraylayers = 1,
+                                            .miplevels   = 1 };
   nv_gpu_create_texture(&image_info, &dst->texture);
 
   VkMemoryRequirements imageMemoryRequirements;
@@ -1787,12 +1673,12 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
 
-  VkWriteDescriptorSet writeSet = { .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-    .dstSet                                = rd->ctext->desc_set->set,
-    .dstBinding                            = 0,
-    .descriptorCount                       = 1,
-    .descriptorType                        = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    .pImageInfo                            = &ctext_bitmap_image_info };
+  VkWriteDescriptorSet writeSet = { .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                    .dstSet          = rd->ctext->desc_set->set,
+                                    .dstBinding      = 0,
+                                    .descriptorCount = 1,
+                                    .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                    .pImageInfo      = &ctext_bitmap_image_info };
   for (int i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
   {
     writeSet.dstArrayElement = i;
@@ -1823,14 +1709,8 @@ _ctext_font_resize_buffer(cfont_t* fnt, int new_buffer_size)
 {
   int new_allocation_size;
 
-  if (fnt->allocated_size < new_buffer_size)
-  {
-    new_allocation_size = NVM_MAX(fnt->allocated_size * 2, new_buffer_size);
-  }
-  else if (new_buffer_size < (fnt->allocated_size / 3))
-  {
-    new_allocation_size = NVM_MAX(fnt->allocated_size / 3, new_buffer_size);
-  }
+  if (fnt->allocated_size < new_buffer_size) { new_allocation_size = NVM_MAX(fnt->allocated_size * 2, new_buffer_size); }
+  else if (new_buffer_size < (fnt->allocated_size / 3)) { new_allocation_size = NVM_MAX(fnt->allocated_size / 3, new_buffer_size); }
   else
     return false;
 
@@ -1958,10 +1838,7 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, float* w, float* h)
       default:
       {
         const ctext_glyph_t* glyph = (ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, str);
-        if (!glyph)
-        {
-          break;
-        }
+        if (!glyph) { break; }
         width += glyph->advance;
         is_new_line = 0;
         break;
@@ -1970,20 +1847,11 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, float* w, float* h)
     str++;
   }
 
-  if (!is_new_line)
-  {
-    prev_width = NVM_MAX(width, prev_width);
-  }
+  if (!is_new_line) { prev_width = NVM_MAX(width, prev_width); }
 
-  if (w)
-  {
-    *w = prev_width;
-  }
+  if (w) { *w = prev_width; }
 
-  if (h)
-  {
-    *h = -height;
-  }
+  if (h) { *h = -height; }
 }
 
 static int
@@ -1994,14 +1862,8 @@ _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* 
   {
     switch (*str)
     {
-      case ' ':
-        x += fnt->space_width * scale;
-        break;
-        ;
-      case '\t':
-        x += fnt->space_width * 4.0f * scale;
-        break;
-        ;
+      case ' ': x += fnt->space_width * scale; break;
+      case '\t': x += fnt->space_width * 4.0f * scale; break;
       default:
       {
         const ctext_glyph_t* glyph = (const ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, str);
@@ -2035,7 +1897,6 @@ _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* 
         x += glyph->advance * scale;
         iter++;
         break;
-        ;
       }
     }
     str++;
@@ -2051,10 +1912,7 @@ _ctext_get_effective_length(const char* buf, int buflen)
   for (int i = 0; i < buflen; i++)
   {
     const char c = buf[i];
-    if (c != ' ' && c != '\t' && c != '\n')
-    {
-      len++;
-    }
+    if (c != ' ' && c != '\t' && c != '\n') { len++; }
   }
   return len;
 }
@@ -2095,15 +1953,9 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   ypos = pInfo->position.y;
   switch (pInfo->vertical)
   {
-    case CTEXT_VERT_ALIGN_CENTER:
-      ypos += (text_h + fnt->line_height * scale) / 2.0f;
-      break;
-    case CTEXT_VERT_ALIGN_BOTTOM:
-      ypos += text_h;
-      break;
-    case CTEXT_VERT_ALIGN_TOP:
-      ypos += fnt->line_height * scale;
-      break;
+    case CTEXT_VERT_ALIGN_CENTER: ypos += (text_h + fnt->line_height * scale) / 2.0f; break;
+    case CTEXT_VERT_ALIGN_BOTTOM: ypos += text_h; break;
+    case CTEXT_VERT_ALIGN_TOP: ypos += fnt->line_height * scale; break;
     default:
       __builtin_unreachable();
       nv_log_error("Invalid vertical alignment. Specified (int)%u. (Implement?)", pInfo->vertical);
@@ -2121,21 +1973,17 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
     xpos = pInfo->position.x;
     switch (pInfo->horizontal)
     {
-      case CTEXT_HORI_ALIGN_CENTER:
-        xpos -= text_w / 2.0f;
-        break;
-      case CTEXT_HORI_ALIGN_RIGHT:
-        xpos -= text_w;
-        break;
-      case CTEXT_HORI_ALIGN_LEFT:
-        break;
+      case CTEXT_HORI_ALIGN_CENTER: xpos -= text_w / 2.0f; break;
+      case CTEXT_HORI_ALIGN_RIGHT: xpos -= text_w; break;
+      case CTEXT_HORI_ALIGN_LEFT: break;
       default:
         __builtin_unreachable();
         nv_log_error("Invalid horizontal alignment. Specified (int)%u. (Implement?)", pInfo->horizontal);
         break;
     }
     actual_chars_drawn = fnt->chars_drawn - old_chars_drawn;
-    fnt->chars_drawn += _ctext_render_line(fnt, line, drawcall, scale, pInfo->position.z,
+    fnt->chars_drawn += _ctext_render_line(
+        fnt, line, drawcall, scale, pInfo->position.z,
         // This gives us the number of characters this function call
         // has drawn. only this call.
         NVM_MAX(actual_chars_drawn, 0), xpos, (ypos + ((float)i * fnt->line_height * scale)));
@@ -2170,10 +2018,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
   va_end(arg);
 
   effective_length = _ctext_get_effective_length(buffer, num);
-  if (effective_length == 0)
-  {
-    return;
-  }
+  if (effective_length == 0) { return; }
 
   const size_t vertex_count    = effective_length * 4;
   const size_t index_count     = effective_length * 6;
@@ -2211,14 +2056,8 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
 void
 _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
 {
-  if (!fnt->rendered_this_frame)
-  {
-    return;
-  }
-  else
-  {
-    fnt->rendered_this_frame = 0;
-  }
+  if (!fnt->rendered_this_frame) { return; }
+  else { fnt->rendered_this_frame = 0; }
   u32 total_vertex_byte_size = 0;
   u32 total_index_count      = 0;
 
@@ -2229,20 +2068,14 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
     total_index_count += drawcall->index_count;
   }
 
-  if (total_vertex_byte_size == 0 || total_index_count == 0)
-  {
-    return;
-  }
+  if (total_vertex_byte_size == 0 || total_index_count == 0) { return; }
 
   const u32 total_index_byte_size = total_index_count * sizeof(u32);
   const u32 total_buffer_size     = total_index_byte_size + total_vertex_byte_size;
 
   const bool fnt_buffer_resized = _ctext_font_resize_buffer(fnt, total_buffer_size);
 
-  if (fnt->to_render && !fnt_buffer_resized)
-  {
-    _ctext_render_drawcalls(rd, fnt);
-  }
+  if (fnt->to_render && !fnt_buffer_resized) { _ctext_render_drawcalls(rd, fnt); }
 
   uint8_t* mapped;
   nv_gpu_map_memory(fnt->buffer_mem, total_buffer_size, 0, (void**)&mapped);
@@ -2351,9 +2184,9 @@ ctext_init(struct nv_renderer_t* rd)
 
   nv_allocate_descriptor_set(&g_pool, bindings, nv_arrlen(bindings), &ctext->desc_set);
 
-  const VkDescriptorImageInfo empty_img_info = {
-    .sampler = nv_sprite_get_sampler(nv_sprite_empty), .imageView = nv_sprite_get_vk_image_view(nv_sprite_empty), .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-  };
+  const VkDescriptorImageInfo empty_img_info = { .sampler     = nv_sprite_get_sampler(nv_sprite_empty),
+                                                 .imageView   = nv_sprite_get_vk_image_view(nv_sprite_empty),
+                                                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
 
   VkWriteDescriptorSet write_set = {
     .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -2413,10 +2246,7 @@ nv_descriptor_set_destroy(nv_descriptor_set_t* set)
 void
 nv_descriptor_pool_destroy(nv_descriptor_pool_t* pool)
 {
-  for (int i = 0; i < pool->nsets; i++)
-  {
-    nv_descriptor_set_destroy(pool->sets[i]);
-  }
+  for (int i = 0; i < pool->nsets; i++) { nv_descriptor_set_destroy(pool->sets[i]); }
   nv_free(pool->sets);
   vkDestroyDescriptorPool(device, pool->pool, NOVA_VK_ALLOCATOR);
 }
@@ -2429,24 +2259,15 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
   for (int i = 0; i < 11; i++)
   {
-    if (pool->descriptors[i].capacity == 0)
-    {
-      continue;
-    }
+    if (pool->descriptors[i].capacity == 0) { continue; }
     allocations[descriptors_written] = (VkDescriptorPoolSize){ pool->descriptors[i].type, pool->descriptors[i].capacity };
     descriptors_written++;
   }
 
-  if (descriptors_written == 0)
-  {
-    return;
-  }
+  if (descriptors_written == 0) { return; }
 
   bool need_more_max_sets = (pool->nsets + 1) > pool->max_child_sets;
-  if (need_more_max_sets)
-  {
-    pool->max_child_sets = NVM_MAX(pool->max_child_sets * 2, 1);
-  }
+  if (need_more_max_sets) { pool->max_child_sets = NVM_MAX(pool->max_child_sets * 2, 1); }
 
   VkDescriptorPoolCreateInfo poolInfo
       = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, .maxSets = pool->max_child_sets, .poolSizeCount = descriptors_written, .pPoolSizes = allocations };
@@ -2460,10 +2281,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   if (pool->nsets > 0)
   {
     VkDescriptorSetLayout* layouts = nv_malloc(sizeof(VkDescriptorSetLayout) * pool->nsets);
-    for (int i = 0; i < pool->nsets; i++)
-    {
-      layouts[i] = pool->sets[i]->layout;
-    }
+    for (int i = 0; i < pool->nsets; i++) { layouts[i] = pool->sets[i]->layout; }
 
     VkDescriptorSetAllocateInfo setAllocInfo = {};
     setAllocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2476,10 +2294,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   }
 
   int ncopies = 0;
-  for (int i = 0; i < pool->nsets; i++)
-  {
-    ncopies += pool->sets[i]->nwrites;
-  }
+  for (int i = 0; i < pool->nsets; i++) { ncopies += pool->sets[i]->nwrites; }
   VkCopyDescriptorSet* copies = nv_malloc(sizeof(VkCopyDescriptorSet) * ncopies);
 
   ncopies = 0;
@@ -2506,10 +2321,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   }
   vkUpdateDescriptorSets(device, 0, NULL, ncopies, copies);
 
-  if (pool->pool)
-  {
-    vkDestroyDescriptorPool(device, pool->pool, NOVA_VK_ALLOCATOR);
-  }
+  if (pool->pool) { vkDestroyDescriptorPool(device, pool->pool, NOVA_VK_ALLOCATOR); }
   pool->pool = new_pool;
 
   nv_free(new_sets);
@@ -2627,11 +2439,11 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
   };
 
   const VkVertexInputBindingDescription bindingDescriptions[] = { // binding; stride; inputRate
-    { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
+                                                                  { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
   };
 
   const VkPushConstantRange pushConstants[] = { // stageFlags, offset, size
-    { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(mat4f) + sizeof(vec4f) + sizeof(vec2f) }
+                                                { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(mat4f) + sizeof(vec4f) + sizeof(vec2f) }
   };
 
   nv_gpu_pipeline_create_info pc = nv_gpu_init_pipeline_create_info();
@@ -2672,7 +2484,7 @@ __BakeCtextPipeline(nv_renderer_t* rd)
   };
 
   const VkVertexInputBindingDescription bindingDescriptions[] = { // binding; stride; inputRate
-    { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
+                                                                  { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
   };
 
   const VkPushConstantRange pushConstants[] = {
@@ -2801,10 +2613,7 @@ nv_vk_destroy_global_pipelines()
     g_Pipelines.Ctext,
     g_Pipelines.Line,
   };
-  for (int i = 0; i < nv_arrlen(pipelines); i++)
-  {
-    nv_vk_destroy_pipeline(&pipelines[i]);
-  }
+  for (int i = 0; i < nv_arrlen(pipelines); i++) { nv_vk_destroy_pipeline(&pipelines[i]); }
 }
 
 void
@@ -2950,9 +2759,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
 
   VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
   const VkDynamicState             dynamicStates[]  = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT))
-  {
-  }
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT)) {}
   else
   {
     dynamicStateInfo.sType                   = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -2994,10 +2801,7 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
   NVVK_REQUIRED_PTR(dstRenderPass);
   NVVK_NOT_EQUAL_TO(pCreateInfo->format, NOVA_FORMAT_UNDEFINED);
 
-  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
-  {
-    NVVK_NOT_EQUAL_TO(pCreateInfo->depthBufferFormat, NOVA_FORMAT_UNDEFINED);
-  }
+  if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK)) { NVVK_NOT_EQUAL_TO(pCreateInfo->depthBufferFormat, NOVA_FORMAT_UNDEFINED); }
 
   VkAttachmentDescription colorAttachmentDescription = {};
   colorAttachmentDescription.format                  = nv_format_to_vk_format(pCreateInfo->format);
@@ -3216,10 +3020,7 @@ nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
 void
 nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer* dstBuffer, VkDeviceMemory* retMem, bool externallyAllocated)
 {
-  if (size == 0)
-  {
-    return;
-  }
+  if (size == 0) { return; }
 
   VkBuffer       newBuffer;
   VkDeviceMemory newMemory;
@@ -3297,8 +3098,7 @@ nv_vk_get_mem_type(const u32 memoryTypeBits, const VkMemoryPropertyFlags memoryP
 
   for (u32 i = 0; i < properties.memoryTypeCount; i++)
   {
-    if ((memoryTypeBits & (1 << i)) && (properties.memoryTypes[i].propertyFlags & memoryProperties) == memoryProperties)
-      return i;
+    if ((memoryTypeBits & (1 << i)) && (properties.memoryTypes[i].propertyFlags & memoryProperties) == memoryProperties) return i;
   }
 
   return UINT32_MAX;
@@ -3342,8 +3142,7 @@ VkResult
 nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecution)
 {
   VkResult res = vkEndCommandBuffer(cmd);
-  if (res != VK_SUCCESS)
-    return res;
+  if (res != VK_SUCCESS) return res;
 
   VkSubmitInfo submitInfo       = {};
   submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -3358,21 +3157,18 @@ nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecuti
   if (waitForExecution)
   {
     res = vkCreateFence(device, &fenceInfo, NOVA_VK_ALLOCATOR, &fence);
-    if (res != VK_SUCCESS)
-      return res;
+    if (res != VK_SUCCESS) return res;
   }
 
   res = vkQueueSubmit(queue, 1, &submitInfo, fence);
-  if (res != VK_SUCCESS)
-    return res;
+  if (res != VK_SUCCESS) return res;
 
   if (waitForExecution)
   {
     if (fence != VK_NULL_HANDLE)
     {
       res = vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-      if (res != VK_SUCCESS)
-        return res;
+      if (res != VK_SUCCESS) return res;
       vkDestroyFence(device, fence, NOVA_VK_ALLOCATOR);
     }
     vkDeviceWaitIdle(device);
@@ -3427,9 +3223,10 @@ nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height,
   VkMemoryRequirements stagingBufferRequirements;
   vkGetBufferMemoryRequirements(device, stagingBuffer, &stagingBufferRequirements);
 
-  const VkMemoryAllocateInfo stagingBufferAllocInfo = { .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    .allocationSize                                            = stagingBufferRequirements.size,
-    .memoryTypeIndex = nv_vk_get_mem_type(stagingBufferRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) };
+  const VkMemoryAllocateInfo stagingBufferAllocInfo
+      = { .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+          .allocationSize  = stagingBufferRequirements.size,
+          .memoryTypeIndex = nv_vk_get_mem_type(stagingBufferRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) };
 
   nvvk_result_check(vkAllocateMemory(device, &stagingBufferAllocInfo, NOVA_VK_ALLOCATOR, &stagingBufferMemory));
   nvvk_result_check(vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0));
@@ -3441,7 +3238,8 @@ nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height,
 
   const VkCommandBuffer cmd = nv_vk_begin_command_buffer();
 
-  nv_vk_transition_texture_layout(cmd, dst, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+  nv_vk_transition_texture_layout(
+      cmd, dst, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
   VkBufferImageCopy region               = {};
@@ -3454,8 +3252,9 @@ nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height,
   region.imageSubresource.mipLevel       = 0;
   vkCmdCopyBufferToImage(cmd, stagingBuffer, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-  nv_vk_transition_texture_layout(cmd, dst, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0,
-      VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+  nv_vk_transition_texture_layout(
+      cmd, dst, 1, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
   nv_vk_end_command_buffer(cmd, transfer_queue, true);
 
@@ -3494,10 +3293,7 @@ void
 nv_vk_create_texture_empty(
     u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, int* image_size, VkImage* dst, VkDeviceMemory* dstMem)
 {
-  if (usage & VK_IMAGE_USAGE_SAMPLED_BIT)
-  {
-    format = nv_vk_get_supported_format_for_draw(format);
-  }
+  if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) { format = nv_vk_get_supported_format_for_draw(format); }
 
   VkImageCreateInfo imageCreateInfo = {};
   imageCreateInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -3518,10 +3314,7 @@ nv_vk_create_texture_empty(
   VkMemoryRequirements imageMemoryRequirements;
   vkGetImageMemoryRequirements(device, *dst, &imageMemoryRequirements);
 
-  if (image_size)
-  {
-    *image_size = imageMemoryRequirements.size;
-  }
+  if (image_size) { *image_size = imageMemoryRequirements.size; }
 
   // allow for preallocated memory.
   if (dstMem != NULL)
@@ -3554,8 +3347,9 @@ nv_vk_create_texture_from_disk(const char* path, u32* width, u32* height, nv_for
 }
 
 void
-nv_vk_transition_texture_layout(VkCommandBuffer cmd, VkImage image, u32 mipLevels, VkImageAspectFlagBits aspect, VkImageLayout oldLayout, VkImageLayout newLayout,
-    VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags sourceStage, VkPipelineStageFlags destinationStage)
+nv_vk_transition_texture_layout(
+    VkCommandBuffer cmd, VkImage image, u32 mipLevels, VkImageAspectFlagBits aspect, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask,
+    VkAccessFlags dstAccessMask, VkPipelineStageFlags sourceStage, VkPipelineStageFlags destinationStage)
 {
   VkImageMemoryBarrier barrier            = {};
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -3608,10 +3402,7 @@ nv_vk_get_supported_format(VkPhysicalDevice phys_device, VkSurfaceKHR surface, n
   }
 
   nv_dynarray_destroy(&surface_formats);
-  if (selected_format.format == VK_FORMAT_MAX_ENUM || selected_format.colorSpace == VK_COLOR_SPACE_MAX_ENUM_KHR)
-  {
-    return VK_FALSE;
-  }
+  if (selected_format.format == VK_FORMAT_MAX_ENUM || selected_format.colorSpace == VK_COLOR_SPACE_MAX_ENUM_KHR) { return VK_FALSE; }
   else
   {
     *dst_format      = nv_vk_format_to_nv_format(selected_format.format);
@@ -3633,8 +3424,7 @@ nv_vk_get_surface_image_count(VkPhysicalDevice phys_device, VkSurfaceKHR surface
   nvvk_result_check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &surfaceCapabilities));
 
   u32 requestedImageCount = surfaceCapabilities.minImageCount + 1;
-  if (requestedImageCount < surfaceCapabilities.maxImageCount)
-    requestedImageCount = surfaceCapabilities.maxImageCount;
+  if (requestedImageCount < surfaceCapabilities.maxImageCount) requestedImageCount = surfaceCapabilities.maxImageCount;
 
   return requestedImageCount;
 }
@@ -3721,10 +3511,7 @@ nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, s
   };
   vkCmdCopyBuffer(cmd, staging_buffer.buffer, buffer->buffer, 1, &copy);
 
-  if (nv_vk_end_command_buffer(cmd, graphics_queue, 1) != VK_SUCCESS)
-  {
-    nv_log_error("Failed to write data to GPU buffer");
-  }
+  if (nv_vk_end_command_buffer(cmd, graphics_queue, 1) != VK_SUCCESS) { nv_log_error("Failed to write data to GPU buffer"); }
 }
 
 void
@@ -3826,19 +3613,10 @@ nv_gpu_bind_texture_to_memory(nv_gpu_memory_t* mem, size_t offset, nv_gpu_textur
   nvvk_result_check(vkBindImageMemory(device, tex->image, mem->memory, offset));
 
   VkImageAspectFlags aspect = 0;
-  if (nv_format_has_depth_channel(tex->format))
-  {
-    aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-  }
-  else if (nv_format_has_color_channel(tex->format))
-  {
-    aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-  }
+  if (nv_format_has_depth_channel(tex->format)) { aspect = VK_IMAGE_ASPECT_DEPTH_BIT; }
+  else if (nv_format_has_color_channel(tex->format)) { aspect = VK_IMAGE_ASPECT_COLOR_BIT; }
 
-  if (nv_format_has_stencil_channel(tex->format))
-  {
-    aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
-  }
+  if (nv_format_has_stencil_channel(tex->format)) { aspect |= VK_IMAGE_ASPECT_STENCIL_BIT; }
 
   VkImageSubresourceRange subresourceRange
       = { .aspectMask = aspect, .baseMipLevel = 0, .levelCount = VK_REMAINING_MIP_LEVELS, .baseArrayLayer = 0, .layerCount = VK_REMAINING_ARRAY_LAYERS };
@@ -3932,14 +3710,8 @@ nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* dest)
 void
 nv_gpu_get_texture_size(const nv_gpu_texture* tex, int* w, int* h)
 {
-  if (w)
-  {
-    *w = tex->extent.width;
-  }
-  if (h)
-  {
-    *h = tex->extent.height;
-  }
+  if (w) { *w = tex->extent.width; }
+  if (h) { *h = tex->extent.height; }
 }
 
 void
@@ -4029,10 +3801,7 @@ nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** 
   (*tex) = nv_calloc(sizeof(nv_gpu_texture));
 
   nv_format fmt = pInfo->format;
-  if (pInfo->usage & VK_IMAGE_USAGE_SAMPLED_BIT)
-  {
-    fmt = nv_vk_get_supported_format_for_draw(fmt);
-  }
+  if (pInfo->usage & VK_IMAGE_USAGE_SAMPLED_BIT) { fmt = nv_vk_get_supported_format_for_draw(fmt); }
 
   (*tex)->type   = pInfo->type;
   (*tex)->format = pInfo->format;
@@ -4042,43 +3811,20 @@ nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** 
 
   switch (pInfo->usage)
   {
-    case NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE:
-      usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_COLOR_TEXTURE:
-      usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_DEPTH_TEXTURE:
-      usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_STENCIL_TEXTURE:
-      usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_STORAGE_TEXTURE:
-      usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_INPUT_ATTACHMENT:
-      usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_RESOLVE_TEXTURE:
-      usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT:
-      usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-      break;
-    case NOVA_GPU_TEXTURE_USAGE_PRESENTATION:
-      usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-      break;
-    default:
-      nv_log_error("Unknown texture usage: %u", pInfo->usage);
-      break;
+    case NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE: usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_COLOR_TEXTURE: usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_DEPTH_TEXTURE: usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_STENCIL_TEXTURE: usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_STORAGE_TEXTURE: usage |= VK_IMAGE_USAGE_STORAGE_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_INPUT_ATTACHMENT: usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_RESOLVE_TEXTURE: usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT: usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; break;
+    case NOVA_GPU_TEXTURE_USAGE_PRESENTATION: usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; break;
+    default: nv_log_error("Unknown texture usage: %u", pInfo->usage); break;
   }
   (*tex)->usage = usage;
 
-  if (pInfo->usage & NOVA_GPU_TEXTURE_USAGE_PRESENTATION)
-  {
-    return;
-  }
+  if (pInfo->usage & NOVA_GPU_TEXTURE_USAGE_PRESENTATION) { return; }
 
   VkImageCreateInfo imageCreateInfo = {};
   imageCreateInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -4100,83 +3846,49 @@ nv_format_to_vk_format(nv_format format)
 {
   switch (format)
   {
-    case NOVA_FORMAT_R8:
-      return VK_FORMAT_R8_UNORM;
-    case NOVA_FORMAT_RG8:
-      return VK_FORMAT_R8G8_UNORM;
-    case NOVA_FORMAT_RGB8:
-      return VK_FORMAT_R8G8B8_UNORM;
-    case NOVA_FORMAT_RGBA8:
-      return VK_FORMAT_R8G8B8A8_UNORM;
+    case NOVA_FORMAT_R8: return VK_FORMAT_R8_UNORM;
+    case NOVA_FORMAT_RG8: return VK_FORMAT_R8G8_UNORM;
+    case NOVA_FORMAT_RGB8: return VK_FORMAT_R8G8B8_UNORM;
+    case NOVA_FORMAT_RGBA8: return VK_FORMAT_R8G8B8A8_UNORM;
 
-    case NOVA_FORMAT_BGR8:
-      return VK_FORMAT_B8G8R8_UNORM;
-    case NOVA_FORMAT_BGRA8:
-      return VK_FORMAT_B8G8R8A8_UNORM;
+    case NOVA_FORMAT_BGR8: return VK_FORMAT_B8G8R8_UNORM;
+    case NOVA_FORMAT_BGRA8: return VK_FORMAT_B8G8R8A8_UNORM;
 
-    case NOVA_FORMAT_RGB16:
-      return VK_FORMAT_R16G16B16_UNORM;
-    case NOVA_FORMAT_RGBA16:
-      return VK_FORMAT_R16G16B16A16_UNORM;
-    case NOVA_FORMAT_RG32:
-      return VK_FORMAT_R32G32_SFLOAT;
-    case NOVA_FORMAT_RGB32:
-      return VK_FORMAT_R32G32B32_SFLOAT;
-    case NOVA_FORMAT_RGBA32:
-      return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case NOVA_FORMAT_RGB16: return VK_FORMAT_R16G16B16_UNORM;
+    case NOVA_FORMAT_RGBA16: return VK_FORMAT_R16G16B16A16_UNORM;
+    case NOVA_FORMAT_RG32: return VK_FORMAT_R32G32_SFLOAT;
+    case NOVA_FORMAT_RGB32: return VK_FORMAT_R32G32B32_SFLOAT;
+    case NOVA_FORMAT_RGBA32: return VK_FORMAT_R32G32B32A32_SFLOAT;
 
-    case NOVA_FORMAT_R8_SINT:
-      return VK_FORMAT_R8_SINT;
-    case NOVA_FORMAT_RG8_SINT:
-      return VK_FORMAT_R8G8_SINT;
-    case NOVA_FORMAT_RGB8_SINT:
-      return VK_FORMAT_R8G8B8_SINT;
-    case NOVA_FORMAT_RGBA8_SINT:
-      return VK_FORMAT_R8G8B8A8_SINT;
+    case NOVA_FORMAT_R8_SINT: return VK_FORMAT_R8_SINT;
+    case NOVA_FORMAT_RG8_SINT: return VK_FORMAT_R8G8_SINT;
+    case NOVA_FORMAT_RGB8_SINT: return VK_FORMAT_R8G8B8_SINT;
+    case NOVA_FORMAT_RGBA8_SINT: return VK_FORMAT_R8G8B8A8_SINT;
 
-    case NOVA_FORMAT_R8_UINT:
-      return VK_FORMAT_R8_UINT;
-    case NOVA_FORMAT_RG8_UINT:
-      return VK_FORMAT_R8G8_UINT;
-    case NOVA_FORMAT_RGB8_UINT:
-      return VK_FORMAT_R8G8B8_UINT;
-    case NOVA_FORMAT_RGBA8_UINT:
-      return VK_FORMAT_R8G8B8A8_UINT;
+    case NOVA_FORMAT_R8_UINT: return VK_FORMAT_R8_UINT;
+    case NOVA_FORMAT_RG8_UINT: return VK_FORMAT_R8G8_UINT;
+    case NOVA_FORMAT_RGB8_UINT: return VK_FORMAT_R8G8B8_UINT;
+    case NOVA_FORMAT_RGBA8_UINT: return VK_FORMAT_R8G8B8A8_UINT;
 
-    case NOVA_FORMAT_R8_SRGB:
-      return VK_FORMAT_R8_SRGB;
-    case NOVA_FORMAT_RG8_SRGB:
-      return VK_FORMAT_R8G8_SRGB;
-    case NOVA_FORMAT_RGB8_SRGB:
-      return VK_FORMAT_R8G8B8_SRGB;
-    case NOVA_FORMAT_RGBA8_SRGB:
-      return VK_FORMAT_R8G8B8A8_SRGB;
+    case NOVA_FORMAT_R8_SRGB: return VK_FORMAT_R8_SRGB;
+    case NOVA_FORMAT_RG8_SRGB: return VK_FORMAT_R8G8_SRGB;
+    case NOVA_FORMAT_RGB8_SRGB: return VK_FORMAT_R8G8B8_SRGB;
+    case NOVA_FORMAT_RGBA8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
 
-    case NOVA_FORMAT_BGR8_SRGB:
-      return VK_FORMAT_B8G8R8_SRGB;
-    case NOVA_FORMAT_BGRA8_SRGB:
-      return VK_FORMAT_B8G8R8A8_SRGB;
+    case NOVA_FORMAT_BGR8_SRGB: return VK_FORMAT_B8G8R8_SRGB;
+    case NOVA_FORMAT_BGRA8_SRGB: return VK_FORMAT_B8G8R8A8_SRGB;
 
-    case NOVA_FORMAT_D16:
-      return VK_FORMAT_D16_UNORM;
-    case NOVA_FORMAT_D24:
-      return VK_FORMAT_D24_UNORM_S8_UINT;
-    case NOVA_FORMAT_D32:
-      return VK_FORMAT_D32_SFLOAT;
-    case NOVA_FORMAT_D24_S8:
-      return VK_FORMAT_D24_UNORM_S8_UINT;
-    case NOVA_FORMAT_D32_S8:
-      return VK_FORMAT_D32_SFLOAT_S8_UINT;
+    case NOVA_FORMAT_D16: return VK_FORMAT_D16_UNORM;
+    case NOVA_FORMAT_D24: return VK_FORMAT_D24_UNORM_S8_UINT;
+    case NOVA_FORMAT_D32: return VK_FORMAT_D32_SFLOAT;
+    case NOVA_FORMAT_D24_S8: return VK_FORMAT_D24_UNORM_S8_UINT;
+    case NOVA_FORMAT_D32_S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 
-    case NOVA_FORMAT_BC1:
-      return VK_FORMAT_BC1_RGB_UNORM_BLOCK;
-    case NOVA_FORMAT_BC3:
-      return VK_FORMAT_BC3_UNORM_BLOCK;
-    case NOVA_FORMAT_BC7:
-      return VK_FORMAT_BC7_UNORM_BLOCK;
+    case NOVA_FORMAT_BC1: return VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+    case NOVA_FORMAT_BC3: return VK_FORMAT_BC3_UNORM_BLOCK;
+    case NOVA_FORMAT_BC7: return VK_FORMAT_BC7_UNORM_BLOCK;
 
-    default:
-      return VK_FORMAT_UNDEFINED;
+    default: return VK_FORMAT_UNDEFINED;
   }
 }
 
@@ -4185,81 +3897,48 @@ nv_vk_format_to_nv_format(uint32_t format)
 {
   switch (format)
   {
-    case VK_FORMAT_R8_UNORM:
-      return NOVA_FORMAT_R8;
-    case VK_FORMAT_R8G8_UNORM:
-      return NOVA_FORMAT_RG8;
-    case VK_FORMAT_R8G8B8_UNORM:
-      return NOVA_FORMAT_RGB8;
-    case VK_FORMAT_R8G8B8A8_UNORM:
-      return NOVA_FORMAT_RGBA8;
+    case VK_FORMAT_R8_UNORM: return NOVA_FORMAT_R8;
+    case VK_FORMAT_R8G8_UNORM: return NOVA_FORMAT_RG8;
+    case VK_FORMAT_R8G8B8_UNORM: return NOVA_FORMAT_RGB8;
+    case VK_FORMAT_R8G8B8A8_UNORM: return NOVA_FORMAT_RGBA8;
 
-    case VK_FORMAT_B8G8R8_UNORM:
-      return NOVA_FORMAT_BGR8;
-    case VK_FORMAT_B8G8R8A8_UNORM:
-      return NOVA_FORMAT_BGRA8;
+    case VK_FORMAT_B8G8R8_UNORM: return NOVA_FORMAT_BGR8;
+    case VK_FORMAT_B8G8R8A8_UNORM: return NOVA_FORMAT_BGRA8;
 
-    case VK_FORMAT_R16G16B16_UNORM:
-      return NOVA_FORMAT_RGB16;
-    case VK_FORMAT_R16G16B16A16_UNORM:
-      return NOVA_FORMAT_RGBA16;
-    case VK_FORMAT_R32G32_SFLOAT:
-      return NOVA_FORMAT_RG32;
-    case VK_FORMAT_R32G32B32_SFLOAT:
-      return NOVA_FORMAT_RGB32;
-    case VK_FORMAT_R32G32B32A32_SFLOAT:
-      return NOVA_FORMAT_RGBA32;
+    case VK_FORMAT_R16G16B16_UNORM: return NOVA_FORMAT_RGB16;
+    case VK_FORMAT_R16G16B16A16_UNORM: return NOVA_FORMAT_RGBA16;
+    case VK_FORMAT_R32G32_SFLOAT: return NOVA_FORMAT_RG32;
+    case VK_FORMAT_R32G32B32_SFLOAT: return NOVA_FORMAT_RGB32;
+    case VK_FORMAT_R32G32B32A32_SFLOAT: return NOVA_FORMAT_RGBA32;
 
-    case VK_FORMAT_R8_SINT:
-      return NOVA_FORMAT_R8_SINT;
-    case VK_FORMAT_R8G8_SINT:
-      return NOVA_FORMAT_RG8_SINT;
-    case VK_FORMAT_R8G8B8_SINT:
-      return NOVA_FORMAT_RGB8_SINT;
-    case VK_FORMAT_R8G8B8A8_SINT:
-      return NOVA_FORMAT_RGBA8_SINT;
+    case VK_FORMAT_R8_SINT: return NOVA_FORMAT_R8_SINT;
+    case VK_FORMAT_R8G8_SINT: return NOVA_FORMAT_RG8_SINT;
+    case VK_FORMAT_R8G8B8_SINT: return NOVA_FORMAT_RGB8_SINT;
+    case VK_FORMAT_R8G8B8A8_SINT: return NOVA_FORMAT_RGBA8_SINT;
 
-    case VK_FORMAT_R8_SRGB:
-      return NOVA_FORMAT_R8_SRGB;
-    case VK_FORMAT_R8G8_SRGB:
-      return NOVA_FORMAT_RG8_SRGB;
-    case VK_FORMAT_R8G8B8_SRGB:
-      return NOVA_FORMAT_RGB8_SRGB;
-    case VK_FORMAT_R8G8B8A8_SRGB:
-      return NOVA_FORMAT_RGBA8_SRGB;
+    case VK_FORMAT_R8_SRGB: return NOVA_FORMAT_R8_SRGB;
+    case VK_FORMAT_R8G8_SRGB: return NOVA_FORMAT_RG8_SRGB;
+    case VK_FORMAT_R8G8B8_SRGB: return NOVA_FORMAT_RGB8_SRGB;
+    case VK_FORMAT_R8G8B8A8_SRGB: return NOVA_FORMAT_RGBA8_SRGB;
 
-    case VK_FORMAT_B8G8R8_SRGB:
-      return NOVA_FORMAT_BGR8_SRGB;
-    case VK_FORMAT_B8G8R8A8_SRGB:
-      return NOVA_FORMAT_BGRA8_SRGB;
+    case VK_FORMAT_B8G8R8_SRGB: return NOVA_FORMAT_BGR8_SRGB;
+    case VK_FORMAT_B8G8R8A8_SRGB: return NOVA_FORMAT_BGRA8_SRGB;
 
-    case VK_FORMAT_R8_UINT:
-      return NOVA_FORMAT_R8_UINT;
-    case VK_FORMAT_R8G8_UINT:
-      return NOVA_FORMAT_RG8_UINT;
-    case VK_FORMAT_R8G8B8_UINT:
-      return NOVA_FORMAT_RGB8_UINT;
-    case VK_FORMAT_R8G8B8A8_UINT:
-      return NOVA_FORMAT_RGBA8_UINT;
+    case VK_FORMAT_R8_UINT: return NOVA_FORMAT_R8_UINT;
+    case VK_FORMAT_R8G8_UINT: return NOVA_FORMAT_RG8_UINT;
+    case VK_FORMAT_R8G8B8_UINT: return NOVA_FORMAT_RGB8_UINT;
+    case VK_FORMAT_R8G8B8A8_UINT: return NOVA_FORMAT_RGBA8_UINT;
 
-    case VK_FORMAT_D16_UNORM:
-      return NOVA_FORMAT_D16;
-    case VK_FORMAT_D32_SFLOAT:
-      return NOVA_FORMAT_D32;
-    case VK_FORMAT_D24_UNORM_S8_UINT:
-      return NOVA_FORMAT_D24_S8;
-    case VK_FORMAT_D32_SFLOAT_S8_UINT:
-      return NOVA_FORMAT_D32_S8;
+    case VK_FORMAT_D16_UNORM: return NOVA_FORMAT_D16;
+    case VK_FORMAT_D32_SFLOAT: return NOVA_FORMAT_D32;
+    case VK_FORMAT_D24_UNORM_S8_UINT: return NOVA_FORMAT_D24_S8;
+    case VK_FORMAT_D32_SFLOAT_S8_UINT: return NOVA_FORMAT_D32_S8;
 
-    case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
-      return NOVA_FORMAT_BC1;
-    case VK_FORMAT_BC3_UNORM_BLOCK:
-      return NOVA_FORMAT_BC3;
-    case VK_FORMAT_BC7_UNORM_BLOCK:
-      return NOVA_FORMAT_BC7;
+    case VK_FORMAT_BC1_RGB_UNORM_BLOCK: return NOVA_FORMAT_BC1;
+    case VK_FORMAT_BC3_UNORM_BLOCK: return NOVA_FORMAT_BC3;
+    case VK_FORMAT_BC7_UNORM_BLOCK: return NOVA_FORMAT_BC7;
 
-    default:
-      return NOVA_FORMAT_UNDEFINED;
+    default: return NOVA_FORMAT_UNDEFINED;
   }
 }
 
@@ -4372,23 +4051,14 @@ void
 nv_sprite_release(nv_sprite* spr)
 {
   spr->rcount--;
-  if (spr->rcount <= 0)
-  {
-    nv_sprite_destroy(spr);
-  }
+  if (spr->rcount <= 0) { nv_sprite_destroy(spr); }
 }
 
 void
 nv_sprite_get_dimensions(const nv_sprite* spr, int* w, int* h)
 {
-  if (w)
-  {
-    *w = spr->w;
-  }
-  if (h)
-  {
-    *h = spr->h;
-  }
+  if (w) { *w = spr->w; }
+  if (h) { *h = spr->h; }
 }
 
 VkImage
@@ -4430,13 +4100,14 @@ nv_camera_destroy(nv_camera_t* cam)
   nv_gpu_free_memory(cam->mem);
 }
 
-nv_camera_t
-nv_camera_init()
+void
+nv_camera_init(nv_camera_t* cam)
 {
-  nv_camera_t camera = {
+  const flt_t ortho_w = 10.0, ortho_h = 10.0;
+  *cam = (nv_camera_t){
     .perspective = {},
-    .ortho_size  = (vec2){ 10.0, 10.0 },
-    .ortho       = m4ortho(-camera.ortho_size.x, camera.ortho_size.x, -camera.ortho_size.y, camera.ortho_size.y, 0.1f, 100.0f),
+    .ortho_size  = (vec2){ ortho_w, ortho_h },
+    .ortho       = m4ortho(-ortho_w, ortho_w, -ortho_h, ortho_h, 0.1f, 100.0f),
     .position    = (vec3){ 0.0f, 0.0f, 10.0f },
     .actual_pos  = (vec3){ 0.0f, 0.0f, 10.0f },
     .front       = (vec3){ 0.0f, 0.0f, 1.0f },
@@ -4460,25 +4131,24 @@ nv_camera_init()
   // the size of a single uniform buffer.
   int ub_size = ALIGN_UP(sizeof(nv_camera_uniform_buffer), ub_align);
 
-  nv_gpu_create_buffer(ub_size * CAMERA_FAKE_BUFFER_COUNT, ub_align, NOVA_GPU_BUFFER_TYPE_UNIFORM_BUFFER, &camera.ub);
-  nv_gpu_allocate_memory(ub_size * CAMERA_FAKE_BUFFER_COUNT, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE | NOVA_GPU_MEMORY_USAGE_CPU_WRITEABLE, &camera.mem);
-  nv_gpu_bind_buffer_to_memory(camera.mem, 0, &camera.ub);
+  nv_gpu_create_buffer(ub_size * CAMERA_FAKE_BUFFER_COUNT, ub_align, NOVA_GPU_BUFFER_TYPE_UNIFORM_BUFFER, &cam->ub);
+  nv_gpu_allocate_memory(ub_size * CAMERA_FAKE_BUFFER_COUNT, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE | NOVA_GPU_MEMORY_USAGE_CPU_WRITEABLE, &cam->mem);
+  nv_gpu_bind_buffer_to_memory(cam->mem, 0, &cam->ub);
 
   VkDescriptorSetLayoutBinding bindings[] = { { 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT, NULL } };
-  nv_allocate_descriptor_set(&g_pool, bindings, 1, &camera.sets);
+  nv_allocate_descriptor_set(&g_pool, bindings, 1, &cam->sets);
 
-  VkDescriptorBufferInfo bufferinfo = { .buffer = camera.ub.buffer, .offset = 0, .range = (VkDeviceSize)ub_size };
+  VkDescriptorBufferInfo bufferinfo = { .buffer = cam->ub.buffer, .offset = 0, .range = (VkDeviceSize)ub_size };
   VkWriteDescriptorSet   write      = {
            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-           .dstSet          = camera.sets->set,
+           .dstSet          = cam->sets->set,
            .dstBinding      = 0,
            .descriptorCount = 1,
            .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
            .pBufferInfo     = &bufferinfo,
   };
-  nv_descriptor_set_submit_write(camera.sets, &write);
-  nv_gpu_map_memory(camera.mem, VK_WHOLE_SIZE, 0, (void**)&camera.mem_mapped);
-  return camera;
+  nv_descriptor_set_submit_write(cam->sets, &write);
+  nv_gpu_map_memory(cam->mem, VK_WHOLE_SIZE, 0, (void**)&cam->mem_mapped);
 }
 
 mat4
@@ -4565,7 +4235,7 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd)
 vec2
 nv_camera_get_global_mouse_position(const nv_camera_t* cam)
 {
-  vec2 ortho_pos = v2mulv(nv_input_get_mouse_position(), camera.ortho_size);
+  vec2 ortho_pos = v2mulv(nv_input_get_mouse_position(), cam->ortho_size);
   return v2add(ortho_pos, (vec2){ cam->position.x, cam->position.y });
 }
 
@@ -4574,107 +4244,56 @@ nvvk_vk_result_to_string(VkResult r)
 {
   switch (r)
   {
-    case VK_SUCCESS:
-      return "VK_SUCCESS";
-    case VK_NOT_READY:
-      return "VK_NOT_READY";
-    case VK_TIMEOUT:
-      return "VK_TIMEOUT";
-    case VK_EVENT_SET:
-      return "VK_EVENT_SET";
-    case VK_EVENT_RESET:
-      return "VK_EVENT_RESET";
-    case VK_INCOMPLETE:
-      return "VK_INCOMPLETE";
-    case VK_ERROR_OUT_OF_HOST_MEMORY:
-      return "VK_ERROR_OUT_OF_HOST_MEMORY";
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-      return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-    case VK_ERROR_INITIALIZATION_FAILED:
-      return "VK_ERROR_INITIALIZATION_FAILED";
-    case VK_ERROR_DEVICE_LOST:
-      return "VK_ERROR_DEVICE_LOST";
-    case VK_ERROR_MEMORY_MAP_FAILED:
-      return "VK_ERROR_MEMORY_MAP_FAILED";
-    case VK_ERROR_LAYER_NOT_PRESENT:
-      return "VK_ERROR_LAYER_NOT_PRESENT";
-    case VK_ERROR_EXTENSION_NOT_PRESENT:
-      return "VK_ERROR_EXTENSION_NOT_PRESENT";
-    case VK_ERROR_FEATURE_NOT_PRESENT:
-      return "VK_ERROR_FEATURE_NOT_PRESENT";
-    case VK_ERROR_INCOMPATIBLE_DRIVER:
-      return "VK_ERROR_INCOMPATIBLE_DRIVER";
-    case VK_ERROR_TOO_MANY_OBJECTS:
-      return "VK_ERROR_TOO_MANY_OBJECTS";
-    case VK_ERROR_FORMAT_NOT_SUPPORTED:
-      return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-    case VK_ERROR_FRAGMENTED_POOL:
-      return "VK_ERROR_FRAGMENTED_POOL";
-    case VK_ERROR_UNKNOWN:
-      return "VK_ERROR_UNKNOWN";
-    case VK_ERROR_OUT_OF_POOL_MEMORY:
-      return "VK_ERROR_OUT_OF_POOL_MEMORY";
-    case VK_ERROR_INVALID_EXTERNAL_HANDLE:
-      return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
-    case VK_ERROR_FRAGMENTATION:
-      return "VK_ERROR_FRAGMENTATION";
-    case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
-      return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
-    case VK_PIPELINE_COMPILE_REQUIRED:
-      return "VK_PIPELINE_COMPILE_REQUIRED";
-    case VK_ERROR_NOT_PERMITTED:
-      return "VK_ERROR_NOT_PERMITTED";
-    case VK_ERROR_SURFACE_LOST_KHR:
-      return "VK_ERROR_SURFACE_LOST_KHR";
-    case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-      return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
-    case VK_SUBOPTIMAL_KHR:
-      return "VK_SUBOPTIMAL_KHR";
-    case VK_ERROR_OUT_OF_DATE_KHR:
-      return "VK_ERROR_OUT_OF_DATE_KHR";
-    case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
-      return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
-    case VK_ERROR_VALIDATION_FAILED_EXT:
-      return "VK_ERROR_VALIDATION_FAILED_EXT";
-    case VK_ERROR_INVALID_SHADER_NV:
-      return "VK_ERROR_INVALID_SHADER_NV";
-    case VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR:
-      return "VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR";
-    case VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR:
-      return "VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR";
-    case VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR:
-      return "VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR";
-    case VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR:
-      return "VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR";
-    case VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR:
-      return "VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR";
-    case VK_ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR:
-      return "VK_ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR";
-    case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
-      return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
-    case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
-      return "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
-    case VK_THREAD_IDLE_KHR:
-      return "VK_THREAD_IDLE_KHR";
-    case VK_THREAD_DONE_KHR:
-      return "VK_THREAD_DONE_KHR";
-    case VK_OPERATION_DEFERRED_KHR:
-      return "VK_OPERATION_DEFERRED_KHR";
-    case VK_OPERATION_NOT_DEFERRED_KHR:
-      return "VK_OPERATION_NOT_DEFERRED_KHR";
-    case VK_ERROR_INVALID_VIDEO_STD_PARAMETERS_KHR:
-      return "VK_ERROR_INVALID_VIDEO_STD_PARAMETERS_KHR";
-    case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
-      return "VK_ERROR_COMPRESSION_EXHAUSTED_EXT";
-    case VK_INCOMPATIBLE_SHADER_BINARY_EXT:
-      return "VK_INCOMPATIBLE_SHADER_BINARY_EXT";
-    case VK_PIPELINE_BINARY_MISSING_KHR:
-      return "VK_PIPELINE_BINARY_MISSING_KHR";
-    case VK_ERROR_NOT_ENOUGH_SPACE_KHR:
-      return "VK_ERROR_NOT_ENOUGH_SPACE_KHR";
-    case VK_RESULT_MAX_ENUM:
-      return "VK_RESULT_MAX_ENUM";
-    default:
-      return "(Not A VkResult)";
+    case VK_SUCCESS: return "VK_SUCCESS";
+    case VK_NOT_READY: return "VK_NOT_READY";
+    case VK_TIMEOUT: return "VK_TIMEOUT";
+    case VK_EVENT_SET: return "VK_EVENT_SET";
+    case VK_EVENT_RESET: return "VK_EVENT_RESET";
+    case VK_INCOMPLETE: return "VK_INCOMPLETE";
+    case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+    case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
+    case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
+    case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED";
+    case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
+    case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
+    case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
+    case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
+    case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS";
+    case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+    case VK_ERROR_FRAGMENTED_POOL: return "VK_ERROR_FRAGMENTED_POOL";
+    case VK_ERROR_UNKNOWN: return "VK_ERROR_UNKNOWN";
+    case VK_ERROR_OUT_OF_POOL_MEMORY: return "VK_ERROR_OUT_OF_POOL_MEMORY";
+    case VK_ERROR_INVALID_EXTERNAL_HANDLE: return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
+    case VK_ERROR_FRAGMENTATION: return "VK_ERROR_FRAGMENTATION";
+    case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS: return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
+    case VK_PIPELINE_COMPILE_REQUIRED: return "VK_PIPELINE_COMPILE_REQUIRED";
+    case VK_ERROR_NOT_PERMITTED: return "VK_ERROR_NOT_PERMITTED";
+    case VK_ERROR_SURFACE_LOST_KHR: return "VK_ERROR_SURFACE_LOST_KHR";
+    case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
+    case VK_SUBOPTIMAL_KHR: return "VK_SUBOPTIMAL_KHR";
+    case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
+    case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
+    case VK_ERROR_VALIDATION_FAILED_EXT: return "VK_ERROR_VALIDATION_FAILED_EXT";
+    case VK_ERROR_INVALID_SHADER_NV: return "VK_ERROR_INVALID_SHADER_NV";
+    case VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR: return "VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR";
+    case VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR: return "VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR";
+    case VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR: return "VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR";
+    case VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR: return "VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR";
+    case VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR: return "VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR";
+    case VK_ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR: return "VK_ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR";
+    case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT: return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
+    case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT: return "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
+    case VK_THREAD_IDLE_KHR: return "VK_THREAD_IDLE_KHR";
+    case VK_THREAD_DONE_KHR: return "VK_THREAD_DONE_KHR";
+    case VK_OPERATION_DEFERRED_KHR: return "VK_OPERATION_DEFERRED_KHR";
+    case VK_OPERATION_NOT_DEFERRED_KHR: return "VK_OPERATION_NOT_DEFERRED_KHR";
+    case VK_ERROR_INVALID_VIDEO_STD_PARAMETERS_KHR: return "VK_ERROR_INVALID_VIDEO_STD_PARAMETERS_KHR";
+    case VK_ERROR_COMPRESSION_EXHAUSTED_EXT: return "VK_ERROR_COMPRESSION_EXHAUSTED_EXT";
+    case VK_INCOMPATIBLE_SHADER_BINARY_EXT: return "VK_INCOMPATIBLE_SHADER_BINARY_EXT";
+    case VK_PIPELINE_BINARY_MISSING_KHR: return "VK_PIPELINE_BINARY_MISSING_KHR";
+    case VK_ERROR_NOT_ENOUGH_SPACE_KHR: return "VK_ERROR_NOT_ENOUGH_SPACE_KHR";
+    case VK_RESULT_MAX_ENUM: return "VK_RESULT_MAX_ENUM";
+    default: return "(Not A VkResult)";
   }
 }

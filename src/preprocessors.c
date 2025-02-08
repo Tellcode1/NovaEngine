@@ -86,12 +86,11 @@ main(int argc, char* argv[])
     { NV_OP_TYPE_STRING, "l", "list", buf, sizeof(buf) },
     { NV_OP_TYPE_STRING, "c", "command", cmd, sizeof(cmd) },
     { NV_OP_TYPE_BOOL, "h", "help", &help, 0 },
-    NV_OPTION_SENTINEL
   };
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, error, sizeof(error)))
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)))
   {
     nvsm_log_error("%s", error);
     return -1;
@@ -108,18 +107,9 @@ main(int argc, char* argv[])
 
   list = buf;
 
-  if (nv_strcmp(cmd, "compile-force") == 0)
-  {
-    nvsm_compile_all();
-  }
-  else if (nv_strcmp(cmd, "compile") == 0)
-  {
-    nvsm_compile_updated();
-  }
-  else
-  {
-    return -1;
-  }
+  if (nv_strcmp(cmd, "compile-force") == 0) { nvsm_compile_all(); }
+  else if (nv_strcmp(cmd, "compile") == 0) { nvsm_compile_updated(); }
+  else { return -1; }
 
   return 0;
 }
@@ -138,12 +128,8 @@ void
 nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** dst)
 {
   struct nvsm_shader_t* new_map = nv_malloc((nshaders + 1) * sizeof(struct nvsm_shader_t));
-  if (nshaders > 0)
-  {
-    nv_memcpy(new_map, shader_map, nshaders * sizeof(struct nvsm_shader_t));
-  }
-  if (shader_map != NULL)
-    nv_free(shader_map);
+  if (nshaders > 0) { nv_memcpy(new_map, shader_map, nshaders * sizeof(struct nvsm_shader_t)); }
+  if (shader_map != NULL) nv_free(shader_map);
   shader_map = new_map;
 
   struct nvsm_shader_t add;
@@ -178,10 +164,7 @@ does_shader_exist(const char* name)
 int
 nvsm_load_shader(const char* name, struct nvsm_shader_t** out)
 {
-  if (name == NULL || nv_strlen(name) == 0)
-  {
-    return -1;
-  }
+  if (name == NULL || nv_strlen(name) == 0) { return -1; }
 
   struct nvsm_shader_t shader = {};
 
@@ -190,10 +173,7 @@ nvsm_load_shader(const char* name, struct nvsm_shader_t** out)
 
   struct nvsm_shader_t* shaderptr = (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
 
-  if (shaderptr)
-  {
-    *out = shaderptr;
-  }
+  if (shaderptr) { *out = shaderptr; }
   else
   {
     // should we check out is NULL before setting it or not
@@ -241,17 +221,11 @@ read_shader_spirv(const char* output, unsigned** spirv, int* spirvsize)
 
   fseek(f, 0, SEEK_END);
   size_t fsize = ftell(f);
-  if (fsize == (size_t)-1)
-  {
-    goto err;
-  }
+  if (fsize == (size_t)-1) { goto err; }
   fseek(f, 0, SEEK_SET);
 
   unsigned* buffer = nv_malloc(fsize);
-  if (!buffer)
-  {
-    goto err;
-  }
+  if (!buffer) { goto err; }
 
   fread(buffer, 1, fsize, f);
 
@@ -309,30 +283,12 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
   int index = 0;
   for (int i = 0; i < nentries; i++)
   {
-    if (nv_strncmp(entries[i].stage, "vert", 4) == 0)
-    {
-      shader_map[nshaders + index].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    }
-    else if (nv_strncmp(entries[i].stage, "frag", 4) == 0)
-    {
-      shader_map[nshaders + index].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    }
-    else if (nv_strncmp(entries[i].stage, "tese", 4) == 0)
-    {
-      shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    }
-    else if (nv_strncmp(entries[i].stage, "tesc", 4) == 0)
-    {
-      shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    }
-    else if (nv_strncmp(entries[i].stage, "geom", 4) == 0)
-    {
-      shader_map[nshaders + index].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
-    }
-    else if (nv_strncmp(entries[i].stage, "comp", 4) == 0)
-    {
-      shader_map[nshaders + index].stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    }
+    if (nv_strncmp(entries[i].stage, "vert", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_VERTEX_BIT; }
+    else if (nv_strncmp(entries[i].stage, "frag", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_FRAGMENT_BIT; }
+    else if (nv_strncmp(entries[i].stage, "tese", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT; }
+    else if (nv_strncmp(entries[i].stage, "tesc", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT; }
+    else if (nv_strncmp(entries[i].stage, "geom", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_GEOMETRY_BIT; }
+    else if (nv_strncmp(entries[i].stage, "comp", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_COMPUTE_BIT; }
     else
     {
       nvsm_log_error("Invalid stage for shader \"%s\". It will not be added.", entries[i].name);
@@ -472,10 +428,7 @@ create_parent_dirs(const char path[256])
     nv_strcpy(buffer, path);
     int len = nv_strlen(buffer);
 
-    if (buffer[len - 1] == PATH_SEP)
-    {
-      buffer[len - 1] = 0;
-    }
+    if (buffer[len - 1] == PATH_SEP) { buffer[len - 1] = 0; }
 
     for (char* p = buffer + 1; *p; p++)
     {
@@ -495,14 +448,8 @@ time_t
 get_mtime(const char* fpath)
 {
   struct stat file_stats;
-  if (stat(fpath, &file_stats) == 0)
-  {
-    return file_stats.st_mtime;
-  }
-  else
-  {
-    nvsm_log_error("stat error: %s", strerror(errno));
-  }
+  if (stat(fpath, &file_stats) == 0) { return file_stats.st_mtime; }
+  else { nvsm_log_error("stat error: %s", strerror(errno)); }
   return -1;
 }
 
@@ -523,10 +470,7 @@ load_all_entries(const char* shader_list_file_path, int* count)
   char line[256];
   for (int i = 0;; i++)
   {
-    if (!fgets(line, 256, f))
-    {
-      break;
-    }
+    if (!fgets(line, 256, f)) { break; }
     else if (nv_strlen(line) == 1)
       continue; // line only contains \n
     line[nv_strcspn(line, "\n")] = 0;
@@ -554,14 +498,8 @@ load_all_entries(const char* shader_list_file_path, int* count)
     nv_assert(fgets(line, 256, shader_file) != NULL);
 
     const char* li = line;
-    while (*li == ' ')
-    {
-      li++;
-    }
-    if (nv_strncmp(li, "//", 2) == 0)
-    {
-      sscanf(li, "// output: %s stage: %s name: %s", entry->output_path, entry->stage, entry->name);
-    }
+    while (*li == ' ') { li++; }
+    if (nv_strncmp(li, "//", 2) == 0) { sscanf(li, "// output: %s stage: %s name: %s", entry->output_path, entry->stage, entry->name); }
     else
     {
       nv_strcpy(entry->stage, "000");
@@ -594,10 +532,7 @@ static char* g_Buffer = NULL;
 int
 compile_shader(const struct nvsm_shader_entry_t* entry)
 {
-  if (!g_Buffer)
-  {
-    g_Buffer = nv_calloc(1024);
-  }
+  if (!g_Buffer) { g_Buffer = nv_calloc(1024); }
   char copy[256];
   copy[255] = '\0';
   nv_strncpy(copy, entry->output_path, 255);
@@ -606,10 +541,7 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
   nv_snprintf(g_Buffer, 1024, "%s %s %s -o %s -S %s", shader_compiler, shader_compiler_args, entry->path, nv_strcmp(entry->output_path, "") != 0 ? entry->output_path : "",
       entry->stage);
 
-  if (system(g_Buffer) != 0)
-  {
-    return -1;
-  }
+  if (system(g_Buffer) != 0) { return -1; }
   g_Buffer[1023] = 0;
 
   return 0;
@@ -627,14 +559,8 @@ nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_
       {
         if (cacheentries[j].last_modified != entries[i].last_modified)
         {
-          if (compile_shader(&entries[i]) != 0)
-          {
-            nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path);
-          }
-          else
-          {
-            compiled++;
-          }
+          if (compile_shader(&entries[i]) != 0) { nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path); }
+          else { compiled++; }
           cacheentries[j].last_modified = entries[i].last_modified;
         }
         break;
@@ -649,10 +575,7 @@ nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries)
 {
   for (int i = 0; i < nentries; i++)
   {
-    if (compile_shader(&entries[i]) != 0)
-    {
-      nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path);
-    }
+    if (compile_shader(&entries[i]) != 0) { nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path); }
   }
 }
 
@@ -673,20 +596,14 @@ nvsm_compile_updated()
     nvsm_log_error("Could not open cache for reading. return.");
     nvsm_compile_without_cache(entries, nentries);
   }
-  else
-  {
-    nvsm_compile_from_cache(entries, nentries, cacheentries, cachecount);
-  }
+  else { nvsm_compile_from_cache(entries, nentries, cacheentries, cachecount); }
 
   if (cacheentries == NULL)
   {
     nvsm_log_error("No cache or modified cache. Writing new cache file...");
     write_new_cache(entries, nentries);
   }
-  else
-  {
-    update_cache(cacheentries, nentries);
-  }
+  else { update_cache(cacheentries, nentries); }
 
 #  if NVSM_EXECUTABLE != 1
   nvsm_register_all_shaders(device, entries, nentries);
@@ -694,8 +611,7 @@ nvsm_compile_updated()
 
   nv_free(entries);
 
-  if (cacheentries)
-    nv_free(cacheentries);
+  if (cacheentries) nv_free(cacheentries);
 
   nv_log_custom(" nvsm: ", "Shader compilation end in %fs", timer_time_since_start(&stopwatch));
 }
@@ -713,10 +629,7 @@ nvsm_compile_all()
   nvsm_register_all_shaders(device, entries, count);
 #  endif // #if NVSM_EXECUTABLE != 1
 
-  for (int i = 0; i < count; i++)
-  {
-    compile_shader(&entries[i]);
-  }
+  for (int i = 0; i < count; i++) { compile_shader(&entries[i]); }
 
   write_new_cache(entries, count);
 
@@ -774,13 +687,12 @@ main(int argc, char* argv[])
     { NV_OP_TYPE_INT, "p", "pixel-size", &pixel_size, 0 },
     { NV_OP_TYPE_INT, "w", "atlas-width", &atlas_w, 0 },
     { NV_OP_TYPE_INT, "h", "atlas-height", &atlas_h, 0 },
-    { NV_OP_TYPE_BOOL, "h", "help", &help, 0 },
-    NV_OPTION_SENTINEL
+    { NV_OP_TYPE_BOOL, "h", "help", &help, 0 }
   };
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, error, sizeof(error)))
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)))
   {
     nvsm_log_error("%s", error);
     return -1;
@@ -898,15 +810,9 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
     }
 
     FT_UInt glyph_index = FT_Get_Char_Index(face, i);
-    if (glyph_index == 0)
-    {
-      continue;
-    }
+    if (glyph_index == 0) { continue; }
 
-    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT))
-    {
-      continue;
-    }
+    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT)) { continue; }
 
     if (i == ' ')
     {
@@ -931,9 +837,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
         continue;
       }
     }
-    if (x == SIZE_MAX || y == SIZE_MAX)
-    {
-    }
+    if (x == SIZE_MAX || y == SIZE_MAX) {}
 
     FT_Glyph gl;
     FT_Get_Glyph(face->glyph, &gl);

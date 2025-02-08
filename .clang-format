@@ -4,7 +4,7 @@ TabWidth: 2
 UseTab: Never
 ColumnLimit: 175
 AllowAllParametersOfDeclarationOnNextLine: true
-AlignAfterOpenBracket: DontAlign
+AlignAfterOpenBracket: AlwaysBreak
 AlignConsecutiveAssignments: Consecutive
 AlignConsecutiveDeclarations: Consecutive
 AlignOperands: DontAlign
@@ -21,3 +21,7 @@ SpaceBeforeAssignmentOperators: true
 IndentPPDirectives: AfterHash
 BreakBeforeBraces: Allman
 PPIndentWidth: 2
+AllowShortBlocksOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true

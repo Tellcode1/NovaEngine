@@ -138,10 +138,7 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
   obj->index = scene->objects.m_size;
 
   bool start_enabled = 1;
-  if (flags & NOVA_OBJECT_NO_COLLISION)
-  {
-    start_enabled = 0;
-  }
+  if (flags & NOVA_OBJECT_NO_COLLISION) { start_enabled = 0; }
   obj->col = nv_collider_init(scene, position, size, col_type, NOVA_COLLIDER_SHAPE_RECT, layer, mask, start_enabled);
 
   return obj;
@@ -150,8 +147,7 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
 void
 nv_object_destroy(nv_object* obj)
 {
-  if (!obj)
-    return;
+  if (!obj) return;
 
   if (obj->col)
   {
@@ -189,10 +185,7 @@ void
 nv_object_set_position(nv_object* obj, vec2 to)
 {
   obj->transform.position = to;
-  if (obj->col && obj->col->enabled)
-  {
-    nv_collider_set_position(obj->col, to);
-  }
+  if (obj->col && obj->col->enabled) { nv_collider_set_position(obj->col, to); }
 }
 
 vec2
@@ -242,23 +235,11 @@ b2BodyId
 _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shape shape, vec2 pos, vec2 siz, uint64_t layer, uint64_t mask, bool start_enabled)
 {
   b2BodyDef body_def = b2DefaultBodyDef();
-  if (type == NOVA_COLLIDER_TYPE_STATIC)
-  {
-    body_def.type = b2_staticBody;
-  }
-  else if (type == NOVA_COLLIDER_TYPE_DYNAMIC)
-  {
-    body_def.type = b2_dynamicBody;
-  }
-  else if (type == NOVA_COLLIDER_TYPE_KINEMATIC)
-  {
-    body_def.type = b2_kinematicBody;
-  }
+  if (type == NOVA_COLLIDER_TYPE_STATIC) { body_def.type = b2_staticBody; }
+  else if (type == NOVA_COLLIDER_TYPE_DYNAMIC) { body_def.type = b2_dynamicBody; }
+  else if (type == NOVA_COLLIDER_TYPE_KINEMATIC) { body_def.type = b2_kinematicBody; }
 
-  if (!start_enabled)
-  {
-    return (b2BodyId){};
-  }
+  if (!start_enabled) { return (b2BodyId){}; }
 
   body_def.position = VEC2_TO_BVEC2(pos);
   b2BodyId body_id  = b2CreateBody(scene->world, &body_def);
@@ -327,10 +308,7 @@ nv_collider_get_position(const nv_collider_t* col)
 {
   if (col)
     return col->position;
-  else
-  {
-    return (vec2){};
-  }
+  else { return (vec2){}; }
 }
 
 void
@@ -377,10 +355,7 @@ cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, v
   (void)fraction;
 
   ray_cast_context* ctx = context;
-  if (nv_memcmp(&shapeId, &ctx->raycaster, sizeof(b2ShapeId)) == 0)
-  {
-    return -1.0f;
-  }
+  if (nv_memcmp(&shapeId, &ctx->raycaster, sizeof(b2ShapeId)) == 0) { return -1.0f; }
   ctx->hit->hit              = 1;
   ctx->hit->point_of_contact = BVEC2_TO_VEC2(point);
   return 0.0f;
@@ -417,10 +392,7 @@ nv_scene_init()
   scn->world           = b2CreateWorld(&world_def);
   nv_dynarray_init(sizeof(nv_object), 4, &nv_allocator_default, &scn->objects);
 
-  if (!scene_main)
-  {
-    nv_scene_change_to_scene(scn);
-  }
+  if (!scene_main) { nv_scene_change_to_scene(scn); }
   return scn;
 }
 
@@ -437,10 +409,7 @@ nv_scene_update()
   for (int i = 0; i < (int)scene_main->objects.m_size; i++)
   {
     nv_collider_t* col = objects[i].col;
-    if (!col->enabled)
-    {
-      continue;
-    }
+    if (!col->enabled) { continue; }
 
     b2Vec2 pos                    = b2Body_GetPosition(col->body);
     objects[i].transform.position = BVEC2_TO_VEC2(pos);
@@ -450,10 +419,7 @@ nv_scene_update()
   const float dt = nv_get_delta_time();
   for (int i = 0; i < (int)scene_main->objects.m_size; i++)
   {
-    if (objects[i].update_fn)
-    {
-      objects[i].update_fn(dt);
-    }
+    if (objects[i].update_fn) { objects[i].update_fn(dt); }
   }
 }
 
@@ -468,22 +434,13 @@ nv_scene_render(nv_renderer_t* rd)
     vec2                      siz          = nv_object_get_size(&objects[i]);
     const nv_sprite_renderer* spr_renderer = &objects[i].spr_renderer;
     vec2f                     texmul       = spr_renderer->tex_coord_multiplier;
-    if (spr_renderer->flip_horizontal)
-    {
-      texmul.x *= -1.0f;
-    }
-    if (spr_renderer->flip_vertical)
-    {
-      texmul.y *= -1.0f;
-    }
-    nv_renderer_render_textured_quad(rd, spr_renderer, (vec3f){ pos.x, pos.y, 0.0f }, (vec3f){ siz.x, siz.y, 0.0f }, 0);
+    if (spr_renderer->flip_horizontal) { texmul.x *= -1.0f; }
+    if (spr_renderer->flip_vertical) { texmul.y *= -1.0f; }
+    nv_renderer_render_quad(rd, spr_renderer->spr, spr_renderer->tex_coord_multiplier, (vec3f){ pos.x, pos.y, 0.0f }, (vec3f){ siz.x, siz.y, 0.0f }, spr_renderer->color, 0);
   }
   for (int i = 0; i < (int)scene_main->objects.m_size; i++)
   {
-    if (objects[i].render_fn)
-    {
-      objects[i].render_fn(rd);
-    }
+    if (objects[i].render_fn) { objects[i].render_fn(rd); }
   }
 }
 // nv
@@ -491,10 +448,7 @@ nv_scene_render(nv_renderer_t* rd)
 void
 nv_scene_destroy(nv_scene_t* scene)
 {
-  if (!scene)
-  {
-    return;
-  }
+  if (!scene) { return; }
   b2DestroyWorld(scene->world);
   nv_dynarray_destroy(&scene->objects);
   nv_free(scene);
@@ -515,19 +469,13 @@ nv_scene_assign_unload_fn(nv_scene_t* scene, nv_scene_unload_fn fn)
 void
 nv_scene_change_to_scene(nv_scene_t* scene)
 {
-  if (scene_main == scene)
-  {
-    return;
-  }
+  if (scene_main == scene) { return; }
   if (scene_main && scene_main->unload)
   {
     scene_main->unload(scene);
     nv_scene_destroy(scene_main);
   }
-  if (scene->load)
-  {
-    scene->load(scene);
-  }
+  if (scene->load) { scene->load(scene); }
   scene_main = scene;
 }
 
@@ -553,10 +501,7 @@ nvui_init()
 void
 nvui_shutdown()
 {
-  if (!nvui_ctx.active)
-  {
-    return;
-  }
+  if (!nvui_ctx.active) { return; }
   nv_dynarray_destroy(&nvui_ctx.btons);
   nv_dynarray_destroy(&nvui_ctx.sliders);
   nvui_ctx.active = 0;
@@ -605,20 +550,14 @@ nvui_create_slider()
 void
 nvui_destroy_button(nvui_button* obj)
 {
-  if (!obj)
-  {
-    return;
-  }
+  if (!obj) { return; }
   nv_sprite_release(obj->spr);
 }
 
 void
 nvui_destroy_slider(nvui_slider* obj)
 {
-  if (!obj)
-  {
-    return;
-  }
+  if (!obj) { return; }
   nv_sprite_release(obj->slider_sprite);
   nv_sprite_release(obj->bg_sprite);
 }
@@ -626,10 +565,7 @@ nvui_destroy_slider(nvui_slider* obj)
 void
 nvui_render(nv_renderer_t* rd)
 {
-  if (!nvui_ctx.active)
-  {
-    return;
-  }
+  if (!nvui_ctx.active) { return; }
   for (int i = 0; i < (int)nv_dynarray_size(&nvui_ctx.btons); i++)
   {
     const nvui_button* bton = (nvui_button*)nv_dynarray_get(&nvui_ctx.btons, i);
@@ -711,10 +647,7 @@ nvui_update()
         slider->value    = slider->min + (percentage * (slider->max - slider->min));
         slider->moved    = 1;
       }
-      else
-      {
-        slider->moved = 0;
-      }
+      else { slider->moved = 0; }
     }
   }
 }
@@ -742,13 +675,9 @@ int
 nv_input_signal_action(const char* action)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (!ia)
-  {
-    return -1;
-  }
+  if (!ia) { return -1; }
   ia->this_frame = 1;
-  if (ia->response)
-    ia->response(action, ia);
+  if (ia->response) ia->response(action, ia);
   return 0;
 }
 
@@ -759,22 +688,10 @@ nv_input_get_key_state(const SDL_Scancode sc)
   const nv_input_key_state last_frame_key_state = nv_bitset_access_bit(&g_nv_input_last_frame_kb_state, sc);
 
   // curly braces are beautiful, aren't they?
-  if (this_frame_key_state && last_frame_key_state)
-  {
-    return NOVA_KEY_STATE_HELD;
-  }
-  else if (!this_frame_key_state && !last_frame_key_state)
-  {
-    return NOVA_KEY_STATE_NOT_HELD;
-  }
-  else if (this_frame_key_state && !last_frame_key_state)
-  {
-    return NOVA_KEY_STATE_PRESSED;
-  }
-  else if (!this_frame_key_state && last_frame_key_state)
-  {
-    return NOVA_KEY_STATE_RELEASED;
-  }
+  if (this_frame_key_state && last_frame_key_state) { return NOVA_KEY_STATE_HELD; }
+  else if (!this_frame_key_state && !last_frame_key_state) { return NOVA_KEY_STATE_NOT_HELD; }
+  else if (this_frame_key_state && !last_frame_key_state) { return NOVA_KEY_STATE_PRESSED; }
+  else if (!this_frame_key_state && last_frame_key_state) { return NOVA_KEY_STATE_RELEASED; }
 
   return -1;
 }
@@ -879,10 +796,7 @@ nv_input_update()
 
   const u8* const sdl_kb_state = SDL_GetKeyboardState(NULL);
   nv_bitset_copy_from(&g_nv_input_last_frame_kb_state, &g_nv_input_kb_state);
-  for (u32 i = 0; i < SDL_NUM_SCANCODES; i++)
-  {
-    nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]);
-  }
+  for (u32 i = 0; i < SDL_NUM_SCANCODES; i++) { nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]); }
 
   int mouse_state = SDL_GetMouseState(NULL, NULL);
 
@@ -897,21 +811,16 @@ nv_input_update()
     if (ia->key != 0)
     { // key2 is not checked, most ia's won't have one
       ia->this_frame = sdl_kb_state[ia->key] || sdl_kb_state[ia->key2];
-      if (ia->response)
-        ia->response((const char*)node->key, ia);
+      if (ia->response) ia->response((const char*)node->key, ia);
     }
     // ia->mouse is checked independently
     if (ia->mouse != 255)
     {
       // it's or'd with ia->this_frame so that we can call the response multiple times, as expected.
       ia->this_frame = ia->this_frame || (mouse_state & SDL_BUTTON(ia->mouse)) != 0;
-      if (ia->response)
-        ia->response((const char*)node->key, ia);
+      if (ia->response) ia->response((const char*)node->key, ia);
     }
-    else
-    {
-      ia->this_frame = 0;
-    }
+    else { ia->this_frame = 0; }
   }
 }
 
@@ -919,8 +828,7 @@ void
 nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn response)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (ia == NULL)
-    return;
+  if (ia == NULL) return;
   ia->response = response;
 }
 
@@ -937,10 +845,7 @@ nv_input_bind_key_to_action(SDL_Scancode key, const char* action)
   {
     if (ia->key != SDL_SCANCODE_UNKNOWN)
       ia->key2 = key;
-    else
-    {
-      ia->key = key;
-    }
+    else { ia->key = key; }
   }
 }
 
@@ -956,8 +861,7 @@ void
 nv_input_unbind_action(const char* action)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (ia == NULL)
-    return;
+  if (ia == NULL) return;
   ia->key      = SDL_SCANCODE_UNKNOWN;
   ia->key2     = SDL_SCANCODE_UNKNOWN;
   ia->mouse    = 255;
@@ -968,8 +872,7 @@ bool
 nv_input_is_action_signalled(const char* action)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (ia == NULL)
-    return false;
+  if (ia == NULL) return false;
   return ia->this_frame && ia->last_frame;
 }
 
@@ -977,8 +880,7 @@ bool
 nv_input_is_action_just_signalled(const char* action)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (ia == NULL)
-    return false;
+  if (ia == NULL) return false;
   return ia->this_frame && !ia->last_frame;
 }
 
@@ -986,8 +888,7 @@ bool
 nv_input_is_action_unsignalled(const char* action)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (ia == NULL)
-    return false;
+  if (ia == NULL) return false;
   return !ia->this_frame && !ia->last_frame;
 }
 
@@ -995,7 +896,6 @@ bool
 nv_input_is_action_just_unsignalled(const char* action)
 {
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action);
-  if (ia == NULL)
-    return false;
+  if (ia == NULL) return false;
   return !ia->this_frame && ia->last_frame;
 }

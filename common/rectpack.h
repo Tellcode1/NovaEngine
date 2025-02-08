@@ -21,6 +21,7 @@ struct nv_skyline_bin_t
 };
 
 extern void   nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin);
+extern void   nv_skyline_bin_destroy(nv_skyline_bin_t* bin);
 extern size_t nv_skyline_bin_max_height(const nv_skyline_bin_t* bin, size_t x, size_t w);
 extern int    nv_skyline_bin_find_best_placement(const nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t* best_x, size_t* best_y);
 extern void   nv_skyline_bin_place_rect(nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t x, size_t y);

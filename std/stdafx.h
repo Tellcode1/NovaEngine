@@ -6,12 +6,12 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 
 #ifdef __cplusplus
-#  define NOVA_HEADER_START extern "C" {
+#  define NOVA_HEADER_START                                                                                                                                                   \
+    extern "C"                                                                                                                                                                \
+    {
 #  define NOVA_HEADER_END }
 #else
 #  define NOVA_HEADER_START
@@ -50,8 +50,8 @@ NOVA_HEADER_START;
 
 #define DEBUG
 
-#define NV_MAX(a, b) ((a) > (b) ? (a) : (b))
-#define NV_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define NV_MAX(a, b) ((a) > (NV_TYPEOF(a))(b) ? (a) : (NV_TYPEOF(a))(b))
+#define NV_MIN(a, b) ((a) < (NV_TYPEOF(a))(b) ? (a) : (NV_TYPEOF(a))(b))
 #define NV_CONCAT(x, y) x##y
 
 #if defined(__GNUC__)
@@ -65,14 +65,14 @@ NOVA_HEADER_START;
 #ifndef NDEBUG
 #  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
     if (!((bool)(expr)))                                                                                                                                                      \
-      {                                                                                                                                                                       \
-        nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                    \
-        return retval;                                                                                                                                                        \
+    {                                                                                                                                                                         \
+      nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
+      return retval;                                                                                                                                                          \
     }
 #  define nv_assert(expr)                                                                                                                                                     \
     if (!((bool)(expr)))                                                                                                                                                      \
-      {                                                                                                                                                                       \
-        nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                    \
+    {                                                                                                                                                                         \
+      nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
     }
 #else
 // These are typecasted to void because they give warnings because result (its
@@ -114,7 +114,7 @@ extern void _nv_log(va_list args, const char* fn, const char* succeeder, const c
 #define _nv_time_wrapper1(x, y) NV_CONCAT(x, y)
 
 // May god never have a look at this define. I will not be spared.
-#define _nv_TIME_FUNCTION(func, LINE)                                                                                                                                         \
+#define _nv_time_function(func, LINE)                                                                                                                                         \
   const size_t _nv_time_wrapper1(__COUNTER_BEGIN__, __LINE__) = SDL_GetTicks64();                                                                                             \
   func; /* Call the function*/                                                                                                                                                \
   nv_log_debug("[Line %d] Function %s took %ldms", LINE, #func, SDL_GetTicks64() - _nv_time_wrapper1(__COUNTER_BEGIN__, __LINE__), LINE);
@@ -128,9 +128,9 @@ _nv_get_time()
 
   now = time(0);
   if ((tm = localtime(&now)) == NULL)
-    {
-      nv_log_error("Error extracting time stuff");
-      return NULL;
+  {
+    nv_log_error("Error extracting time stuff");
+    return NULL;
   }
 
   return tm;

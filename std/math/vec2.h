@@ -6,7 +6,7 @@
 
 NOVA_HEADER_START;
 
-#define DEFINE_VEC2_TYPE(TYPE, FUNC, NAME, SQRT_FUNC)                                                                                                                         \
+#define _NV_DEC_VEC2(TYPE, FUNC, NAME, SQRT_FUNC)                                                                                                                         \
   typedef struct NAME                                                                                                                                                         \
   {                                                                                                                                                                           \
     TYPE x, y;                                                                                                                                                                \
@@ -38,10 +38,10 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline bool FUNC##areeq(const NAME v1, const NAME v2) { return (bool)(v1.x == v2.x && v1.y == v2.y); }
 
-DEFINE_VEC2_TYPE(int, v2i, vec2i, sqrt);
-DEFINE_VEC2_TYPE(float, v2f, vec2f, sqrtf);
-DEFINE_VEC2_TYPE(double, v2d, vec2d, sqrt);
-DEFINE_VEC2_TYPE(flt_t, v2, vec2, sqrtf);
+_NV_DEC_VEC2(int, v2i, vec2i, sqrt);
+_NV_DEC_VEC2(float, v2f, vec2f, sqrtf);
+_NV_DEC_VEC2(double, v2d, vec2d, sqrt);
+_NV_DEC_VEC2(flt_t, v2, vec2, sqrtf);
 
 NOVA_HEADER_END;
 

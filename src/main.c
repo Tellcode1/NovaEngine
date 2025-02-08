@@ -1,9 +1,5 @@
 #include "../common/cvar.h"
 #include "../common/mem.h"
-#include "../std/stdafx.h"
-#include "../std/props.h"
-#include "../std/stdafx.h"
-#include "../std/timer.h"
 #include "../external/volk/volk.h"
 #include "../include/engine/camera.h"
 #include "../include/engine/ctext.h"
@@ -12,6 +8,9 @@
 #include "../include/engine/scene.h"
 #include "../include/engine/shadermanager.h"
 #include "../include/engine/ui.h"
+#include "../std/props.h"
+#include "../std/stdafx.h"
+#include "../std/timer.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -47,10 +46,7 @@ test_allocator(void)
   bool    pass = 1;
 
   volatile uchar* TestLargeAllocation = ac.alloc(&ac, 1, 100);
-  for (int i = 0; i < 100; i++)
-  {
-    TestLargeAllocation[i] = (uchar)rand();
-  }
+  for (int i = 0; i < 100; i++) { TestLargeAllocation[i] = (uchar)rand(); }
   if (!TestLargeAllocation)
   {
     nv_log_error("Large allocation failed");
@@ -109,14 +105,8 @@ test_allocator(void)
     }
   }
 
-  if (!pass)
-  {
-    nv_log_and_abort("Test Failed");
-  }
-  else
-  {
-    nv_log_info("Test Passed");
-  }
+  if (!pass) { nv_log_and_abort("Test Failed"); }
+  else { nv_log_info("Test Passed"); }
 }
 
 static inline const char*
@@ -138,10 +128,10 @@ main(int argc, char* argv[])
   int         window_width = 200, window_height = 200;
   bool        recompile_shaders = 0;
   nv_option_t options[]         = { { NV_OP_TYPE_STRING, NULL, "window-name", windowname, sizeof(windowname) }, { NV_OP_TYPE_INT, NULL, "window-width", &window_width, 0 },
-            { NV_OP_TYPE_INT, NULL, "window-height", &window_height, 0 }, { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 }, NV_OPTION_SENTINEL };
+            { NV_OP_TYPE_INT, NULL, "window-height", &window_height, 0 }, { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 } };
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, error, sizeof(error)) == -1)
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
     nv_log_error("PROPS error: %s", error);
     nv_log_error(
@@ -163,14 +153,8 @@ recompile-shaders=false : bool -> Recompile all shaders)");
 
   nv_initialize_context(windowname, window_size.width, window_size.height);
 
-  if (recompile_shaders)
-  {
-    nvsm_compile_all();
-  }
-  else
-  {
-    nvsm_compile_updated();
-  }
+  if (recompile_shaders) { nvsm_compile_all(); }
+  else { nvsm_compile_updated(); }
 
   nv_renderer_config rdconf   = nv_renderer_config_init();
   rdconf.vsync_enabled        = 1;
@@ -209,10 +193,7 @@ recompile-shaders=false : bool -> Recompile all shaders)");
     const double dt = nv_get_delta_time();
 
     SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-      nv_consume_event(&event);
-    }
+    while (SDL_PollEvent(&event)) { nv_consume_event(&event); }
     nv_input_update();
     nv_camera_update(&camera, rd);
 

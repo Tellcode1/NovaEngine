@@ -28,20 +28,14 @@ NOVA_HEADER_START;
   static inline NAME FUNC##add(const NAME m1, const NAME m2)                                                                                                                  \
   {                                                                                                                                                                           \
     NAME result;                                                                                                                                                              \
-    for (int i = 0; i < SIZE; i++)                                                                                                                                            \
-    {                                                                                                                                                                         \
-      result.data[i] = v##SIZE##TYPE_PREFIX##add(m1.data[i], m2.data[i]);                                                                                                     \
-    }                                                                                                                                                                         \
+    for (int i = 0; i < SIZE; i++) { result.data[i] = v##SIZE##TYPE_PREFIX##add(m1.data[i], m2.data[i]); }                                                                    \
     return result;                                                                                                                                                            \
   }                                                                                                                                                                           \
                                                                                                                                                                               \
   static inline NAME FUNC##sub(const NAME m1, const NAME m2)                                                                                                                  \
   {                                                                                                                                                                           \
     NAME result;                                                                                                                                                              \
-    for (int i = 0; i < SIZE; i++)                                                                                                                                            \
-    {                                                                                                                                                                         \
-      result.data[i] = v##SIZE##TYPE_PREFIX##sub(m1.data[i], m2.data[i]);                                                                                                     \
-    }                                                                                                                                                                         \
+    for (int i = 0; i < SIZE; i++) { result.data[i] = v##SIZE##TYPE_PREFIX##sub(m1.data[i], m2.data[i]); }                                                                    \
     return result;                                                                                                                                                            \
   }                                                                                                                                                                           \
                                                                                                                                                                               \
@@ -51,10 +45,7 @@ NOVA_HEADER_START;
     for (int i = 0; i < SIZE; i++)                                                                                                                                            \
     {                                                                                                                                                                         \
       result.data[i] = (vec##SIZE##TYPE_PREFIX){ 0 };                                                                                                                         \
-      for (int j = 0; j < SIZE; j++)                                                                                                                                          \
-      {                                                                                                                                                                       \
-        result.data[i] = v##SIZE##TYPE_PREFIX##add(result.data[i], v##SIZE##TYPE_PREFIX##muls(m1.data[j], ((TYPE*)&m2.data[j])[i]));                                          \
-      }                                                                                                                                                                       \
+      for (int j = 0; j < SIZE; j++) { result.data[i] = v##SIZE##TYPE_PREFIX##add(result.data[i], v##SIZE##TYPE_PREFIX##muls(m1.data[j], ((TYPE*)&m2.data[j])[i])); }         \
     }                                                                                                                                                                         \
     return result;                                                                                                                                                            \
   }                                                                                                                                                                           \
@@ -62,19 +53,13 @@ NOVA_HEADER_START;
   static inline vec##SIZE##TYPE_PREFIX FUNC##mulv(const NAME m, const vec##SIZE##TYPE_PREFIX v)                                                                               \
   {                                                                                                                                                                           \
     vec##SIZE##TYPE_PREFIX result = {};                                                                                                                                       \
-    for (int i = 0; i < SIZE; i++)                                                                                                                                            \
-    {                                                                                                                                                                         \
-      ((TYPE*)&result)[i] = v##SIZE##TYPE_PREFIX##dot(m.data[i], v);                                                                                                          \
-    }                                                                                                                                                                         \
+    for (int i = 0; i < SIZE; i++) { ((TYPE*)&result)[i] = v##SIZE##TYPE_PREFIX##dot(m.data[i], v); }                                                                         \
     return result;                                                                                                                                                            \
   }                                                                                                                                                                           \
   static inline NAME FUNC##scale(const NAME m, const vec3##TYPE_PREFIX v)                                                                                                     \
   {                                                                                                                                                                           \
     NAME matrix = FUNC##init(1.0f);                                                                                                                                           \
-    for (int i = 0; i < 3; i++)                                                                                                                                               \
-    {                                                                                                                                                                         \
-      matrix.data[i] = v4##TYPE_PREFIX##muls(m.data[i], ((float*)&v)[i]);                                                                                                     \
-    }                                                                                                                                                                         \
+    for (int i = 0; i < 3; i++) { matrix.data[i] = v4##TYPE_PREFIX##muls(m.data[i], ((float*)&v)[i]); }                                                                       \
     matrix.data[3] = m.data[3];                                                                                                                                               \
     return matrix;                                                                                                                                                            \
   }                                                                                                                                                                           \
@@ -90,8 +75,8 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline NAME FUNC##rotate(const NAME m, const TYPE angle_rads, const vec3##TYPE_PREFIX v)                                                                             \
   {                                                                                                                                                                           \
-    const TYPE c = cosf(angle_rads);                                                                                                                                          \
-    const TYPE s = sinf(angle_rads);                                                                                                                                          \
+    const TYPE c = cos(angle_rads);                                                                                                                                          \
+    const TYPE s = sin(angle_rads);                                                                                                                                          \
                                                                                                                                                                               \
     const vec3##TYPE_PREFIX axis = v3##TYPE_PREFIX##normalize(v);                                                                                                             \
     const vec3##TYPE_PREFIX temp = v3##TYPE_PREFIX##muls(axis, (1.0f - c));                                                                                                   \
@@ -187,11 +172,10 @@ _NV_DECL_MAT4(mat4d, m4d, 4, double, d);
 _NV_DECL_MAT4(mat4, m4, 4, flt_t, );
 
 #define NV_MATRIX_COPY(m1, m2, size)                                                                                                                                          \
-  do                                                                                                                                                                          \
-  {                                                                                                                                                                           \
+  do {                                                                                                                                                                        \
     for (int __nv_matrix_copy_i = 0; __nv_matrix_copy_i < (size); __nv_matrix_copy_i++)                                                                                       \
       for (int __nv_matrix_copy_j = 0; __nv_matrix_copy_j < (size); __nv_matrix_copy_j++)                                                                                     \
-        ((&(m1).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j] = (&(m2).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j]);                                                  \
+        ((&(m1).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j] = (&(m2).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j]);                                                    \
   } while (0)
 
 NOVA_HEADER_END;

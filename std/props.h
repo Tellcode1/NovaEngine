@@ -3,17 +3,12 @@
 
 // implementation: core.c
 
-// Place this at the end of your options array to
-// let the library know this is the end
-#define NV_OPTION_SENTINEL ((nv_option_t){ NV_OP_TYPE_SENTINEL })
-
 #include "stdafx.h"
 
 typedef struct nv_option_t nv_option_t;
 
 typedef enum nv_option_type
 {
-  NV_OP_TYPE_SENTINEL = 0,
   NV_OP_TYPE_BOOL, // bool
   NV_OP_TYPE_STRING,
   NV_OP_TYPE_INT,
@@ -31,7 +26,12 @@ struct nv_option_t
   size_t buffer_size;        // The size of the char buffer when option type is string
 };
 
-// Returns -1 on error. 0 on Success
-extern int nv_props_parse(int argc, char* argv[], nv_option_t* options, char* error, size_t error_size);
+/**
+ * @brief parse command-line options.
+ *
+ * @param error buffer for error messages.
+ * @param error_size size of the error buffer.
+ */
+extern int nv_props_parse(int argc, char* argv[], nv_option_t* options, int noptions, char* error, size_t error_size);
 
 #endif //__NOVA_PROGRAM_OPTIONS_H__

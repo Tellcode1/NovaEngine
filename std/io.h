@@ -11,7 +11,7 @@ NOVA_HEADER_START;
  * @brief default size of write buffer
  */
 #ifndef NOVA_WBUF_SIZE
-#define NOVA_WBUF_SIZE 1024
+#  define NOVA_WBUF_SIZE 1024
 #endif
 
 /**
@@ -93,7 +93,6 @@ extern double nv_atof(const char s[]);
  */
 extern bool nv_atobool(const char s[]);
 
-/* Inline convenience wrappers */
 static inline char*
 nv_itoa(intmax_t x, char out[], int base, size_t max)
 {
@@ -185,9 +184,6 @@ extern size_t nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_lis
  *
  * @param dest Destination buffer or file pointer.
  * @param is_file Set to true if dest is a FILE.
- * @param max_chars Maximum number of characters to write.
- * @param fmt Format string.
- * @param args Variadic argument list.
  * @return The number of characters written.
  */
 extern size_t _nv_vsfnprintf(void* dest, bool is_file, size_t max_chars, const char* fmt, va_list args);
