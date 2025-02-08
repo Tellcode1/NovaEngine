@@ -779,13 +779,10 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
             iter++;
             u = va_arg(args, uintmax_t);
 
-            written = 2;
-            _nv_printf_write(_writeptr, file, &chars_written, max_chars, "0x", written);
+            g_writebuf[0] = '0';
+            g_writebuf[1] = 'x';
 
-            written = nv_itoa_u2(u, g_writebuf, 16, max_chars - chars_written);
-
-            // 0x was not accomodated for
-            written += 2;
+            written = 2 + nv_itoa_u2(u, g_writebuf + 2, 16, max_chars - chars_written);
           }
           break;
 
@@ -854,7 +851,7 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
           // who needs friends.
           if (file)
           {
-            fputc('%', (FILE*)_writeptr);
+            fputc(*iter, (FILE*)_writeptr);
           }
           else if (writep)
           {
@@ -1006,7 +1003,7 @@ get_file_extension(const char* path)
 }
 
 int
-nv_bufcompress(const void* NOVA_RESTRICT input, size_t input_size, void* NOVA_RESTRICT output, size_t* NOVA_RESTRICT output_size)
+nv_bufcompress(const void* NV_RESTRICT input, size_t input_size, void* NV_RESTRICT output, size_t* NV_RESTRICT output_size)
 {
   z_stream stream = (z_stream){};
 
@@ -1034,7 +1031,7 @@ nv_bufcompress(const void* NOVA_RESTRICT input, size_t input_size, void* NOVA_RE
 }
 
 int
-nv_bufdecompress(const void* NOVA_RESTRICT compressed_data, size_t compressed_size, void* NOVA_RESTRICT o_buf, size_t o_buf_sz)
+nv_bufdecompress(const void* NV_RESTRICT compressed_data, size_t compressed_size, void* NV_RESTRICT o_buf, size_t o_buf_sz)
 {
   z_stream strm  = { 0 };
   strm.next_in   = (unsigned char*)compressed_data;
@@ -1736,7 +1733,7 @@ nv_format_get_num_channels(nv_format fmt)
 }
 
 void*
-nv_memcpy(void* NOVA_RESTRICT dst, const void* NOVA_RESTRICT src, size_t sz)
+nv_memcpy(void* NV_RESTRICT dst, const void* NV_RESTRICT src, size_t sz)
 {
   nv_assert(dst != NULL);
   nv_assert(src != NULL);
@@ -1983,7 +1980,7 @@ nv_strncpy2(char* dest, const char* src, size_t max)
   if (!dest)
   {
     size_t slen = nv_strlen(src);
-    return nv_MIN(slen, max);
+    return NV_MIN(slen, max);
   }
 
   if (max == 0 || !src)
@@ -1994,7 +1991,7 @@ nv_strncpy2(char* dest, const char* src, size_t max)
 #if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   __builtin_strncpy(dest, src, max);
   size_t slen = nv_strlen(src);
-  return nv_MIN(slen, max);
+  return NV_MIN(slen, max);
 #endif
 
   max--; // -1 so we can fit the NULL terminator
@@ -2772,7 +2769,7 @@ nv_dynarray_back(nv_dynarray_t* vec)
 {
   pthread_rwlock_wrlock((pthread_rwlock_t*)&vec->m_rwlock);
   nv_assert(CONT_IS_VALID(vec));
-  void* p = nv_dynarray_get(vec, nv_MAX(1ULL, vec->m_size) - 1); // stupid but works
+  void* p = nv_dynarray_get(vec, NV_MAX(1ULL, vec->m_size) - 1); // stupid but works
   pthread_rwlock_unlock((pthread_rwlock_t*)&vec->m_rwlock);
   return p;
 }
@@ -2899,7 +2896,7 @@ nv_dynarray_push_back(nv_dynarray_t* RESTRICT vec, const void* RESTRICT elem)
 
   if (vec->m_size >= vec->m_capacity)
   {
-    nv_dynarray_resize(vec, nv_MAX(1, vec->m_capacity * 2));
+    nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2));
   }
 
   nv_assert(vec->m_data != NULL);
@@ -2918,7 +2915,7 @@ void* __restrict nv_dynarray_push_empty(nv_dynarray_t* __restrict vec)
 
   if (vec->m_size >= vec->m_capacity)
   {
-    nv_dynarray_resize(vec, nv_MAX(1, vec->m_capacity * 2));
+    nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2));
   }
 
   nv_assert(vec->m_data != NULL);
@@ -2987,7 +2984,7 @@ nv_dynarray_insert(nv_dynarray_t* RESTRICT vec, size_t index, const void* RESTRI
 
   if (index >= vec->m_capacity)
   {
-    nv_dynarray_resize(vec, nv_MAX(1, index * 2));
+    nv_dynarray_resize(vec, NV_MAX(1, index * 2));
   }
   if (index >= vec->m_size)
   {
@@ -3450,7 +3447,7 @@ nv_hashmap_root_node(const nv_hashmap_t* map)
 }
 
 void*
-nv_hashmap_find(const nv_hashmap_t* NOVA_RESTRICT map, const void* NOVA_RESTRICT key)
+nv_hashmap_find(const nv_hashmap_t* NV_RESTRICT map, const void* NV_RESTRICT key)
 {
   nv_assert(CONT_IS_VALID(map));
   if (!map->m_nodes)
@@ -3476,7 +3473,7 @@ nv_hashmap_find(const nv_hashmap_t* NOVA_RESTRICT map, const void* NOVA_RESTRICT
 }
 
 void
-nv_hashmap_insert(nv_hashmap_t* map, const void* NOVA_RESTRICT key, const void* NOVA_RESTRICT value)
+nv_hashmap_insert(nv_hashmap_t* map, const void* NV_RESTRICT key, const void* NV_RESTRICT value)
 {
   nv_assert(CONT_IS_VALID(map));
   // the second check
@@ -3514,7 +3511,7 @@ nv_hashmap_insert(nv_hashmap_t* map, const void* NOVA_RESTRICT key, const void* 
 }
 
 void
-nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NOVA_RESTRICT key, void* NOVA_RESTRICT value)
+nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NV_RESTRICT key, void* NV_RESTRICT value)
 {
   nv_assert(CONT_IS_VALID(map));
   if (!map->m_nodes || map->m_size >= (map->m_entries * 3) / 4)
@@ -3665,8 +3662,8 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
         size_t orig_x = x / scale;
         size_t orig_y = y / scale;
 
-        orig_x = nv_MIN(orig_x, atlas->w - 1);
-        orig_y = nv_MIN(orig_y, atlas->h - 1);
+        orig_x = NV_MIN(orig_x, atlas->w - 1);
+        orig_y = NV_MIN(orig_y, atlas->h - 1);
 
         size_t orig_index = (orig_y * atlas->w + orig_x) * channels;
         size_t new_index  = (y * new_w + x) * channels;
@@ -3692,8 +3689,8 @@ nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
   for (int i = 0; i < atlas->bin.nrects; i++)
   {
     nv_skyline_rect_t* r = &atlas->bin.rects[i];
-    max_w                = nv_MAX(max_w, r->x + r->w);
-    max_h                = nv_MAX(max_h, r->y + r->h);
+    max_w                = NV_MAX(max_w, r->x + r->w);
+    max_h                = NV_MAX(max_h, r->y + r->h);
   }
   size_t optimal_w = max_w, optimal_h = max_h;
 

@@ -13,19 +13,20 @@
 
 NOVA_HEADER_START;
 
-typedef struct nv_camera_t         nv_camera_t;
-typedef struct nv_descriptor_set_t nv_descriptor_set_t;
+typedef struct nv_camera_uniform_buffer nv_camera_uniform_buffer;
+typedef struct nv_camera_t              nv_camera_t;
+typedef struct nv_descriptor_set_t      nv_descriptor_set_t;
 
 #define CAMERA_FAKE_BUFFER_COUNT 3
 
 #define ALIGN_UP(sz, align) ((sz + align - 1) & ~(align - 1))
 
-typedef struct nv_camera_uniform_buffer
+struct nv_camera_uniform_buffer
 {
-  mat4 perspective;
-  mat4 ortho;
-  mat4 view;
-} nv_camera_uniform_buffer;
+  mat4f perspective;
+  mat4f ortho;
+  mat4f view;
+};
 
 struct nv_camera_t
 {
@@ -45,17 +46,17 @@ struct nv_camera_t
   // This reduces "choppiness" created by moving the camera if the camera has moved after transferring to the uniform buffer
   // position is the position occupied by the camera when it was sent to the uniform buffer
   // actual pos is the real time position of the camera.
-  vec3                      position;
-  vec3                      actual_pos;
-  vec3                      front;
-  vec3                      up;
-  vec3                      right;
-  float                     yaw;
-  float                     pitch;
+  vec3  position;
+  vec3  actual_pos;
+  vec3  front;
+  vec3  up;
+  vec3  right;
+  float yaw;
+  float pitch;
 
-  float                     fov;
-  float                     near_clip;
-  float                     far_clip;
+  float fov;
+  float near_clip;
+  float far_clip;
 
   nv_gpu_buffer_t           ub;
   nv_gpu_memory_t*          mem;

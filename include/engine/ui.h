@@ -19,7 +19,7 @@ extern struct nvui_context nv_ui_ctx;
 
 struct nvui_button {
   nv_transform transform;
-  vec4 color;
+  vec4f color;
   nvui_button_on_hover on_hover;
   nvui_button_on_click on_click;
   nv_sprite *spr;
@@ -29,7 +29,7 @@ struct nvui_button {
 
 struct nvui_slider {
   nv_transform transform;
-  vec4 bg_color, slider_color;
+  vec4f bg_color, slider_color;
   nv_sprite *bg_sprite, *slider_sprite;
   float min, max, value;
   bool moved;        // was the slider's handle moved

@@ -2,8 +2,6 @@
 
 #include "../common/containers/dynarray.h"
 #include "../common/image.h"
-#include "../std/stdafx.h"
-#include "../std/string.h"
 #include "../include/GPU/buffer.h"
 #include "../include/GPU/memory.h"
 #include "../include/GPU/pipeline.h"
@@ -15,6 +13,8 @@
 #include "../include/engine/shadermanagerdev.h"
 #include "../include/engine/sprite_renderer.h"
 #include "../include/engine/ui.h"
+#include "../std/stdafx.h"
+#include "../std/string.h"
 
 #include <SDL2/SDL_vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -23,8 +23,8 @@
 #define STR(s) #s
 
 // vk.h
-VkCommandPool          cmd_pool        = VK_NULL_HANDLE;
-VkCommandBuffer        buffer          = VK_NULL_HANDLE;
+VkCommandPool   cmd_pool = VK_NULL_HANDLE;
+VkCommandBuffer buffer   = VK_NULL_HANDLE;
 
 nv_gpu_result_check_fn _nvvk_result_fn = _nvvk_default_result_check_fn; // To not cause NULLptr dereference.
                                                                         // SetResultCheckFunc also checks for NULLptr
@@ -35,37 +35,37 @@ u32 nv_gpu_vk_flag_register = 0;
 // nv_pipelines.h
 nv_baked_pipelines g_Pipelines;
 
-VkPipeline         base_pipeline = NULL;
-VkPipelineCache    cache         = NULL;
+VkPipeline      base_pipeline = NULL;
+VkPipelineCache cache         = NULL;
 
-nv_dynarray_t      g_Samplers;
+nv_dynarray_t g_Samplers;
 // nv_pipelines.h
 
 // renderer.h
-VkInstance                         instance       = NULL;
-VkDevice                           device         = NULL;
-VkPhysicalDevice                   phys_device    = NULL;
-VkSurfaceKHR                       surface        = NULL;
-SDL_Window*                        window         = NULL;
-VkDebugUtilsMessengerEXT           debugMessenger = NULL;
+VkInstance               instance       = NULL;
+VkDevice                 device         = NULL;
+VkPhysicalDevice         phys_device    = NULL;
+VkSurfaceKHR             surface        = NULL;
+SDL_Window*              window         = NULL;
+VkDebugUtilsMessengerEXT debugMessenger = NULL;
 
-nv_format                          swap_chain_image_format;
-u32                                swap_chain_color_space;
-u32                                swap_chain_image_count            = 0;
-u32                                graphics_family_index             = 0;
-u32                                present_family_index              = 0;
-u32                                compute_family_index              = 0;
-u32                                transfer_queue_index              = 0;
-u32                                graphics_and_compute_family_index = 0;
-VkQueue                            graphics_queue                    = VK_NULL_HANDLE;
-VkQueue                            graphics_and_compute_queue        = VK_NULL_HANDLE;
-VkQueue                            present_queue                     = VK_NULL_HANDLE;
-VkQueue                            compute_queue                     = VK_NULL_HANDLE;
-VkQueue                            transfer_queue                    = VK_NULL_HANDLE;
-u32                                samples                           = VK_SAMPLE_COUNT_1_BIT;
+nv_format swap_chain_image_format;
+u32       swap_chain_color_space;
+u32       swap_chain_image_count            = 0;
+u32       graphics_family_index             = 0;
+u32       present_family_index              = 0;
+u32       compute_family_index              = 0;
+u32       transfer_queue_index              = 0;
+u32       graphics_and_compute_family_index = 0;
+VkQueue   graphics_queue                    = VK_NULL_HANDLE;
+VkQueue   graphics_and_compute_queue        = VK_NULL_HANDLE;
+VkQueue   present_queue                     = VK_NULL_HANDLE;
+VkQueue   compute_queue                     = VK_NULL_HANDLE;
+VkQueue   transfer_queue                    = VK_NULL_HANDLE;
+u32       samples                           = VK_SAMPLE_COUNT_1_BIT;
 
-nv_descriptor_pool_t               g_pool;
-nv_camera_t                        camera;
+nv_descriptor_pool_t g_pool;
+nv_camera_t          camera;
 
 typedef struct nv_ctext_module     nv_ctext_module;
 typedef struct nv_quad_draw_call_t nv_quad_draw_call_t;
@@ -83,15 +83,15 @@ struct nv_ctext_module
 struct nv_quad_draw_call_t
 {
   nv_sprite* spr;
-  vec3       siz, pos;
-  vec2       tex_multiplier;
-  vec4       col;
+  vec3f      siz, pos;
+  vec2f      tex_multiplier;
+  vec4f      col;
 };
 
 struct nv_line_draw_call_t
 {
-  vec2 begin, end;
-  vec4 col;
+  vec2f begin, end;
+  vec4f col;
 };
 
 typedef enum nv_DrawCallType
@@ -116,29 +116,29 @@ struct nv_renderer_t
   unsigned       flags;
   nv_buffer_mode buffer_mode;
 
-  VkRenderPass   render_pass;
-  nv_extent2d    render_extent;
+  VkRenderPass render_pass;
+  nv_extent2d  render_extent;
 
   VkSwapchainKHR swapchain;
   VkCommandPool  commandPool;
 
-  u32            attachment_count;
-  u32            renderer_frame;
-  u32            imageIndex;
+  u32 attachment_count;
+  u32 renderer_frame;
+  u32 imageIndex;
 
-  int            shadow_image_size; // the size of ONE depth texture. Multiply by
-                                    // SwapchainImageCount to get total size
+  int shadow_image_size; // the size of ONE depth texture. Multiply by
+                         // SwapchainImageCount to get total size
   nv_gpu_memory_t* depth_image_memory;
 
   nv_gpu_texture*  color_image;
   nv_gpu_memory_t* color_image_memory;
 
-  VkFormat         depth_buffer_format;
+  VkFormat depth_buffer_format;
 
-  nv_dynarray_t    renderData;
-  nv_dynarray_t    drawBuffers;
+  nv_dynarray_t renderData;
+  nv_dynarray_t drawBuffers;
 
-  nv_dynarray_t    drawcalls;
+  nv_dynarray_t drawcalls;
 
   nv_ctext_module* ctext;
 
@@ -147,9 +147,9 @@ struct nv_renderer_t
   nv_gpu_buffer_t  quad_vb;
   nv_gpu_memory_t* quad_memory;
 
-  vec4             clear_color;
+  vec4 clear_color;
 
-  void*            mapped;
+  void* mapped;
 };
 
 extern nv_dynarray_t g_Samplers;
@@ -166,20 +166,20 @@ struct nv_gpu_sampler
 
 struct nv_gpu_texture
 {
-  nv_gpu_memory_t*   memory;
-  size_t             size, offset;
+  nv_gpu_memory_t* memory;
+  size_t           size, offset;
 
   VkImageLayout      layout;
   VkImageAspectFlags aspect;
   VkImageType        type;
   VkImageUsageFlags  usage;
 
-  VkImage            image;
-  VkImageView        view;
-  VkExtent3D         extent;
-  int                miplevels, arraylayers;
-  nv_format          format;
-  nv_sample_count    samples;
+  VkImage         image;
+  VkImageView     view;
+  VkExtent3D      extent;
+  int             miplevels, arraylayers;
+  nv_format       format;
+  nv_sample_count samples;
 };
 
 // renderer.h
@@ -200,8 +200,8 @@ typedef struct ctext_glyph_vertex_t ctext_glyph_vertex_t;
 
 struct quad_vertex
 {
-  vec3 position;
-  vec2 tex_coords;
+  vec3f position;
+  vec2f tex_coords;
 };
 
 struct nv_line_vertex_t
@@ -209,26 +209,26 @@ struct nv_line_vertex_t
   vec2 position;
 };
 
-static quad_vertex    quad_vertices[4];
+static quad_vertex quad_vertices[4];
 
 static const uint32_t quad_indices[] = { 0, 1, 2, 0, 2, 3 };
 
 // ctext
 struct ctext_glyph_vertex_t
 {
-  vec3 pos;
-  vec2 uv;
+  vec3f pos;
+  vec2f uv;
 };
 
 struct ctext_drawcall_t
 {
-  mat4                  model;
+  mat4f                 model;
   size_t                vertex_count;
   size_t                index_count;
   size_t                index_offset;
   ctext_glyph_vertex_t* vertices;
   u32*                  indices;
-  vec4                  color;
+  vec4f                 color;
   float                 scale;
 };
 
@@ -245,9 +245,9 @@ struct ctext_label_t
 
 struct push_constants
 {
-  mat4  model;
-  vec4  color;
-  vec4  outline_color;
+  mat4f model;
+  vec4f color;
+  vec4f outline_color;
   float scale;
 };
 
@@ -306,7 +306,7 @@ nv_Quad_Visible(const vec3* pos, const vec3* siz)
 }
 
 void
-nv_renderer_render_textured_quad(nv_renderer_t* rd, const nv_sprite_renderer* sprite_renderer, vec3 position, vec3 size, int layer)
+nv_renderer_render_textured_quad(nv_renderer_t* rd, const nv_sprite_renderer* sprite_renderer, vec3f position, vec3f size, int layer)
 {
   nv_draw_call_t drawcall = { .type = NOVA_DRAWCALL_QUAD,
     .layer                          = layer,
@@ -316,7 +316,7 @@ nv_renderer_render_textured_quad(nv_renderer_t* rd, const nv_sprite_renderer* sp
 }
 
 void
-nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer)
+nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer)
 {
   // create a temporary sprite renderer and render an untextured quad with it
   nv_sprite_renderer sprite_renderer   = nv_sprite_renderer_init();
@@ -327,7 +327,7 @@ nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2 tex_coord_multip
 }
 
 void
-nv_renderer_render_line(nv_renderer_t* rd, vec2 start, vec2 end, vec4 color, int layer)
+nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, int layer)
 {
   nv_draw_call_t drawcall = { .type = NOVA_DRAWCALL_LINE, .layer = layer, .drawcall = { .line = { .begin = start, .end = end, .col = color } } };
   nv_dynarray_push_back(&rd->drawcalls, &drawcall);
@@ -349,7 +349,7 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
   const VkCommandBuffer cmd              = nv_renderer_get_draw_buffer(rd);
   const VkDescriptorSet camera_set       = camera.sets->set;
 
-  bool                  bound_quad_state = 0;
+  bool bound_quad_state = 0;
 
   nv_dynarray_sort(&rd->drawcalls, __drawcall_compar);
 
@@ -384,15 +384,15 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
 
       struct push_constants
       {
-        mat4 model;
-        vec4 color;
-        vec2 tex_multiplier; // Multiplied with the tex coords
+        mat4f model;
+        vec4f color;
+        vec2f tex_multiplier; // Multiplied with the tex coords
       } pc;
 
-      mat4 scale        = m4scale(m4init(1.0f), v3muls(drawcall->drawcall.quad.siz, 2.0f));
-      mat4 rotate       = m4init(1.0f);
-      mat4 translate    = m4translate(m4init(1.0f), drawcall->drawcall.quad.pos);
-      pc.model          = m4mul(translate, m4mul(rotate, scale));
+      mat4f scale       = m4fscale(m4finit(1.0f), v3fmuls(drawcall->drawcall.quad.siz, 2.0f));
+      mat4f rotate      = m4finit(1.0f);
+      mat4f translate   = m4ftranslate(m4finit(1.0f), drawcall->drawcall.quad.pos);
+      pc.model          = m4fmul(translate, m4fmul(rotate, scale));
       pc.color          = drawcall->drawcall.quad.col;
       pc.tex_multiplier = drawcall->drawcall.quad.tex_multiplier;
       vkCmdPushConstants(cmd, g_Pipelines.Unlit.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct push_constants), &pc);
@@ -417,15 +417,15 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
 
       struct line_push_constants
       {
-        mat4 model;
-        vec4 color;
-        vec2 line_begin;
-        vec2 line_end;
+        mat4f model;
+        vec4f color;
+        vec2f line_begin;
+        vec2f line_end;
       } pc;
-      pc.model      = m4init(1.0f);
+      pc.model      = m4finit(1.0f);
       pc.color      = drawcall->drawcall.line.col;
-      pc.line_begin = (vec2){ drawcall->drawcall.line.begin.x, drawcall->drawcall.line.begin.y };
-      pc.line_end   = (vec2){ drawcall->drawcall.line.end.x, drawcall->drawcall.line.end.y };
+      pc.line_begin = (vec2f){ drawcall->drawcall.line.begin.x, drawcall->drawcall.line.begin.y };
+      pc.line_end   = (vec2f){ drawcall->drawcall.line.end.x, drawcall->drawcall.line.end.y };
       vkCmdPushConstants(cmd, g_Pipelines.Line.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct line_push_constants), &pc);
 
       vkCmdDraw(cmd, 2, 1, 0, 0);
@@ -439,10 +439,10 @@ void
 nv_renderer_prepare_quad_renderer(nv_renderer_t* rd)
 {
   nv_memcpy(quad_vertices,
-      (const quad_vertex[4]){ (const quad_vertex){ .position = (vec3){ +0.5f, +0.5f, 0.0f }, .tex_coords = (vec2){ 1.0f, 0.0f } },
-          (const quad_vertex){ .position = (vec3){ -0.5f, +0.5f, 0.0f }, .tex_coords = (vec2){ 0.0f, 0.0f } },
-          (const quad_vertex){ .position = (vec3){ -0.5f, -0.5f, 0.0f }, .tex_coords = (vec2){ 0.0f, 1.0f } },
-          (const quad_vertex){ .position = (vec3){ +0.5f, -0.5f, 0.0f }, .tex_coords = (vec2){ 1.0f, 1.0f } } },
+      (const quad_vertex[4]){ (const quad_vertex){ .position = (vec3f){ +0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 0.0f } },
+          (const quad_vertex){ .position = (vec3f){ -0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 0.0f } },
+          (const quad_vertex){ .position = (vec3f){ -0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 1.0f } },
+          (const quad_vertex){ .position = (vec3f){ +0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 1.0f } } },
       sizeof(quad_vertices));
 
   nv_gpu_create_buffer(
@@ -557,9 +557,9 @@ create_optional_images(nv_renderer_t* rd)
   // image>
   for (int i = 0; i < (int)swap_chain_image_count; i++)
   {
-    nv_renderer_frame_render_info* data         = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
-    (data->sc_image)                            = nv_calloc(sizeof(nv_gpu_texture));
-    data->sc_image->image                       = swapchainImages[i];
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    (data->sc_image)                    = nv_calloc(sizeof(nv_gpu_texture));
+    data->sc_image->image               = swapchainImages[i];
 
     const nv_gpu_texture_create_info image_info = {
       .format      = NOVA_FORMAT_D32,
@@ -650,7 +650,7 @@ nv_renderer_initialize_graphics_singleton()
   }
   swap_chain_image_count = nv_vk_get_surface_image_count(phys_device, surface);
 
-  u32 queueCount         = 0;
+  u32 queueCount = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queueCount, NULL);
   nv_dynarray_t queueFamilies;
   nv_dynarray_init(sizeof(VkQueueFamilyProperties), queueCount, &nv_allocator_default, &queueFamilies);
@@ -659,7 +659,7 @@ nv_renderer_initialize_graphics_singleton()
   u32  graphicsFamily = 0, graphicsAndComputeFamily = 0, presentFamily = 0, computeFamily = 0, transferFamily = 0;
   bool foundGraphicsFamily = false, foundGraphicsAndComputeFamily = false, foundPresentFamily = false, foundComputeFamily = false, foundTransferFamily = false;
 
-  u32  i = 0;
+  u32 i = 0;
   for (u32 j = 0; j < queueCount; j++)
   {
     const VkQueueFamilyProperties queueFamily = ((VkQueueFamilyProperties*)nv_dynarray_data(&queueFamilies))[j];
@@ -772,9 +772,9 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   cmdPoolCreateInfo.flags                   = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   nvvk_result_check(vkCreateCommandPool(device, &cmdPoolCreateInfo, NOVA_VK_ALLOCATOR, &rd->commandPool));
 
-  const int                     frames_in_flight = 1 + (int)conf->buffer_mode;
+  const int frames_in_flight = 1 + (int)conf->buffer_mode;
 
-  nv_renderer_frame_render_info data             = {};
+  nv_renderer_frame_render_info data = {};
   for (int i = 0; i < frames_in_flight; i++)
   {
     nv_dynarray_push_back(&rd->drawBuffers, &data);
@@ -788,7 +788,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   cmdAllocInfo.commandPool                 = rd->commandPool;
   nvvk_result_check(vkAllocateCommandBuffers(device, &cmdAllocInfo, (VkCommandBuffer*)nv_dynarray_data(&rd->drawBuffers)));
 
-  rd->depth_buffer_format            = nv_format_to_vk_format(NOVA_FORMAT_D32); // replace (probably)
+  rd->depth_buffer_format = nv_format_to_vk_format(NOVA_FORMAT_D32); // replace (probably)
 
   nv_gpu_render_pass_create_info rpi = {};
   rpi.format                         = swap_chain_image_format;
@@ -835,7 +835,7 @@ nv_renderer_init(const nv_renderer_config* conf)
   {
     rd->flags |= NOVA_RENDERER_VSYNC_ENABLE;
   }
-  rd->buffer_mode          = conf->buffer_mode;
+  rd->buffer_mode = conf->buffer_mode;
 
   rd->render_extent.width  = conf->initial_window_size.width;
   rd->render_extent.height = conf->initial_window_size.height;
@@ -845,11 +845,11 @@ nv_renderer_init(const nv_renderer_config* conf)
 
   for (int i = 0; i < (int)swap_chain_image_count; i++)
   {
-    const VkSemaphoreCreateInfo    semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
+    const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
 
-    const VkFenceCreateInfo        fenceCreateInfo     = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
+    const VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
 
-    nv_renderer_frame_render_info* data                = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
     nvvk_result_check(vkCreateSemaphore(device, &semaphoreCreateInfo, NOVA_VK_ALLOCATOR, &data->render_finish_semaphore));
     nvvk_result_check(vkCreateSemaphore(device, &semaphoreCreateInfo, NOVA_VK_ALLOCATOR, &data->image_available_semaphore));
     nvvk_result_check(vkCreateFence(device, &fenceCreateInfo, NOVA_VK_ALLOCATOR, &data->in_flight_fence));
@@ -860,7 +860,7 @@ nv_renderer_init(const nv_renderer_config* conf)
   const unsigned char empty_data[3] = { 255, 255, 255 }; // fill rgb with 255 so it's white
   nv_sprite_empty                   = nv_sprite_load_from_memory(empty_data, 1, 1, NOVA_FORMAT_RGB8);
 
-  camera                            = nv_camera_init();
+  camera = nv_camera_init();
 
   ctext_init(rd);
   nv_vk_bake_global_pipelines(rd);
@@ -876,7 +876,7 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
 
   const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
 
-  const VkFenceCreateInfo     fenceCreateInfo     = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
+  const VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
 
   // adhoc method of resetting them
   for (int i = 0; i < (int)swap_chain_image_count; i++)
@@ -917,20 +917,20 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
   VkSurfaceCapabilitiesKHR surface_capabilities;
   nvvk_result_check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &surface_capabilities));
 
-  const u32 min_width            = surface_capabilities.minImageExtent.width;
-  const u32 min_height           = surface_capabilities.minImageExtent.height;
+  const u32 min_width  = surface_capabilities.minImageExtent.width;
+  const u32 min_height = surface_capabilities.minImageExtent.height;
 
-  const u32 max_width            = surface_capabilities.maxImageExtent.width;
-  const u32 max_height           = surface_capabilities.maxImageExtent.height;
+  const u32 max_width  = surface_capabilities.maxImageExtent.width;
+  const u32 max_height = surface_capabilities.maxImageExtent.height;
 
-  w                              = NVM_CLAMP((u32)w, min_width, max_width);
-  h                              = NVM_CLAMP((u32)h, min_height, max_height);
+  w = NVM_CLAMP((u32)w, min_width, max_width);
+  h = NVM_CLAMP((u32)h, min_height, max_height);
 
-  rd->render_extent              = (nv_extent2d){ w, h };
+  rd->render_extent = (nv_extent2d){ w, h };
 
-  VkSwapchainKHR   old_swapchain = rd->swapchain;
+  VkSwapchainKHR old_swapchain = rd->swapchain;
 
-  VkPresentModeKHR present_mode  = VK_PRESENT_MODE_FIFO_KHR;
+  VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
   if (rd->flags & NOVA_RENDERER_VSYNC_ENABLE)
   {
@@ -984,9 +984,9 @@ nv_renderer_begin(nv_renderer_t* rd)
 
   vkWaitForFences(device, 1, &data->in_flight_fence, VK_TRUE, UINT64_MAX);
 
-  const VkResult        imageAcquireResult = vkAcquireNextImageKHR(device, rd->swapchain, UINT64_MAX, data->image_available_semaphore, VK_NULL_HANDLE, &rd->imageIndex);
+  const VkResult imageAcquireResult = vkAcquireNextImageKHR(device, rd->swapchain, UINT64_MAX, data->image_available_semaphore, VK_NULL_HANDLE, &rd->imageIndex);
 
-  const VkCommandBuffer drawBuffer         = *(VkCommandBuffer*)nv_dynarray_get(&rd->drawBuffers, rd->renderer_frame);
+  const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_dynarray_get(&rd->drawBuffers, rd->renderer_frame);
 
   if (imageAcquireResult == VK_ERROR_OUT_OF_DATE_KHR || imageAcquireResult == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized())
   {
@@ -1039,7 +1039,7 @@ nv_renderer_begin(nv_renderer_t* rd)
   return true;
 }
 
-#define V2_TO_V3(v) ((vec3){ (v).x, (v).y, 0.0f })
+#define V2F_TO_V3F(v) ((vec3f){ (v).x, (v).y, 0.0f })
 
 void
 nv_renderer_end(nv_renderer_t* rd)
@@ -1048,12 +1048,12 @@ nv_renderer_end(nv_renderer_t* rd)
 
   for (int i = 0; i < (int)rd->ctext->labels.m_size; i++)
   {
-    ctext_label_t*           label  = nv_dynarray_get(&rd->ctext->labels, i);
+    ctext_label_t* label = nv_dynarray_get(&rd->ctext->labels, i);
 
-    nv_sprite_renderer*      spr_rd = nv_object_get_sprite_renderer(label->obj);
+    nv_sprite_renderer* spr_rd = nv_object_get_sprite_renderer(label->obj);
 
     ctext_text_render_info_t r_info = ctext_init_text_render_info();
-    r_info.position                 = V2_TO_V3(nv_object_get_position(label->obj));
+    r_info.position                 = V2F_TO_V3F(nv_object_get_position(label->obj));
     r_info.color                    = spr_rd->color;
     r_info.horizontal               = label->h_align;
     r_info.vertical                 = label->v_align;
@@ -1068,25 +1068,25 @@ nv_renderer_end(nv_renderer_t* rd)
   vkCmdEndRenderPass(drawBuffer);
   vkEndCommandBuffer(drawBuffer);
 
-  VkSubmitInfo submitInfo                                 = {};
-  submitInfo.sType                                        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   const nv_renderer_frame_render_info* data               = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, rd->renderer_frame);
   const VkSemaphore                    waitSemaphores[]   = { data->image_available_semaphore };
   const VkSemaphore                    signalSemaphores[] = { data->render_finish_semaphore };
 
-  VkPipelineStageFlags                 waitStages[]       = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-  submitInfo.pWaitDstStageMask                            = waitStages;
+  VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+  submitInfo.pWaitDstStageMask      = waitStages;
 
-  submitInfo.waitSemaphoreCount                           = 1;
-  submitInfo.pWaitSemaphores                              = waitSemaphores;
+  submitInfo.waitSemaphoreCount = 1;
+  submitInfo.pWaitSemaphores    = waitSemaphores;
 
-  const VkCommandBuffer buffers[]                         = { drawBuffer };
-  submitInfo.commandBufferCount                           = nv_arrlen(buffers);
-  submitInfo.pCommandBuffers                              = buffers;
+  const VkCommandBuffer buffers[] = { drawBuffer };
+  submitInfo.commandBufferCount   = nv_arrlen(buffers);
+  submitInfo.pCommandBuffers      = buffers;
 
-  submitInfo.signalSemaphoreCount                         = 1;
-  submitInfo.pSignalSemaphores                            = signalSemaphores;
+  submitInfo.signalSemaphoreCount = 1;
+  submitInfo.pSignalSemaphores    = signalSemaphores;
 
   vkQueueSubmit(present_queue, 1, &submitInfo, data->in_flight_fence);
 
@@ -1099,8 +1099,8 @@ nv_renderer_end(nv_renderer_t* rd)
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains    = &rd->swapchain;
 
-  VkResult result            = VK_SUCCESS;
-  result                     = vkQueuePresentKHR(present_queue, &presentInfo);
+  VkResult result = VK_SUCCESS;
+  result          = vkQueuePresentKHR(present_queue, &presentInfo);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized())
   {
@@ -1118,9 +1118,9 @@ nv_renderer_set_clear_color(struct nv_renderer_t* rd, vec4 col)
 // nvgfx ^^
 
 // engine
-u32                           MAX_SAMPLES;
-unsigned char                 SUPPORTS_MULTISAMPLING;
-float                         MAX_ANISOTROPY;
+u32           MAX_SAMPLES;
+unsigned char SUPPORTS_MULTISAMPLING;
+float         MAX_ANISOTROPY;
 
 static SDL_UNUSED const char* ValidationLayers[] = {
   "VK_LAYER_KHRONOS_validation",
@@ -1356,7 +1356,7 @@ nvvk_create_instance(const char* title)
     create_info.messageSeverity
         = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
     create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    create_info.pfnUserCallback                                   = nvvk_debug_messenger;
+    create_info.pfnUserCallback = nvvk_debug_messenger;
 
     PFN_vkCreateDebugUtilsMessengerEXT _CreateDebugUtilsMessenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 
@@ -1445,7 +1445,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
 {
   uint32_t phys_device_count = 0;
 
-  VkResult r                 = VK_SUCCESS;
+  VkResult r = VK_SUCCESS;
 
   if ((r = vkEnumeratePhysicalDevices(instance, &phys_device_count, NULL)) != VK_SUCCESS)
   {
@@ -1464,17 +1464,17 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
 
   for (u32 i = 0; i < phys_device_count; i++)
   {
-    const VkPhysicalDevice device       = ((VkPhysicalDevice*)nv_dynarray_data(&physical_devices))[i];
+    const VkPhysicalDevice device = ((VkPhysicalDevice*)nv_dynarray_data(&physical_devices))[i];
 
-    uint32_t               format_count = 0;
+    uint32_t format_count = 0;
     nvvk_result_check(vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, NULL));
 
     uint32_t present_mode_count = 0;
     nvvk_result_check(vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, NULL));
 
-    bool     extensionsAvailable = true;
+    bool extensionsAvailable = true;
 
-    uint32_t extension_count     = 0;
+    uint32_t extension_count = 0;
     nvvk_result_check(vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, NULL));
     nv_dynarray_t available_extensions;
     nv_dynarray_init(sizeof(VkExtensionProperties), extension_count, &nv_allocator_default, &available_extensions);
@@ -1506,7 +1506,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
     }
   }
 
-  VkPhysicalDevice           fallback = ((VkPhysicalDevice*)nv_dynarray_data(&physical_devices))[0];
+  VkPhysicalDevice fallback = ((VkPhysicalDevice*)nv_dynarray_data(&physical_devices))[0];
 
   VkPhysicalDeviceProperties properties;
   vkGetPhysicalDeviceProperties(fallback, &properties);
@@ -1542,7 +1542,7 @@ nvvk_create_device()
 
   bool found_graphics_family = false, found_present_family = false, found_compute_family = false, found_transfer_family = false;
 
-  u32  i = 0;
+  u32 i = 0;
   for (int j = 0; j < (int)nv_dynarray_size(&queue_families); j++)
   {
     const VkQueueFamilyProperties queue_family    = ((VkQueueFamilyProperties*)nv_dynarray_data(&queue_families))[j];
@@ -1663,7 +1663,7 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
 
   phys_device = _nvvk_choose_physical_device(instance, surface);
 
-  device      = nvvk_create_device();
+  device = nvvk_create_device();
   nv_assert(device != NULL);
 
   volkLoadDevice(device);
@@ -1671,8 +1671,8 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
   VkPhysicalDeviceProperties props;
   vkGetPhysicalDeviceProperties(phys_device, &props);
 
-  MAX_ANISOTROPY                   = props.limits.maxSamplerAnisotropy;
-  SUPPORTS_MULTISAMPLING           = true;
+  MAX_ANISOTROPY         = props.limits.maxSamplerAnisotropy;
+  SUPPORTS_MULTISAMPLING = true;
 
   const VkSampleCountFlags samples = props.limits.framebufferColorSampleCounts;
   if (samples & VK_SAMPLE_COUNT_64_BIT)
@@ -1727,7 +1727,7 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
   *(cfont_t**)nv_dynarray_push_empty(&rd->ctext->fonts) = dst;
   *dst                                                  = (cfont_t){ 0 };
 
-  dst->rd                                               = rd;
+  dst->rd = rd;
 
   nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
   nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
@@ -1773,7 +1773,7 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
   nv_gpu_allocate_memory(imageMemoryRequirements.size, NOVA_GPU_MEMORY_USAGE_GPU_LOCAL, &dst->texture_mem);
   nv_gpu_bind_texture_to_memory(dst->texture_mem, 0, dst->texture);
 
-  const int  atlas_w = atlas.w, atlas_h = atlas.h;
+  const int atlas_w = atlas.w, atlas_h = atlas.h;
 
   nv_image_t atlas_img = (nv_image_t){ .w = atlas_w, .h = atlas_h, .fmt = NOVA_FORMAT_R8, .data = atlas.data };
   nv_gpu_write_to_texture(dst->texture, &atlas_img);
@@ -1856,16 +1856,16 @@ _ctext_font_resize_buffer(cfont_t* fnt, int new_buffer_size)
 void
 _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 {
-  const VkCommandBuffer  cmd              = nv_renderer_get_draw_buffer(rd);
-  const VkDeviceSize     offsets[]        = { 0 };
+  const VkCommandBuffer cmd       = nv_renderer_get_draw_buffer(rd);
+  const VkDeviceSize    offsets[] = { 0 };
 
-  struct push_constants  pc               = {};
+  struct push_constants pc = {};
 
-  const VkPipeline       pipeline         = g_Pipelines.Ctext.pipeline;
-  const VkPipelineLayout pipeline_layout  = g_Pipelines.Ctext.pipeline_layout;
+  const VkPipeline       pipeline        = g_Pipelines.Ctext.pipeline;
+  const VkPipelineLayout pipeline_layout = g_Pipelines.Ctext.pipeline_layout;
 
-  const VkDescriptorSet  sets[]           = { camera.sets->set, rd->ctext->desc_set->set };
-  const uint32_t         camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
+  const VkDescriptorSet sets[]           = { camera.sets->set, rd->ctext->desc_set->set };
+  const uint32_t        camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
 
   // Viewport && scissor are set by renderer so no need to set them here
   vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 2, sets, 1, &camera_ub_offset);
@@ -1878,9 +1878,9 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   {
     ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_dynarray_get(&fnt->drawcalls, i);
 
-    pc.model                   = drawcall->model;
-    pc.scale                   = drawcall->scale;
-    pc.color                   = drawcall->color;
+    pc.model = drawcall->model;
+    pc.scale = drawcall->scale;
+    pc.color = drawcall->color;
     vkCmdPushConstants(cmd, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct push_constants), &pc);
 
     vkCmdDrawIndexed(cmd, drawcall->index_count, 1, 0, offset, 0);
@@ -1931,7 +1931,7 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, float* w, float* h)
 {
   float width = 0.0f, height = fnt->line_height, prev_width = 0.0f;
 
-  bool  is_new_line = true;
+  bool is_new_line = true;
 
   while (*str)
   {
@@ -2010,18 +2010,18 @@ _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* 
           nv_log_info("no glyph when rendering char %i", *str);
           break;
         }
-        const float           glyph_x0     = (glyph->x0 * scale) + x;
-        const float           glyph_x1     = (glyph->x1 * scale) + x;
-        const float           glyph_y0     = (glyph->y0 * scale) + y;
-        const float           glyph_y1     = (glyph->y1 * scale) + y;
+        const float glyph_x0 = (glyph->x0 * scale) + x;
+        const float glyph_x1 = (glyph->x1 * scale) + x;
+        const float glyph_y0 = (glyph->y0 * scale) + y;
+        const float glyph_y1 = (glyph->y1 * scale) + y;
 
         const int             index_offset = (fnt->chars_drawn + iter) * 4;
         ctext_glyph_vertex_t* v_out        = drawcall->vertices + (glyph_iter + iter) * 4;
         // clang-format off
-        v_out[0] = (ctext_glyph_vertex_t){ (vec3){glyph_x0, glyph_y0, zpos}, (vec2){glyph->l, glyph->b} };
-        v_out[1] = (ctext_glyph_vertex_t){ (vec3){glyph_x1, glyph_y0, zpos}, (vec2){glyph->r, glyph->b} };
-        v_out[2] = (ctext_glyph_vertex_t){ (vec3){glyph_x1, glyph_y1, zpos}, (vec2){glyph->r, glyph->t} };
-        v_out[3] = (ctext_glyph_vertex_t){ (vec3){glyph_x0, glyph_y1, zpos}, (vec2){glyph->l, glyph->t} };
+        v_out[0] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y0, zpos}, (vec2f){glyph->l, glyph->b} };
+        v_out[1] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y0, zpos}, (vec2f){glyph->r, glyph->b} };
+        v_out[2] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y1, zpos}, (vec2f){glyph->r, glyph->t} };
+        v_out[3] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y1, zpos}, (vec2f){glyph->l, glyph->t} };
         // clang-format on
 
         u32* i_out = drawcall->indices + (glyph_iter + iter) * 6;
@@ -2074,9 +2074,9 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   int           actual_chars_drawn;
   const int     old_chars_drawn = fnt->chars_drawn;
 
-  lines                         = split_string_by_lines(str);
+  lines = split_string_by_lines(str);
 
-  scale                         = pInfo->scale;
+  scale = pInfo->scale;
   ctext_get_text_size(fnt, str, &text_w, NULL);
   text_h = -fnt->line_height * ((int)lines.m_size - 1);
 
@@ -2154,13 +2154,13 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
 void
 ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...)
 {
-  size_t  num, effective_length;
-  char*   buffer;
+  size_t num, effective_length;
+  char*  buffer;
 
   va_list arg;
   va_start(arg, fmt);
 
-  num    = nv_vsnprintf(NULL, NOVA_WBUF_SIZE, fmt, arg);
+  num    = nv_vsnprintf(NULL, SIZE_MAX, fmt, arg);
   buffer = nv_malloc(num + 1);
   va_start(arg, fmt);
 
@@ -2175,23 +2175,23 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
     return;
   }
 
-  const size_t     vertex_count    = effective_length * 4;
-  const size_t     index_count     = effective_length * 6;
-  const size_t     allocation_size = (vertex_count * sizeof(ctext_glyph_vertex_t)) + (index_count * sizeof(u32));
+  const size_t vertex_count    = effective_length * 4;
+  const size_t index_count     = effective_length * 6;
+  const size_t allocation_size = (vertex_count * sizeof(ctext_glyph_vertex_t)) + (index_count * sizeof(u32));
 
-  void*            allocation      = nv_malloc(allocation_size);
+  void* allocation = nv_malloc(allocation_size);
 
-  ctext_drawcall_t drawcall        = {};
-  drawcall.vertices                = (ctext_glyph_vertex_t*)allocation;
-  drawcall.index_offset            = (vertex_count * sizeof(ctext_glyph_vertex_t));
-  drawcall.indices                 = (u32*)((uchar*)allocation + drawcall.index_offset);
+  ctext_drawcall_t drawcall = {};
+  drawcall.vertices         = (ctext_glyph_vertex_t*)allocation;
+  drawcall.index_offset     = (vertex_count * sizeof(ctext_glyph_vertex_t));
+  drawcall.indices          = (u32*)((uchar*)allocation + drawcall.index_offset);
 
-  drawcall.color                   = pInfo->color;
-  drawcall.scale                   = pInfo->scale;
-  drawcall.model                   = pInfo->model;
+  drawcall.color = pInfo->color;
+  drawcall.scale = pInfo->scale;
+  drawcall.model = pInfo->model;
 
-  drawcall.vertex_count            = effective_length * 4;
-  drawcall.index_count             = effective_length * 6;
+  drawcall.vertex_count = effective_length * 4;
+  drawcall.index_count  = effective_length * 6;
 
   // can we not have a bounds check before making the vertices?
   // probably not..
@@ -2234,10 +2234,10 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
     return;
   }
 
-  const u32  total_index_byte_size = total_index_count * sizeof(u32);
-  const u32  total_buffer_size     = total_index_byte_size + total_vertex_byte_size;
+  const u32 total_index_byte_size = total_index_count * sizeof(u32);
+  const u32 total_buffer_size     = total_index_byte_size + total_vertex_byte_size;
 
-  const bool fnt_buffer_resized    = _ctext_font_resize_buffer(fnt, total_buffer_size);
+  const bool fnt_buffer_resized = _ctext_font_resize_buffer(fnt, total_buffer_size);
 
   if (fnt->to_render && !fnt_buffer_resized)
   {
@@ -2265,7 +2265,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
   fnt->index_count         = total_index_count;
   fnt->to_render           = true;
 
-  fnt->chars_drawn         = 0;
+  fnt->chars_drawn = 0;
 
   for (int i = 0; i < (int)nv_dynarray_size(&fnt->drawcalls); i++)
   {
@@ -2280,7 +2280,7 @@ ctext_flush_renders(nv_renderer_t* rd)
 {
   for (int i = 0; i < (int)rd->ctext->fonts.m_size; i++)
   {
-    cfont_t* fnt = *(cfont_t **)nv_dynarray_get(&rd->ctext->fonts, i);
+    cfont_t* fnt = *(cfont_t**)nv_dynarray_get(&rd->ctext->fonts, i);
     _ctext_flush_font(rd, fnt);
   }
 }
@@ -2482,7 +2482,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   }
   VkCopyDescriptorSet* copies = nv_malloc(sizeof(VkCopyDescriptorSet) * ncopies);
 
-  ncopies                     = 0;
+  ncopies = 0;
   for (int i = 0; i < pool->nsets; i++)
   {
     nv_descriptor_set_t* old_set = pool->sets[i];
@@ -2570,10 +2570,10 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
 
   nv_descriptor_set_t* set = nv_calloc(sizeof(nv_descriptor_set_t));
 
-  pool->sets[pool->nsets]  = set;
+  pool->sets[pool->nsets] = set;
   pool->nsets++;
 
-  (*dst)      = set;
+  (*dst) = set;
 
   set->pool   = pool;
   set->writes = nv_malloc(sizeof(VkWriteDescriptorSet));
@@ -2615,23 +2615,23 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
 
   nv_assert(vertex != NULL && fragment != NULL);
 
-  const nvsm_shader_t*                    shaders[]               = { vertex, fragment };
-  const VkDescriptorSetLayout             layouts[]               = { camera.sets->layout, g_Pipelines.Unlit.descriptor_layout };
+  const nvsm_shader_t*        shaders[] = { vertex, fragment };
+  const VkDescriptorSetLayout layouts[] = { camera.sets->layout, g_Pipelines.Unlit.descriptor_layout };
 
-  const nv_extent2d                       RenderExtent            = nv_renderer_get_render_extent(rd);
+  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
 
   const VkVertexInputAttributeDescription attributeDescriptions[] = {
     // location; binding; format; offset;
-    { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },         // pos
-    { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(vec3) }, // texcoord
+    { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },          // pos
+    { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(vec3f) }, // texcoord
   };
 
   const VkVertexInputBindingDescription bindingDescriptions[] = { // binding; stride; inputRate
-    { 0, sizeof(vec3) + sizeof(vec2), VK_VERTEX_INPUT_RATE_VERTEX }
+    { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
   };
 
   const VkPushConstantRange pushConstants[] = { // stageFlags, offset, size
-    { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(mat4) + sizeof(vec4) + sizeof(vec2) }
+    { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(mat4f) + sizeof(vec4f) + sizeof(vec2f) }
   };
 
   nv_gpu_pipeline_create_info pc = nv_gpu_init_pipeline_create_info();
@@ -2639,24 +2639,24 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
   pc.subpass                     = 0;
   pc.render_pass                 = nv_renderer_get_render_pass(rd);
 
-  pc.nAttributeDescriptions      = nv_arrlen(attributeDescriptions);
-  pc.pAttributeDescriptions      = attributeDescriptions;
+  pc.nAttributeDescriptions = nv_arrlen(attributeDescriptions);
+  pc.pAttributeDescriptions = attributeDescriptions;
 
-  pc.nPushConstants              = nv_arrlen(pushConstants);
-  pc.pPushConstants              = pushConstants;
+  pc.nPushConstants = nv_arrlen(pushConstants);
+  pc.pPushConstants = pushConstants;
 
-  pc.nBindingDescriptions        = nv_arrlen(bindingDescriptions);
-  pc.pBindingDescriptions        = bindingDescriptions;
+  pc.nBindingDescriptions = nv_arrlen(bindingDescriptions);
+  pc.pBindingDescriptions = bindingDescriptions;
 
-  pc.nShaders                    = nv_arrlen(shaders);
-  pc.pShaders                    = shaders;
+  pc.nShaders = nv_arrlen(shaders);
+  pc.pShaders = shaders;
 
-  pc.nDescriptorLayouts          = nv_arrlen(layouts);
-  pc.pDescriptorLayouts          = layouts;
+  pc.nDescriptorLayouts = nv_arrlen(layouts);
+  pc.pDescriptorLayouts = layouts;
 
-  pc.extent.width                = RenderExtent.width;
-  pc.extent.height               = RenderExtent.height;
-  pc.samples                     = samples;
+  pc.extent.width  = RenderExtent.width;
+  pc.extent.height = RenderExtent.height;
+  pc.samples       = samples;
   nv_gpu_create_pipeline_layout(&pc, &g_Pipelines.Unlit.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.Unlit.pipeline_layout;
   nv_gpu_create_graphics_pipeline(&pc, &g_Pipelines.Unlit.pipeline, 0);
@@ -2667,12 +2667,12 @@ __BakeCtextPipeline(nv_renderer_t* rd)
 {
   const VkVertexInputAttributeDescription attributeDescriptions[] = {
     // location; binding; format; offset;
-    { 0, 0, nv_format_to_vk_format(NOVA_FORMAT_RGB32), 0 },           // pos
-    { 1, 0, nv_format_to_vk_format(NOVA_FORMAT_RG32), sizeof(vec3) }, // uv
+    { 0, 0, nv_format_to_vk_format(NOVA_FORMAT_RGB32), 0 },            // pos
+    { 1, 0, nv_format_to_vk_format(NOVA_FORMAT_RG32), sizeof(vec3f) }, // uv
   };
 
   const VkVertexInputBindingDescription bindingDescriptions[] = { // binding; stride; inputRate
-    { 0, sizeof(vec3) + sizeof(vec2), VK_VERTEX_INPUT_RATE_VERTEX }
+    { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
   };
 
   const VkPushConstantRange pushConstants[] = {
@@ -2684,36 +2684,36 @@ __BakeCtextPipeline(nv_renderer_t* rd)
   nv_assert(nvsm_load_shader("ctext/vert", &vertex) != -1);
   nv_assert(nvsm_load_shader("ctext/frag", &fragment) != -1);
 
-  nvsm_shader_t*                    shaders[] = { vertex, fragment };
-  VkDescriptorSetLayout             layouts[] = { camera.sets->layout, rd->ctext->desc_set->layout };
+  nvsm_shader_t*        shaders[] = { vertex, fragment };
+  VkDescriptorSetLayout layouts[] = { camera.sets->layout, rd->ctext->desc_set->layout };
 
-  const nv_gpu_pipeline_blend_state blend     = nv_gpu_init_pipeline_blend_state(NVVK_BLEND_PRESET_ALPHA);
+  const nv_gpu_pipeline_blend_state blend = nv_gpu_init_pipeline_blend_state(NVVK_BLEND_PRESET_ALPHA);
 
-  nv_gpu_pipeline_create_info       pc        = nv_gpu_init_pipeline_create_info();
-  pc.format                                   = swap_chain_image_format;
-  pc.subpass                                  = 0;
-  pc.render_pass                              = nv_renderer_get_render_pass(rd);
+  nv_gpu_pipeline_create_info pc = nv_gpu_init_pipeline_create_info();
+  pc.format                      = swap_chain_image_format;
+  pc.subpass                     = 0;
+  pc.render_pass                 = nv_renderer_get_render_pass(rd);
 
-  pc.nAttributeDescriptions                   = nv_arrlen(attributeDescriptions);
-  pc.pAttributeDescriptions                   = attributeDescriptions;
+  pc.nAttributeDescriptions = nv_arrlen(attributeDescriptions);
+  pc.pAttributeDescriptions = attributeDescriptions;
 
-  pc.nPushConstants                           = nv_arrlen(pushConstants);
-  pc.pPushConstants                           = pushConstants;
+  pc.nPushConstants = nv_arrlen(pushConstants);
+  pc.pPushConstants = pushConstants;
 
-  pc.nBindingDescriptions                     = nv_arrlen(bindingDescriptions);
-  pc.pBindingDescriptions                     = bindingDescriptions;
+  pc.nBindingDescriptions = nv_arrlen(bindingDescriptions);
+  pc.pBindingDescriptions = bindingDescriptions;
 
-  pc.nShaders                                 = nv_arrlen(shaders);
-  pc.pShaders                                 = (const struct nvsm_shader_t* const*)shaders;
+  pc.nShaders = nv_arrlen(shaders);
+  pc.pShaders = (const struct nvsm_shader_t* const*)shaders;
 
-  pc.nDescriptorLayouts                       = nv_arrlen(layouts);
-  pc.pDescriptorLayouts                       = layouts;
+  pc.nDescriptorLayouts = nv_arrlen(layouts);
+  pc.pDescriptorLayouts = layouts;
 
-  const nv_extent2d RenderExtent              = nv_renderer_get_render_extent(rd);
-  pc.extent.width                             = RenderExtent.width;
-  pc.extent.height                            = RenderExtent.height;
-  pc.blend_state                              = &blend;
-  pc.samples                                  = samples;
+  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
+  pc.extent.width                = RenderExtent.width;
+  pc.extent.height               = RenderExtent.height;
+  pc.blend_state                 = &blend;
+  pc.samples                     = samples;
 
   nv_gpu_create_pipeline_layout(&pc, &g_Pipelines.Ctext.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.Ctext.pipeline_layout;
@@ -2725,10 +2725,10 @@ __BakeDebugLinePipeline(nv_renderer_t* rd)
 {
   struct line_push_constants
   {
-    mat4 model;
-    vec4 color;
-    vec2 line_begin;
-    vec2 line_end;
+    mat4f model;
+    vec4f color;
+    vec2f line_begin;
+    vec2f line_end;
   };
 
   const VkPushConstantRange pushConstants[] = {
@@ -2740,37 +2740,37 @@ __BakeDebugLinePipeline(nv_renderer_t* rd)
   nv_assert(nvsm_load_shader("Debug/Line/vert", &vertex) != -1);
   nv_assert(nvsm_load_shader("Debug/Line/frag", &fragment) != -1);
 
-  nvsm_shader_t*                    shaders[] = { vertex, fragment };
-  VkDescriptorSetLayout             layouts[] = { camera.sets->layout };
+  nvsm_shader_t*        shaders[] = { vertex, fragment };
+  VkDescriptorSetLayout layouts[] = { camera.sets->layout };
 
-  const nv_gpu_pipeline_blend_state blend     = nv_gpu_init_pipeline_blend_state(NVVK_BLEND_PRESET_ALPHA);
+  const nv_gpu_pipeline_blend_state blend = nv_gpu_init_pipeline_blend_state(NVVK_BLEND_PRESET_ALPHA);
 
-  nv_gpu_pipeline_create_info       pc        = nv_gpu_init_pipeline_create_info();
-  pc.format                                   = swap_chain_image_format;
+  nv_gpu_pipeline_create_info pc = nv_gpu_init_pipeline_create_info();
+  pc.format                      = swap_chain_image_format;
 
-  pc.topology                                 = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-  pc.render_pass                              = nv_renderer_get_render_pass(rd);
+  pc.topology    = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+  pc.render_pass = nv_renderer_get_render_pass(rd);
 
-  pc.nAttributeDescriptions                   = 0;
-  pc.pAttributeDescriptions                   = NULL;
+  pc.nAttributeDescriptions = 0;
+  pc.pAttributeDescriptions = NULL;
 
-  pc.nPushConstants                           = nv_arrlen(pushConstants);
-  pc.pPushConstants                           = pushConstants;
+  pc.nPushConstants = nv_arrlen(pushConstants);
+  pc.pPushConstants = pushConstants;
 
-  pc.nBindingDescriptions                     = 0;
-  pc.pBindingDescriptions                     = NULL;
+  pc.nBindingDescriptions = 0;
+  pc.pBindingDescriptions = NULL;
 
-  pc.nShaders                                 = nv_arrlen(shaders);
-  pc.pShaders                                 = (const struct nvsm_shader_t* const*)shaders;
+  pc.nShaders = nv_arrlen(shaders);
+  pc.pShaders = (const struct nvsm_shader_t* const*)shaders;
 
-  pc.nDescriptorLayouts                       = nv_arrlen(layouts);
-  pc.pDescriptorLayouts                       = layouts;
+  pc.nDescriptorLayouts = nv_arrlen(layouts);
+  pc.pDescriptorLayouts = layouts;
 
-  const nv_extent2d RenderExtent              = nv_renderer_get_render_extent(rd);
-  pc.extent.width                             = RenderExtent.width;
-  pc.extent.height                            = RenderExtent.height;
-  pc.blend_state                              = &blend;
-  pc.samples                                  = samples;
+  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
+  pc.extent.width                = RenderExtent.width;
+  pc.extent.height               = RenderExtent.height;
+  pc.blend_state                 = &blend;
+  pc.samples                     = samples;
 
   nv_gpu_create_pipeline_layout(&pc, &g_Pipelines.Line.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.Line.pipeline_layout;
@@ -2826,7 +2826,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   }
 
   VkPipelineVertexInputStateCreateInfo vertexInputState = {
-    .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 
     .vertexBindingDescriptionCount   = pCreateInfo->nBindingDescriptions,
     .pVertexBindingDescriptions      = pCreateInfo->pBindingDescriptions,
@@ -2834,29 +2834,29 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
     .pVertexAttributeDescriptions    = pCreateInfo->pAttributeDescriptions,
   };
 
-  VkPipelineInputAssemblyStateCreateInfo inputAssemblyState                = {};
-  inputAssemblyState.sType                                                 = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-  inputAssemblyState.primitiveRestartEnable                                = VK_FALSE;
-  inputAssemblyState.topology                                              = pCreateInfo->topology;
+  VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {};
+  inputAssemblyState.sType                                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  inputAssemblyState.primitiveRestartEnable                 = VK_FALSE;
+  inputAssemblyState.topology                               = pCreateInfo->topology;
 
-  VkViewport viewportState                                                 = {};
-  viewportState.x                                                          = 0;
-  viewportState.y                                                          = 0;
-  viewportState.width                                                      = (float)(pCreateInfo->extent.width);
-  viewportState.height                                                     = (float)(pCreateInfo->extent.height);
-  viewportState.minDepth                                                   = 0.0f;
-  viewportState.maxDepth                                                   = 1.0f;
+  VkViewport viewportState = {};
+  viewportState.x          = 0;
+  viewportState.y          = 0;
+  viewportState.width      = (float)(pCreateInfo->extent.width);
+  viewportState.height     = (float)(pCreateInfo->extent.height);
+  viewportState.minDepth   = 0.0f;
+  viewportState.maxDepth   = 1.0f;
 
-  VkRect2D scissor                                                         = {};
-  scissor.offset                                                           = (VkOffset2D){ 0, 0 };
-  scissor.extent                                                           = pCreateInfo->extent;
+  VkRect2D scissor = {};
+  scissor.offset   = (VkOffset2D){ 0, 0 };
+  scissor.extent   = pCreateInfo->extent;
 
-  VkPipelineViewportStateCreateInfo viewportStateCreateInfo                = {};
-  viewportStateCreateInfo.sType                                            = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-  viewportStateCreateInfo.pViewports                                       = &viewportState;
-  viewportStateCreateInfo.pScissors                                        = &scissor;
-  viewportStateCreateInfo.scissorCount                                     = 1;
-  viewportStateCreateInfo.viewportCount                                    = 1;
+  VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
+  viewportStateCreateInfo.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  viewportStateCreateInfo.pViewports                        = &viewportState;
+  viewportStateCreateInfo.pScissors                         = &scissor;
+  viewportStateCreateInfo.scissorCount                      = 1;
+  viewportStateCreateInfo.viewportCount                     = 1;
 
   VkPipelineRasterizationStateCreateInfo rasterizerPipelineStateCreateInfo = {};
   rasterizerPipelineStateCreateInfo.sType                                  = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -2870,12 +2870,12 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   else
     rasterizerPipelineStateCreateInfo.cullMode = VK_CULL_MODE_NONE;
 
-  rasterizerPipelineStateCreateInfo.frontFace                              = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-  rasterizerPipelineStateCreateInfo.depthBiasEnable                        = VK_FALSE;
-  rasterizerPipelineStateCreateInfo.depthBiasConstantFactor                = 0.0f;
-  rasterizerPipelineStateCreateInfo.depthBiasClamp                         = 0.0f;
-  rasterizerPipelineStateCreateInfo.depthBiasSlopeFactor                   = 0.0f;
-  rasterizerPipelineStateCreateInfo.lineWidth                              = 1.0f;
+  rasterizerPipelineStateCreateInfo.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  rasterizerPipelineStateCreateInfo.depthBiasEnable         = VK_FALSE;
+  rasterizerPipelineStateCreateInfo.depthBiasConstantFactor = 0.0f;
+  rasterizerPipelineStateCreateInfo.depthBiasClamp          = 0.0f;
+  rasterizerPipelineStateCreateInfo.depthBiasSlopeFactor    = 0.0f;
+  rasterizerPipelineStateCreateInfo.lineWidth               = 1.0f;
 
   VkPipelineMultisampleStateCreateInfo multisamplerPipelineStageCreateInfo = {};
   multisamplerPipelineStageCreateInfo.sType                                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -2922,7 +2922,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   colorblendState.blendConstants[2]                   = 0.0f;
   colorblendState.blendConstants[3]                   = 0.0f;
 
-  VkPipelineShaderStageCreateInfo* shader_infos       = (VkPipelineShaderStageCreateInfo*)nv_calloc(pCreateInfo->nShaders * sizeof(VkPipelineShaderStageCreateInfo));
+  VkPipelineShaderStageCreateInfo* shader_infos = (VkPipelineShaderStageCreateInfo*)nv_calloc(pCreateInfo->nShaders * sizeof(VkPipelineShaderStageCreateInfo));
   for (int i = 0; i < pCreateInfo->nShaders; i++)
   {
     shader_infos[i].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -2964,14 +2964,14 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   VkPipelineDepthStencilStateCreateInfo depthStencilState = { .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
   {
-    depthStencilState.sType                       = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilState.depthTestEnable             = VK_TRUE;
-    depthStencilState.depthWriteEnable            = VK_TRUE;
-    depthStencilState.depthCompareOp              = VK_COMPARE_OP_LESS_OR_EQUAL;
-    depthStencilState.depthBoundsTestEnable       = VK_FALSE;
-    depthStencilState.minDepthBounds              = 0.0f;
-    depthStencilState.maxDepthBounds              = 1.0f;
-    depthStencilState.stencilTestEnable           = VK_FALSE;
+    depthStencilState.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilState.depthTestEnable       = VK_TRUE;
+    depthStencilState.depthWriteEnable      = VK_TRUE;
+    depthStencilState.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
+    depthStencilState.depthBoundsTestEnable = VK_FALSE;
+    depthStencilState.minDepthBounds        = 0.0f;
+    depthStencilState.maxDepthBounds        = 1.0f;
+    depthStencilState.stencilTestEnable     = VK_FALSE;
 
     graphicsPipelineCreateInfo.pDepthStencilState = &depthStencilState;
   }
@@ -3016,10 +3016,10 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
   colorAttachmentReference.attachment            = 0;
   colorAttachmentReference.layout                = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkSubpassDescription subpass                   = {};
-  subpass.pipelineBindPoint                      = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount                   = 1;
-  subpass.pColorAttachments                      = &colorAttachmentReference;
+  VkSubpassDescription subpass = {};
+  subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass.colorAttachmentCount = 1;
+  subpass.pColorAttachments    = &colorAttachmentReference;
 
   nv_dynarray_t attachments;
   nv_dynarray_init(sizeof(VkAttachmentDescription), 5, &nv_allocator_default, &attachments);
@@ -3040,10 +3040,10 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
     // if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
     // 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     // else
-    depthAttachment.finalLayout     = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    depthAttachmentRef.attachment   = nv_dynarray_size(&attachments);
-    depthAttachmentRef.layout       = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachmentRef.attachment = nv_dynarray_size(&attachments);
+    depthAttachmentRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
@@ -3063,8 +3063,8 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
     colorAttachmentResolve.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachmentResolve.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    colorAttachmentResolveRef.attachment  = nv_dynarray_size(&attachments);
-    colorAttachmentResolveRef.layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachmentResolveRef.attachment = nv_dynarray_size(&attachments);
+    colorAttachmentResolveRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     nv_dynarray_push_back(&attachments, &colorAttachmentResolve);
 
@@ -3221,8 +3221,8 @@ nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryProperty
     return;
   }
 
-  VkBuffer           newBuffer;
-  VkDeviceMemory     newMemory;
+  VkBuffer       newBuffer;
+  VkDeviceMemory newMemory;
 
   VkBufferCreateInfo bufferCreateInfo = {};
   bufferCreateInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -3252,8 +3252,8 @@ nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryProperty
 void
 nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size)
 {
-  VkBuffer           stagingBuffer;
-  VkDeviceMemory     stagingBufferMemory;
+  VkBuffer       stagingBuffer;
+  VkDeviceMemory stagingBufferMemory;
 
   VkBufferCreateInfo stagingBufferInfo = {};
   stagingBufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -3281,7 +3281,7 @@ nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size)
 
   const VkBufferCopy copy = { .srcOffset = 0, .dstOffset = 0, .size = size };
 
-  VkCommandBuffer    cmd  = nv_vk_begin_command_buffer();
+  VkCommandBuffer cmd = nv_vk_begin_command_buffer();
   vkCmdCopyBuffer(cmd, stagingBuffer, dst, 1, &copy);
   nvvk_result_check(nv_vk_end_command_buffer(cmd, transfer_queue, 1));
 
@@ -3350,10 +3350,10 @@ nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecuti
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers    = &cmd;
 
-  VkFence           fence       = VK_NULL_HANDLE;
-  VkFenceCreateInfo fenceInfo   = {};
-  fenceInfo.sType               = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fenceInfo.flags               = 0;
+  VkFence           fence     = VK_NULL_HANDLE;
+  VkFenceCreateInfo fenceInfo = {};
+  fenceInfo.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceInfo.flags             = 0;
 
   if (waitForExecution)
   {
@@ -3409,8 +3409,8 @@ nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize)
 void
 nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height, int image_size)
 {
-  VkBuffer             stagingBuffer       = VK_NULL_HANDLE;
-  VkDeviceMemory       stagingBufferMemory = VK_NULL_HANDLE;
+  VkBuffer       stagingBuffer       = VK_NULL_HANDLE;
+  VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
   VkMemoryRequirements mem_req;
   vkGetImageMemoryRequirements(device, dst, &mem_req);
@@ -3526,12 +3526,12 @@ nv_vk_create_texture_empty(
   // allow for preallocated memory.
   if (dstMem != NULL)
   {
-    const u32            localDeviceMemoryIndex = nv_vk_get_mem_type(imageMemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    const u32 localDeviceMemoryIndex = nv_vk_get_mem_type(imageMemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    VkMemoryAllocateInfo allocInfo              = {};
-    allocInfo.sType                             = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize                    = imageMemoryRequirements.size;
-    allocInfo.memoryTypeIndex                   = localDeviceMemoryIndex;
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize       = imageMemoryRequirements.size;
+    allocInfo.memoryTypeIndex      = localDeviceMemoryIndex;
 
     nvvk_result_check(vkAllocateMemory(device, &allocInfo, NOVA_VK_ALLOCATOR, dstMem));
     nvvk_result_check(vkBindImageMemory(device, *dst, *dstMem, 0));
@@ -3589,7 +3589,7 @@ nv_vk_get_supported_format(VkPhysicalDevice phys_device, VkSurfaceKHR surface, n
   nv_dynarray_init(sizeof(VkSurfaceFormatKHR), formatCount, &nv_allocator_default, &surface_formats);
   nvvk_result_check(vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &formatCount, (VkSurfaceFormatKHR*)nv_dynarray_data(&surface_formats)));
 
-  VkSurfaceFormatKHR       selected_format = { VK_FORMAT_MAX_ENUM, VK_COLOR_SPACE_MAX_ENUM_KHR };
+  VkSurfaceFormatKHR selected_format = { VK_FORMAT_MAX_ENUM, VK_COLOR_SPACE_MAX_ENUM_KHR };
 
   const VkSurfaceFormatKHR desired_formats[]
       = { { VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR }, { VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR } };
@@ -3661,9 +3661,9 @@ nv_gpu_allocate_memory(size_t size, nv_gpu_memory_usage usage, nv_gpu_memory_t**
   (*dst)->usage                          = usage;
   const VkMemoryPropertyFlags properties = (VkMemoryPropertyFlags)usage;
 
-  VkMemoryAllocateInfo        alloc_info = {};
-  alloc_info.sType                       = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  alloc_info.allocationSize              = size;
+  VkMemoryAllocateInfo alloc_info = {};
+  alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  alloc_info.allocationSize       = size;
 
   VkPhysicalDeviceMemoryProperties mem_properties;
   vkGetPhysicalDeviceMemoryProperties(phys_device, &mem_properties);
@@ -3683,11 +3683,11 @@ nv_gpu_allocate_memory(size_t size, nv_gpu_memory_usage usage, nv_gpu_memory_t**
 void
 nv_gpu_create_buffer(size_t size, int alignment, VkBufferUsageFlags usage, nv_gpu_buffer_t* dst)
 {
-  dst->size                      = size;
-  dst->alignment                 = alignment;
-  dst->type                      = usage;
+  dst->size      = size;
+  dst->alignment = alignment;
+  dst->type      = usage;
 
-  const int          aligned_sz  = ALIGN_UP(size, alignment);
+  const int aligned_sz = ALIGN_UP(size, alignment);
 
   VkBufferCreateInfo buffer_info = {};
   buffer_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -3712,12 +3712,12 @@ nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, s
   nv_memcpy(mapped, data, size);
   nv_gpu_unmap_memory(staging_memory);
 
-  VkCommandBuffer cmd  = nv_vk_begin_command_buffer();
+  VkCommandBuffer cmd = nv_vk_begin_command_buffer();
 
-  VkBufferCopy    copy = {
-       .srcOffset = 0,
-       .dstOffset = offset,
-       .size      = size,
+  VkBufferCopy copy = {
+    .srcOffset = 0,
+    .dstOffset = offset,
+    .size      = size,
   };
   vkCmdCopyBuffer(cmd, staging_buffer.buffer, buffer->buffer, 1, &copy);
 
@@ -3843,8 +3843,8 @@ nv_gpu_bind_texture_to_memory(nv_gpu_memory_t* mem, size_t offset, nv_gpu_textur
   VkImageSubresourceRange subresourceRange
       = { .aspectMask = aspect, .baseMipLevel = 0, .levelCount = VK_REMAINING_MIP_LEVELS, .baseArrayLayer = 0, .layerCount = VK_REMAINING_ARRAY_LAYERS };
 
-  nv_format dst_format            = tex->format;
-  dst_format                      = nv_vk_get_supported_format_for_draw(dst_format);
+  nv_format dst_format = tex->format;
+  dst_format           = nv_vk_get_supported_format_for_draw(dst_format);
 
   VkImageViewCreateInfo view_info = {
     .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -3913,9 +3913,9 @@ nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* dest)
   nv_gpu_allocate_memory(buffer->size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE, &staging_mem);
   nv_gpu_bind_buffer_to_memory(staging_mem, 0, &staging);
 
-  VkCommandBuffer cmd  = nv_vk_begin_command_buffer();
+  VkCommandBuffer cmd = nv_vk_begin_command_buffer();
 
-  VkBufferCopy    copy = { .srcOffset = 0, .dstOffset = 0, .size = buffer->size };
+  VkBufferCopy copy = { .srcOffset = 0, .dstOffset = 0, .size = buffer->size };
   vkCmdCopyBuffer(cmd, buffer->buffer, staging.buffer, 1, &copy);
 
   nv_vk_end_command_buffer(cmd, transfer_queue, 1);
@@ -4026,7 +4026,7 @@ nv_gpu_sampler_get(const nv_gpu_sampler* sampler)
 void
 nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** tex)
 {
-  (*tex)        = nv_calloc(sizeof(nv_gpu_texture));
+  (*tex) = nv_calloc(sizeof(nv_gpu_texture));
 
   nv_format fmt = pInfo->format;
   if (pInfo->usage & VK_IMAGE_USAGE_SAMPLED_BIT)
@@ -4034,9 +4034,9 @@ nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** 
     fmt = nv_vk_get_supported_format_for_draw(fmt);
   }
 
-  (*tex)->type            = pInfo->type;
-  (*tex)->format          = pInfo->format;
-  (*tex)->extent          = (VkExtent3D){ pInfo->extent.width, pInfo->extent.height, pInfo->extent.depth };
+  (*tex)->type   = pInfo->type;
+  (*tex)->format = pInfo->format;
+  (*tex)->extent = (VkExtent3D){ pInfo->extent.width, pInfo->extent.height, pInfo->extent.depth };
 
   VkImageUsageFlags usage = 0;
 
@@ -4280,12 +4280,12 @@ nv_sprite* nv_sprite_empty = NULL;
 nv_sprite*
 nv_sprite_load_from_memory(const unsigned char* data, int w, int h, nv_format fmt)
 {
-  nv_sprite* spr                      = nv_calloc(sizeof(struct nv_sprite));
+  nv_sprite* spr = nv_calloc(sizeof(struct nv_sprite));
 
-  spr->rcount                         = 1;
+  spr->rcount = 1;
 
-  fmt                                 = nv_vk_get_supported_format_for_draw(fmt);
-  spr->fmt                            = fmt;
+  fmt      = nv_vk_get_supported_format_for_draw(fmt);
+  spr->fmt = fmt;
 
   nv_gpu_texture_create_info tex_info = {
     .format      = fmt,
@@ -4444,9 +4444,9 @@ nv_camera_init()
     .right       = (vec3){ 1.0f, 0.0f, 0.0f },
 
     // These angles should not be in radians because they're converted at update() time.
-    .yaw       = -90.0,
-    .pitch     = 0.0,
-    .fov       = 90.0f,
+    .yaw   = -90.0,
+    .pitch = 0.0,
+    .fov   = 90.0f,
 
     .near_clip = 0.1f,
     .far_clip  = 1000.0f,
@@ -4511,7 +4511,7 @@ nv_camera_rotate(nv_camera_t* cam, float yaw_, float pitch_)
   cam->yaw += yaw_;
   cam->pitch -= pitch_;
 
-  cam->yaw          = fmodf(cam->yaw, 360.0f);
+  cam->yaw = fmodf(cam->yaw, 360.0f);
 
   const float bound = 89.9f;
   cam->pitch        = NVM_CLAMP(cam->pitch, -bound, bound);
@@ -4537,28 +4537,28 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd)
   const float yaw_rads = NVM_DEG2RAD(cam->yaw), pitch_rads = NVM_DEG2RAD(cam->pitch);
   const float cospitch = cosf(pitch_rads);
   vec3        new_front;
-  new_front.x                                = cosf(yaw_rads) * cospitch;
-  new_front.y                                = sinf(pitch_rads);
-  new_front.z                                = sinf(yaw_rads) * cospitch;
+  new_front.x = cosf(yaw_rads) * cospitch;
+  new_front.y = sinf(pitch_rads);
+  new_front.z = sinf(yaw_rads) * cospitch;
 
-  const vec3 world_up                        = (vec3){ 0.0f, 1.0f, 0.0f };
+  const vec3 world_up = (vec3){ 0.0f, 1.0f, 0.0f };
 
-  cam->front                                 = v3normalize(new_front);
-  cam->right                                 = v3normalize(v3cross(cam->front, world_up));
-  cam->up                                    = v3normalize(v3cross(cam->right, cam->front));
+  cam->front = v3normalize(new_front);
+  cam->right = v3normalize(v3cross(cam->front, world_up));
+  cam->up    = v3normalize(v3cross(cam->right, cam->front));
 
-  cam->view                                  = m4lookat(cam->actual_pos, v3add(cam->actual_pos, cam->front), cam->up);
+  cam->view = m4lookat(cam->actual_pos, v3add(cam->actual_pos, cam->front), cam->up);
 
-  cam->position                              = cam->actual_pos;
+  cam->position = cam->actual_pos;
 
-  const nv_extent2d RenderExtent             = nv_renderer_get_render_extent(rd);
-  const float       aspect                   = (float)RenderExtent.width / (float)RenderExtent.height;
-  cam->perspective                           = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
+  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
+  const float       aspect       = (float)RenderExtent.width / (float)RenderExtent.height;
+  cam->perspective               = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
 
-  nv_camera_uniform_buffer ub                = {};
-  ub.perspective                             = cam->perspective;
-  ub.ortho                                   = cam->ortho;
-  ub.view                                    = cam->view;
+  nv_camera_uniform_buffer ub = {};
+  NV_MATRIX_COPY(ub.perspective, cam->perspective, 4);
+  NV_MATRIX_COPY(ub.ortho, cam->ortho, 4);
+  NV_MATRIX_COPY(ub.view, cam->view, 4);
   cam->mem_mapped[nv_renderer_get_frame(rd)] = ub;
 }
 

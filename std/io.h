@@ -184,7 +184,7 @@ extern size_t nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_lis
  * It stops formatting when max_chars is reached.
  *
  * @param dest Destination buffer or file pointer.
- * @param is_file Set to true if dest is a FILE pointer.
+ * @param is_file Set to true if dest is a FILE.
  * @param max_chars Maximum number of characters to write.
  * @param fmt Format string.
  * @param args Variadic argument list.

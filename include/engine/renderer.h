@@ -124,9 +124,9 @@ extern struct VkRenderPass_T *nv_renderer_get_render_pass(const nv_renderer_t *r
 extern struct nv_extent2d nv_renderer_get_render_extent(const nv_renderer_t *rd);
 extern int nv_renderer_get_max_frames_in_flight(const struct nv_renderer_t *rd);
 
-extern void nv_renderer_render_textured_quad(nv_renderer_t *rd, const nv_sprite_renderer *sprite_renderer, vec3 position, vec3 size, int layer);
-extern void nv_renderer_render_quad(nv_renderer_t *rd, nv_sprite *spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer);
-extern void nv_renderer_render_line(nv_renderer_t *rd, vec2 start, vec2 end, vec4 color, int layer);
+extern void nv_renderer_render_textured_quad(nv_renderer_t *rd, const nv_sprite_renderer *sprite_renderer, vec3f position, vec3f size, int layer);
+extern void nv_renderer_render_quad(nv_renderer_t *rd, nv_sprite *spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
+extern void nv_renderer_render_line(nv_renderer_t *rd, vec2f start, vec2f end, vec4f color, int layer);
 
 extern nv_extent2d nv_get_window_size();
 

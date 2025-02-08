@@ -13,18 +13,18 @@
 #include "../std/string.h"
 #include <SDL2/SDL.h>
 
-u8         nv_current_frame              = 0;
-u64        nv_last_frame_time            = 0; // div by SDL_GetPerformanceCounterFrequency to get actual time.
-double     nv_time                       = 0.0;
+u8     nv_current_frame   = 0;
+u64    nv_last_frame_time = 0; // div by SDL_GetPerformanceCounterFrequency to get actual time.
+double nv_time            = 0.0;
 
-double     nv_delta_time                 = 0.0;
+double nv_delta_time = 0.0;
 
-u64        nv_frame_start_time           = 0;
-u64        nv_fixed_frame_start_time     = 0;
-u64        nv_frame_time                 = 0;
+u64 nv_frame_start_time       = 0;
+u64 nv_fixed_frame_start_time = 0;
+u64 nv_frame_time             = 0;
 
-bool       nv_window_framebuffer_resized = 0;
-bool       nv_application_running        = 1;
+bool nv_window_framebuffer_resized = 0;
+bool nv_application_running        = 1;
 
 static u64 sdl_time;
 
@@ -64,7 +64,7 @@ nv_consume_event(const SDL_Event* event)
 void
 nv_update()
 {
-  nv_time            = (double)SDL_GetTicks64() * (1.0 / 1000.0);
+  nv_time = (double)SDL_GetTicks64() * (1.0 / 1000.0);
 
   nv_last_frame_time = sdl_time;
   sdl_time           = SDL_GetPerformanceCounter();
@@ -105,12 +105,12 @@ struct nv_object
 
 struct nv_scene_t
 {
-  nv_dynarray_t      objects; // the child objects
+  nv_dynarray_t objects; // the child objects
 
-  const char*        scene_name;
-  bool               active; // whether the scene is active or not
+  const char* scene_name;
+  bool        active; // whether the scene is active or not
 
-  b2WorldId          world;
+  b2WorldId world;
 
   nv_scene_load_fn   load;
   nv_scene_unload_fn unload;
@@ -122,22 +122,22 @@ struct nv_scene_t
 nv_object*
 nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type, uint64_t layer, uint64_t mask, vec2 position, vec2 size, unsigned flags)
 {
-  nv_object* obj                         = nv_dynarray_push_empty(&scene->objects);
-  obj->name                              = name;
-  obj->scene                             = scene;
+  nv_object* obj = nv_dynarray_push_empty(&scene->objects);
+  obj->name      = name;
+  obj->scene     = scene;
 
-  obj->transform.position                = position;
-  obj->transform.size                    = size;
-  obj->transform.rotation                = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
+  obj->transform.position = position;
+  obj->transform.size     = size;
+  obj->transform.rotation = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
 
   obj->spr_renderer                      = (nv_sprite_renderer){};
   obj->spr_renderer.spr                  = nv_sprite_empty;
-  obj->spr_renderer.tex_coord_multiplier = (vec2){ 1.0f, 1.0f };
-  obj->spr_renderer.color                = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
+  obj->spr_renderer.tex_coord_multiplier = (vec2f){ 1.0f, 1.0f };
+  obj->spr_renderer.color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
 
-  obj->index                             = scene->objects.m_size;
+  obj->index = scene->objects.m_size;
 
-  bool start_enabled                     = 1;
+  bool start_enabled = 1;
   if (flags & NOVA_OBJECT_NO_COLLISION)
   {
     start_enabled = 0;
@@ -260,8 +260,8 @@ _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_sha
     return (b2BodyId){};
   }
 
-  body_def.position             = VEC2_TO_BVEC2(pos);
-  b2BodyId   body_id            = b2CreateBody(scene->world, &body_def);
+  body_def.position = VEC2_TO_BVEC2(pos);
+  b2BodyId body_id  = b2CreateBody(scene->world, &body_def);
 
   b2ShapeDef shape_def          = b2DefaultShapeDef();
   shape_def.density             = 5.0f;
@@ -298,16 +298,16 @@ nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type t
 {
   nv_collider_t* col = nv_calloc(sizeof(nv_collider_t));
 
-  col->body          = _nv_collider_body_init(scene, type, shape, position, size, layer, mask, start_enabled);
-  col->position      = position;
-  col->size          = size;
-  col->scene         = scene;
-  col->shape_type    = shape;
-  col->type          = type;
-  col->world         = scene->world;
-  col->enabled       = start_enabled;
-  col->layer         = layer;
-  col->mask          = mask;
+  col->body       = _nv_collider_body_init(scene, type, shape, position, size, layer, mask, start_enabled);
+  col->position   = position;
+  col->size       = size;
+  col->scene      = scene;
+  col->shape_type = shape;
+  col->type       = type;
+  col->world      = scene->world;
+  col->enabled    = start_enabled;
+  col->layer      = layer;
+  col->mask       = mask;
 
   return col;
 }
@@ -392,13 +392,13 @@ nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t lay
   nv_collider_ray_hit hit = {};
   hit.host                = col;
 
-  ray_cast_context ctx    = {};
-  ctx.raycaster           = col->shape;
-  ctx.hit                 = &hit;
+  ray_cast_context ctx = {};
+  ctx.raycaster        = col->shape;
+  ctx.hit              = &hit;
 
-  b2QueryFilter filter    = b2DefaultQueryFilter();
-  filter.categoryBits     = layer;
-  filter.maskBits         = mask;
+  b2QueryFilter filter = b2DefaultQueryFilter();
+  filter.categoryBits  = layer;
+  filter.maskBits      = mask;
 
   b2World_CastRay(col->scene->world, VEC2_TO_BVEC2(orig), VEC2_TO_BVEC2(dir), filter, cast_result_fn, &ctx);
 
@@ -410,11 +410,11 @@ nv_scene_t* scene_main = NULL;
 nv_scene_t*
 nv_scene_init()
 {
-  nv_scene_t* scn       = nv_calloc(sizeof(nv_scene_t));
+  nv_scene_t* scn = nv_calloc(sizeof(nv_scene_t));
 
-  b2WorldDef  world_def = b2DefaultWorldDef();
-  world_def.gravity     = (b2Vec2){ 0.0f, -9.8f };
-  scn->world            = b2CreateWorld(&world_def);
+  b2WorldDef world_def = b2DefaultWorldDef();
+  world_def.gravity    = (b2Vec2){ 0.0f, -9.8f };
+  scn->world           = b2CreateWorld(&world_def);
   nv_dynarray_init(sizeof(nv_object), 4, &nv_allocator_default, &scn->objects);
 
   if (!scene_main)
@@ -467,7 +467,7 @@ nv_scene_render(nv_renderer_t* rd)
     vec2                      pos          = nv_object_get_position(&objects[i]);
     vec2                      siz          = nv_object_get_size(&objects[i]);
     const nv_sprite_renderer* spr_renderer = &objects[i].spr_renderer;
-    vec2                      texmul       = spr_renderer->tex_coord_multiplier;
+    vec2f                     texmul       = spr_renderer->tex_coord_multiplier;
     if (spr_renderer->flip_horizontal)
     {
       texmul.x *= -1.0f;
@@ -476,7 +476,7 @@ nv_scene_render(nv_renderer_t* rd)
     {
       texmul.y *= -1.0f;
     }
-    nv_renderer_render_textured_quad(rd, spr_renderer, (vec3){ pos.x, pos.y, 0.0f }, (vec3){ siz.x, siz.y, 0.0f }, 0);
+    nv_renderer_render_textured_quad(rd, spr_renderer, (vec3f){ pos.x, pos.y, 0.0f }, (vec3f){ siz.x, siz.y, 0.0f }, 0);
   }
   for (int i = 0; i < (int)scene_main->objects.m_size; i++)
   {
@@ -573,7 +573,7 @@ nvui_create_button(nv_sprite* spr)
   nvui_button bton        = (nvui_button){};
   bton.transform.position = (vec2){};
   bton.transform.size     = (vec2){ 0.5f, 0.5f };
-  bton.color              = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
+  bton.color              = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
   bton.spr                = spr;
   nv_dynarray_push_back(&nvui_ctx.btons, &bton);
   return &((nvui_button*)nv_dynarray_data(&nvui_ctx.btons))[nv_dynarray_size(&nvui_ctx.btons) - 1];
@@ -593,8 +593,8 @@ nvui_create_slider()
   slider.min                = 0.0f;
   slider.max                = 1.0f;
   slider.value              = 0.0f;
-  slider.bg_color           = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
-  slider.slider_color       = (vec4){ 1.0f, 0.0f, 0.0f, 1.0f };
+  slider.bg_color           = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
+  slider.slider_color       = (vec4f){ 1.0f, 0.0f, 0.0f, 1.0f };
   slider.bg_sprite          = nv_sprite_empty;
   slider.slider_sprite      = nv_sprite_empty;
   slider.interactable       = 0;
@@ -632,11 +632,11 @@ nvui_render(nv_renderer_t* rd)
   }
   for (int i = 0; i < (int)nv_dynarray_size(&nvui_ctx.btons); i++)
   {
-    const nvui_button*  bton = (nvui_button*)nv_dynarray_get(&nvui_ctx.btons, i);
+    const nvui_button* bton = (nvui_button*)nv_dynarray_get(&nvui_ctx.btons, i);
 
-    const nv_transform* t    = &bton->transform;
+    const nv_transform* t = &bton->transform;
 
-    nv_renderer_render_quad(rd, bton->spr, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->size.x, t->size.y, 1.0f }, bton->color, 0);
+    nv_renderer_render_quad(rd, bton->spr, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x, t->position.y, 0.0f }, (vec3f){ t->size.x, t->size.y, 1.0f }, bton->color, 0);
   }
 
   for (int i = 0; i < (int)nv_dynarray_size(&nvui_ctx.sliders); i++)
@@ -652,13 +652,13 @@ nvui_render(nv_renderer_t* rd)
     const nv_transform* t = &slider->transform;
 
     nv_renderer_render_quad(
-        rd, slider->bg_sprite, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->size.x, t->size.y, 1.0f }, slider->bg_color, 0);
+        rd, slider->bg_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x, t->position.y, 0.0f }, (vec3f){ t->size.x, t->size.y, 1.0f }, slider->bg_color, 0);
 
     float pcent = ((slider->value - slider->min) / (slider->max - slider->min));
     pcent       = NVM_CLAMP(pcent, 0.0f, 1.0f);
 
-    nv_renderer_render_quad(rd, slider->slider_sprite, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
-        (vec3){ t->size.x * pcent, t->size.y, 1.0f }, slider->slider_color, 1);
+    nv_renderer_render_quad(rd, slider->slider_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
+        (vec3f){ t->size.x * pcent, t->size.y, 1.0f }, slider->slider_color, 1);
   }
 }
 
@@ -670,10 +670,10 @@ nvui_update()
 
   for (int i = 0; i < (int)nv_dynarray_size(&nvui_ctx.btons); i++)
   {
-    nvui_button*        bton      = (nvui_button*)nv_dynarray_get(&nvui_ctx.btons, i);
-    const nv_transform* t         = &bton->transform;
+    nvui_button*        bton = (nvui_button*)nv_dynarray_get(&nvui_ctx.btons, i);
+    const nv_transform* t    = &bton->transform;
 
-    const nvm_rect2d    bton_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
+    const nvm_rect2d bton_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
     if (nvm_is_point_inside_rect(&mouse_position, &bton_rect))
     {
       bton->was_hovered = 1;
@@ -697,10 +697,10 @@ nvui_update()
 
   for (int i = 0; i < (int)nv_dynarray_size(&nvui_ctx.sliders); i++)
   {
-    nvui_slider*        slider      = (nvui_slider*)nv_dynarray_get(&nvui_ctx.sliders, i);
-    const nv_transform* t           = &slider->transform;
+    nvui_slider*        slider = (nvui_slider*)nv_dynarray_get(&nvui_ctx.sliders, i);
+    const nv_transform* t      = &slider->transform;
 
-    const nvm_rect2d    slider_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
+    const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
     if (slider->interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
     {
       if (nv_input_is_mouse_signalled(NOVA_MOUSE_BUTTON_LEFT))
@@ -729,12 +729,12 @@ LunaEditor_Render(nv_renderer_t* rd)
   // (vec4){1.0f,1.0f,1.0f,1.0f}, 5);
 }
 
-vec2                g_nv_input_mouse_position;
-vec2                g_nv_input_last_frame_mouse_position;
-nv_bitset_t         g_nv_input_kb_state;
-nv_bitset_t         g_nv_input_last_frame_kb_state;
-unsigned            g_nv_input_mouse_state;
-unsigned            g_nv_input_last_frame_mouse_state;
+vec2        g_nv_input_mouse_position;
+vec2        g_nv_input_last_frame_mouse_position;
+nv_bitset_t g_nv_input_kb_state;
+nv_bitset_t g_nv_input_last_frame_kb_state;
+unsigned    g_nv_input_mouse_state;
+unsigned    g_nv_input_last_frame_mouse_state;
 
 static nv_hashmap_t g_nv_input_action_mapping;
 
@@ -866,11 +866,11 @@ void
 nv_input_update()
 {
   int mx, my;
-  g_nv_input_last_frame_mouse_state    = g_nv_input_mouse_state;
-  g_nv_input_mouse_state               = SDL_GetMouseState(&mx, &my);
+  g_nv_input_last_frame_mouse_state = g_nv_input_mouse_state;
+  g_nv_input_mouse_state            = SDL_GetMouseState(&mx, &my);
 
-  const float width                    = nv_get_window_size().width;
-  const float height                   = nv_get_window_size().height;
+  const float width  = nv_get_window_size().width;
+  const float height = nv_get_window_size().height;
 
   g_nv_input_last_frame_mouse_position = g_nv_input_mouse_position;
   g_nv_input_mouse_position.x          = ((float)mx / width) * 2.0f - 1.0f;
@@ -884,15 +884,15 @@ nv_input_update()
     nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]);
   }
 
-  int                mouse_state = SDL_GetMouseState(NULL, NULL);
+  int mouse_state = SDL_GetMouseState(NULL, NULL);
 
-  size_t             __i         = 0;
+  size_t             __i = 0;
   nv_hashmap_node_t* node;
   while ((node = nv_hashmap_iterate(&g_nv_input_action_mapping, &__i)) != NULL)
   {
     nv_input_action_t* ia = (nv_input_action_t*)node->value;
 
-    ia->last_frame        = ia->this_frame;
+    ia->last_frame = ia->this_frame;
 
     if (ia->key != 0)
     { // key2 is not checked, most ia's won't have one

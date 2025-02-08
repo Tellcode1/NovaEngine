@@ -11,50 +11,75 @@
 #include <time.h>
 
 #ifdef __cplusplus
-#define NOVA_HEADER_START                                                                                                                                                     \
-  extern "C"                                                                                                                                                                  \
-  {
-#define NOVA_HEADER_END }
+#  define NOVA_HEADER_START extern "C" {
+#  define NOVA_HEADER_END }
 #else
-#define NOVA_HEADER_START
-#define NOVA_HEADER_END
+#  define NOVA_HEADER_START
+#  define NOVA_HEADER_END
 #endif
 
 NOVA_HEADER_START;
 
-#if defined(_MSC_VER)
-#define NOVA_RESTRICT __restrict
-#elif defined(__GNUC__) || defined(__clang__)
-#define NOVA_RESTRICT __restrict__
-#else
-#define NOVA_RESTRICT
+#if !defined(NV_RESTRICT)
+#  if defined(_MSC_VER)
+#    define NV_RESTRICT __restrict
+#  elif defined(__GNUC__) || defined(__clang__)
+#    define NV_RESTRICT __restrict__
+#  else
+#    define NV_RESTRICT
+#  endif
+#endif
+
+#ifndef NV_TYPEOF
+#  if defined(__GNUC__) || defined(__clang__)
+#    define NV_TYPEOF(x) __typeof__(x)
+#  elif defined(_MSC_VER)
+#    define NV_TYPEOF(x) decltype(x)
+#  else
+#    error "no typeof"
+#  endif
+#endif
+
+#ifndef real_t
+#  define real_t double
+#endif
+
+#ifndef flt_t
+#  define flt_t float
 #endif
 
 #define DEBUG
 
-#define nv_MAX(a, b) ((a) > (b) ? (a) : (b))
-#define nv_MIN(a, b) ((a) < (b) ? (a) : (b))
-#define nv_CONCAT(x, y) x##y
-#define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
+#define NV_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define NV_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define NV_CONCAT(x, y) x##y
+
+#if defined(__GNUC__)
+#  define nv_arrlen(arr) _Generic(&(arr), typeof (*(arr))(*): 0, default: (sizeof(arr) / sizeof((arr)[0])))
+#elif defined(__has_builtin) && __has_builtin(__builtin_choose_expr) && __has_builtin(__builtin_types_compatible_p)
+#  define nv_arrlen(arr) __builtin_choose_expr(__builtin_types_compatible_p(typeof(arr), typeof(&(arr)[0])), 0, (sizeof(arr) / sizeof((arr)[0])))
+#else
+#  define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
+#endif
 
 #ifndef NDEBUG
-#define nv_assert_and_ret(expr, retval)                                                                                                                                       \
-  if (!((bool)(expr)))                                                                                                                                                        \
-  {                                                                                                                                                                           \
-    nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                        \
-    return retval;                                                                                                                                                            \
-  }
-#define nv_assert(expr)                                                                                                                                                       \
-  if (!((bool)(expr)))                                                                                                                                                        \
-  {                                                                                                                                                                           \
-    nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                        \
-  }
+#  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
+    if (!((bool)(expr)))                                                                                                                                                      \
+      {                                                                                                                                                                       \
+        nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                    \
+        return retval;                                                                                                                                                        \
+    }
+#  define nv_assert(expr)                                                                                                                                                     \
+    if (!((bool)(expr)))                                                                                                                                                      \
+      {                                                                                                                                                                       \
+        nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                    \
+    }
 #else
 // These are typecasted to void because they give warnings because result (its
 // like expr != NULL) is not used
-#define nv_assert_and_ret(expr, retval) (void)(expr)
-#define nv_assert(expr) (void)(expr)
-#pragma message "Assertions disabled"
+#  define nv_assert_and_ret(expr, retval) (void)(expr)
+#  define nv_assert(expr) (void)(expr)
+#  pragma message "Assertions disabled"
 #endif
 
 // puts but with formatting and with the preceder "error". does not stop
@@ -86,7 +111,7 @@ extern void _nv_log_custom(const char* func, const char* preceder, const char* f
 
 extern void _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* str, unsigned char err);
 
-#define _nv_time_wrapper1(x, y) nv_CONCAT(x, y)
+#define _nv_time_wrapper1(x, y) NV_CONCAT(x, y)
 
 // May god never have a look at this define. I will not be spared.
 #define _nv_TIME_FUNCTION(func, LINE)                                                                                                                                         \
@@ -103,9 +128,9 @@ _nv_get_time()
 
   now = time(0);
   if ((tm = localtime(&now)) == NULL)
-  {
-    nv_log_error("Error extracting time stuff");
-    return NULL;
+    {
+      nv_log_error("Error extracting time stuff");
+      return NULL;
   }
 
   return tm;
@@ -119,10 +144,10 @@ typedef uint8_t  uchar;
 typedef int8_t   sbyte;
 typedef uint8_t  ubyte;
 
-typedef int64_t  i64;
-typedef int32_t  i32;
-typedef int16_t  i16;
-typedef int8_t   i8;
+typedef int64_t i64;
+typedef int32_t i32;
+typedef int16_t i16;
+typedef int8_t  i8;
 
 // They ARE 32 and 64 bits by IEEE-754 but aren't set by the standard
 // But there is a 99.9% chance that they will be

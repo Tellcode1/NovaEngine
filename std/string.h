@@ -17,7 +17,7 @@ NOVA_HEADER_START;
 
 /// @param sz The number of bytes to copy
 /// @return Returns NULL on error and dst on success
-extern void* nv_memcpy(void* NOVA_RESTRICT dst, const void* NOVA_RESTRICT src, size_t sz);
+extern void* nv_memcpy(void* NV_RESTRICT dst, const void* NV_RESTRICT src, size_t sz);
 
 /// @brief Sets 'sz' bytes of 'dst' to 'to'
 /// @return Returns NULL on error and dst for success
@@ -45,10 +45,10 @@ extern void  nv_free(void* block);
 // Uses zlib to compress and decompress the buffer
 // this works just as you'd expect on images
 // output should be an allocation of output_size (or bigger)
-extern int nv_bufcompress(const void* NOVA_RESTRICT input, size_t input_size, void* NOVA_RESTRICT output, size_t* NOVA_RESTRICT output_size);
+extern int nv_bufcompress(const void* NV_RESTRICT input, size_t input_size, void* NV_RESTRICT output, size_t* NV_RESTRICT output_size);
 
 // o_buf must be allocated with atleast o_buz_sz bytes of memory
-extern int nv_bufdecompress(const void* NOVA_RESTRICT compressed_data, size_t compressed_size, void* NOVA_RESTRICT o_buf, size_t o_buf_sz);
+extern int nv_bufdecompress(const void* NV_RESTRICT compressed_data, size_t compressed_size, void* NV_RESTRICT o_buf, size_t o_buf_sz);
 
 // Get the size of the string
 // The size is determined by the position of the NULL terminator.

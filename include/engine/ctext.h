@@ -85,11 +85,11 @@ extern float ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 b
 
 struct ctext_text_render_info_t
 {
-  mat4             model;
+  mat4f             model;
   ctext_hori_align horizontal;
   ctext_vert_align vertical;
-  vec4             color;
-  vec3             position;
+  vec4f             color;
+  vec3f             position;
   float            scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
   vec2             bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
   bool             scale_for_fit; // calculates the scale needed to fit the text into a box
@@ -134,11 +134,11 @@ struct cfont_t
 static inline ctext_text_render_info_t
 ctext_init_text_render_info()
 {
-  return (ctext_text_render_info_t){ .model = m4init(1.0f),
+  return (ctext_text_render_info_t){ .model = m4finit(1.0f),
     .horizontal                             = CTEXT_HORI_ALIGN_CENTER,
     .vertical                               = CTEXT_VERT_ALIGN_CENTER,
-    .color                                  = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f },
-    .position                               = (vec3){ 0.0f, 0.0f, 0.0f },
+    .color                                  = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
+    .position                               = (vec3f){ 0.0f, 0.0f, 0.0f },
     .scale                                  = 1.0f,
     .bbox                                   = (vec2){},
     .scale_for_fit                          = 0 };

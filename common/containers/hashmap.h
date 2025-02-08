@@ -11,7 +11,7 @@ NOVA_HEADER_START;
 typedef struct nv_hashmap_t      nv_hashmap_t;
 typedef struct nv_hashmap_node_t nv_hashmap_node_t;
 typedef unsigned (*nv_hashmap_hash_fn)(const void* bytes, int nbytes);
-typedef bool (*nv_hashmap_key_equal_fn)(const void* NOVA_RESTRICT key1, const void* NOVA_RESTRICT key2, unsigned long keysize);
+typedef bool (*nv_hashmap_key_equal_fn)(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, unsigned long keysize);
 
 static inline unsigned
 nv_hashmap_std_hash(const void* bytes, int nbytes)
@@ -29,7 +29,7 @@ nv_hashmap_std_hash(const void* bytes, int nbytes)
 };
 
 static inline bool
-nv_hashmap_std_key_eq(const void* NOVA_RESTRICT key1, const void* NOVA_RESTRICT key2, unsigned long nbytes)
+nv_hashmap_std_key_eq(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, unsigned long nbytes)
 {
   return nv_memcmp(key1, key2, nbytes) == 0;
 }
@@ -56,7 +56,7 @@ extern size_t nv_hashmap_keysize(const nv_hashmap_t* map);
 extern size_t nv_hashmap_valuesize(const nv_hashmap_t* map);
 
 // __i needs to point to an integer initialized to 0
-extern nv_hashmap_node_t*  nv_hashmap_iterate(const nv_hashmap_t* NOVA_RESTRICT map, size_t* NOVA_RESTRICT __i);
+extern nv_hashmap_node_t*  nv_hashmap_iterate(const nv_hashmap_t* NV_RESTRICT map, size_t* NV_RESTRICT __i);
 
 extern nv_hashmap_node_t** nv_hashmap_root_node(const nv_hashmap_t* map);
 
@@ -65,20 +65,20 @@ extern nv_hashmap_node_t** nv_hashmap_root_node(const nv_hashmap_t* map);
     also, if key or value is a string (const char *, not a nv_string_t or something),
     just pass in the const char *, not a pointer to it!!!
 */
-extern void nv_hashmap_insert(nv_hashmap_t* map, const void* NOVA_RESTRICT key, const void* NOVA_RESTRICT value);
+extern void nv_hashmap_insert(nv_hashmap_t* map, const void* NV_RESTRICT key, const void* NV_RESTRICT value);
 
-extern void nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NOVA_RESTRICT key, void* NOVA_RESTRICT value);
+extern void nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NV_RESTRICT key, void* NV_RESTRICT value);
 
 /* returns NULL on no find */
-extern void* nv_hashmap_find(const nv_hashmap_t* NOVA_RESTRICT map, const void* NOVA_RESTRICT key);
+extern void* nv_hashmap_find(const nv_hashmap_t* NV_RESTRICT map, const void* NV_RESTRICT key);
 
 // Write to the file containing each key-value pair
 // Does not close or open the file
-extern void nv_hashmap_serialize(nv_hashmap_t* NOVA_RESTRICT map, FILE* NOVA_RESTRICT f);
+extern void nv_hashmap_serialize(nv_hashmap_t* NV_RESTRICT map, FILE* NV_RESTRICT f);
 
 // map must have been initialized
 // Does not close or open the file
-extern void nv_hashmap_deserialize(nv_hashmap_t* NOVA_RESTRICT map, FILE* NOVA_RESTRICT f);
+extern void nv_hashmap_deserialize(nv_hashmap_t* NV_RESTRICT map, FILE* NV_RESTRICT f);
 
 struct nv_hashmap_node_t
 {

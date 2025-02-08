@@ -9,7 +9,6 @@ AlignConsecutiveAssignments: Consecutive
 AlignConsecutiveDeclarations: Consecutive
 AlignOperands: DontAlign
 AlignTrailingComments: true
-BreakBeforeBraces: Allman
 BreakConstructorInitializersBeforeComma: false
 SpaceBeforeParens: ControlStatements
 SpacesBeforeTrailingComments: 1
@@ -19,3 +18,12 @@ MaxEmptyLinesToKeep: 1
 PointerAlignment: Left
 SortIncludes: CaseSensitive
 SpaceBeforeAssignmentOperators: true
+IndentPPDirectives: AfterHash
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterStruct: true
+  AfterClass: true
+  AfterControlStatement: Always
+  IndentBraces: true
+PPIndentWidth: 2
