@@ -1,59 +1,99 @@
-#ifndef __NOVA_PRINTF_H__
-#define __NOVA_PRINTF_H__
-
-// implementation: core.c
+#ifndef __NOVA_IO_H__
+#define __NOVA_IO_H__
 
 #include "stdafx.h"
+#include <stdarg.h>
 #include <stdio.h>
 
 NOVA_HEADER_START;
 
-// The DEFAULT size of each buffer that nv_printf may allocate
-// nv_printf may use at most 1 buffer for fast writing access
-
-// The default write buffer size
+/**
+ * @brief default size of write buffer
+ */
 #ifndef NOVA_WBUF_SIZE
 #define NOVA_WBUF_SIZE 1024
 #endif
 
-// @brief Set the write buffer for the print functions
-// If buf is NULL, but size is not 0, a buffer of 'size' bytes is allocated
-// If buf is NULL, and size is also 0, then a buffer of NOVA_WBUF_SIZE bytes is allocated
+/**
+ * @brief Sets the write buffer for the print functions.
+ *
+ * if buf is NULL and size != 0, a buffer of 'size' bytes is allocated.
+ * if buf is NULL and size is 0, a buffer of NOVA_WBUF_SIZE bytes is allocated.
+ *
+ * @param buf Pointer to the buffer or NULL.
+ * @param size Size of the buffer.
+ */
 extern void nv_setwbuf(char* buf, size_t size);
 
-// Set the standard output stream
-// Calls to nv_printf are routed to this stream.
-// No checks are made on stream, ensure that it is always valid!
+/**
+ * @brief Sets the standard output stream.
+ *
+ * Calls to nv_printf are routed to this stream.
+ * No validity checks are performed.
+ *
+ * @param stream A valid FILE pointer.
+ */
 extern void nv_setstdout(FILE* stream);
 
-// @return The number of characters written excluding the NULL terminator
+/**
+ * @brief Converts an integer to ASCII (Alpha).
+ *
+ * @param x The integer to convert.
+ * @param out Output buffer.
+ * @param base Conversion base.
+ * @param max Maximum number of characters to write.
+ * @return The number of characters written (excluding the null terminator).
+ */
 extern size_t nv_itoa2(intmax_t x, char out[], int base, size_t max);
 
-// ITOA but only for unsigned types
+/**
+ * @brief Converts an unsigned integer to ASCII.
+ */
 extern size_t nv_itoa_u2(uintmax_t x, char out[], int base, size_t max);
 
-// @return The number of characters written excluding the NULL terminator
+/**
+ * @brief Converts a double to ASCII.
+ *
+ * @param x The double value.
+ * @param out Output buffer.
+ * @param precision Number of digits after the decimal point.
+ * @param max Maximum number of characters.
+ * @param remove_zeroes If true, trailing zeroes are removed.
+ * @return The number of characters written.
+ */
 extern size_t nv_ftoa2(double x, char out[], int precision, size_t max, bool remove_zeroes);
 
-// Pointer to string.
-// @return The number of characters written excluding the NULL terminator
+/**
+ * @brief Converts a pointer to ASCII.
+ */
 extern size_t nv_ptoa2(void* p, char* buf, size_t max);
 
-// Bytes to ASCII
-// if upgrade is enabled, 1000 bytes will be converted to 1 MB or 1000MB will be converted to 1GB
-// Supports up to 1 Petabyte, you can EASILY add more levels by just adding them to the stages array
-// @return The number of characters written excluding the NULL terminator
+/**
+ * @brief Converts a byte count to ASCII.
+ *
+ * Supports upgrade modes (e.g. converting 1000 bytes to "1KB", etc.).
+ * Up to 1 petabyte is supported. It can go farther but it is undefined behaviour
+ * Writes the bytes (using itoa_u) and writes the suffix ( B/KB/MB/GB/PB )
+ * @return The number of characters written.
+ */
 extern size_t nv_btoa2(size_t x, bool upgrade, char* buf, size_t max);
 
-// String to integer
+/**
+ * @brief Converts a string to an integer.
+ */
 extern intmax_t nv_atoi(const char s[]);
 
-// String to floating point
+/**
+ * @brief Converts a string to a double.
+ */
 extern double nv_atof(const char s[]);
 
-// String to boolean
+/**
+ * @brief Converts a string to a boolean.
+ */
 extern bool nv_atobool(const char s[]);
 
+/* Inline convenience wrappers */
 static inline char*
 nv_itoa(intmax_t x, char out[], int base, size_t max)
 {
@@ -89,40 +129,69 @@ nv_btoa(size_t x, bool upgrade, char* buf, size_t max)
   return buf;
 }
 
-// @return the numbers of characters written
+/**
+ * @brief Prints formatted output to the g_stdstream
+ * @return The number of characters written.
+ */
 extern size_t nv_printf(const char* fmt, ...);
 
-// Print to file
+/**
+ * @brief Prints formatted output to file.
+ */
 extern size_t nv_fprintf(FILE* f, const char* fmt, ...);
 
-// Print no more than max_chars to g_stdstream
+/**
+ * @brief Prints no more than max_chars characters to the g_stdstream.
+ */
 extern size_t nv_nprintf(size_t max_chars, const char* fmt, ...);
 
-// Print to a string. The use of this function is not recommended
-// use nv_snprintf() instead.
+/**
+ * @brief Prints formatted output to a string.
+ *
+ * @note Usage of this function is not recommended; use nv_snprintf() instead.
+ */
 extern size_t nv_sprintf(char* dest, const char* fmt, ...);
 
-// Print using a variadic argument list.
+/**
+ * @brief Prints formatted output using a va_list.
+ */
 extern size_t nv_vprintf(const char* fmt, va_list args);
 
-// Print, using a variadic argument, to a file
+/**
+ * @brief Prints formatted output using a va_list to a file.
+ */
 extern size_t nv_vfprintf(FILE* f, const char* fmt, va_list args);
 
-// Print to a string, with no more than max_chars written
+/**
+ * @brief Prints formatted output to a string writing no more than max_chars
+ */
 extern size_t nv_snprintf(char* dest, size_t max_chars, const char* fmt, ...);
 
-// Print no more than max_chars to g_stdstream, using the variadic argument list.
+/**
+ * @brief Prints no more than max_chars characters to g_stdstream, using a va_list.
+ */
 extern size_t nv_vnprintf(size_t max_chars, va_list args, const char* fmt);
 
-// Print no more than max_chars, to dest, using a variadic argument list.
+/**
+ * @brief Prints no more than max_chars characters to a string using a va_list.
+ */
 extern size_t nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list args);
 
-// The core print function. All nv_printf* functions eventually end up calling
-// this function. It is guranteed that dest will not be written to if it is NULL
-// Stops formatting when it reaches max_chars
-// Returns the number of characters written
+/**
+ * @brief The core print function.
+ *
+ * All nv_printf* functions eventually call this function.
+ * It stops formatting when max_chars is reached.
+ *
+ * @param dest Destination buffer or file pointer.
+ * @param is_file Set to true if dest is a FILE pointer.
+ * @param max_chars Maximum number of characters to write.
+ * @param fmt Format string.
+ * @param args Variadic argument list.
+ * @return The number of characters written.
+ */
 extern size_t _nv_vsfnprintf(void* dest, bool is_file, size_t max_chars, const char* fmt, va_list args);
 
 NOVA_HEADER_END;
 
-#endif //__NOVA_PRINTF_H__
+#endif // __NOVA_IO_H__
