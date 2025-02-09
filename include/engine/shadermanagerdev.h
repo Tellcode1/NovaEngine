@@ -14,12 +14,12 @@ typedef struct nvsm_shader_disk_t        nvsm_shader_disk_t;
 typedef struct nvsm_shader_t             nvsm_shader_t;
 typedef struct nvsm_shader_cache_entry_t nvsm_shader_cache_entry_t;
 
-extern const char*                       shader_compiler;
-extern const char*                       shader_compiler_args;
-extern const char*                       list;
+extern const char* shader_compiler;
+extern const char* shader_compiler_args;
+extern const char* list;
 
-extern struct nvsm_shader_t*             shader_map;
-extern int                               nshaders;
+extern struct nvsm_shader_t* shader_map;
+extern int                   nshaders;
 
 struct nvsm_shader_t
 {

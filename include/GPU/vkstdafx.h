@@ -3,17 +3,17 @@
 
 // implementation: none,vk.c
 
-#include "../../std/stdafx.h"
 #include "../../common/format.h"
+#include "../../std/stdafx.h"
 
 NOVA_HEADER_START;
 
 #if defined(_WIN32)
-#define VK_USE_PLATFORM_WIN32_KHR
+#  define VK_USE_PLATFORM_WIN32_KHR
 #elif defined(__linux) || defined(__unix)
-#define VK_USE_PLATFORM_XCB_KHR
+#  define VK_USE_PLATFORM_XCB_KHR
 #else
-#error implement
+#  error implement
 #endif
 
 #define NVVK_FORWARD_DECLARE(s)                                                                                                                                               \
@@ -34,26 +34,26 @@ extern VkSurfaceKHR             surface;
 extern struct SDL_Window*       window;
 extern VkDebugUtilsMessengerEXT debug_messenger;
 
-extern nv_format                swap_chain_image_format;
-extern u32                      swap_chain_color_space;
-extern u32                      swap_chain_image_count;
-extern u32                      samples;
+extern nv_format swap_chain_image_format;
+extern u32       swap_chain_color_space;
+extern u32       swap_chain_image_count;
+extern u32       samples;
 
-extern u32                      graphics_family_index;
-extern u32                      present_family_index;
-extern u32                      compute_family_index;
-extern u32                      transfer_queue_index;
-extern u32                      graphics_and_compute_family_index;
+extern u32 graphics_family_index;
+extern u32 present_family_index;
+extern u32 compute_family_index;
+extern u32 transfer_queue_index;
+extern u32 graphics_and_compute_family_index;
 
-extern VkQueue                  graphics_queue;
-extern VkQueue                  graphics_and_compute_queue;
-extern VkQueue                  present_queue;
-extern VkQueue                  compute_queue;
-extern VkQueue                  transfer_queue;
+extern VkQueue graphics_queue;
+extern VkQueue graphics_and_compute_queue;
+extern VkQueue present_queue;
+extern VkQueue compute_queue;
+extern VkQueue transfer_queue;
 
-extern u32                      MAX_SAMPLES;
-extern unsigned char            SUPPORTS_MULTISAMPLING;
-extern float                    MAX_ANISOTROPY;
+extern u32           MAX_SAMPLES;
+extern unsigned char SUPPORTS_MULTISAMPLING;
+extern float         MAX_ANISOTROPY;
 
 NOVA_HEADER_END;
 

@@ -13,7 +13,7 @@ NOVA_HEADER_START;
 
 // pointer to allocator
 #ifndef NOVA_VK_ALLOCATOR
-#define NOVA_VK_ALLOCATOR NULL
+#  define NOVA_VK_ALLOCATOR NULL
 #endif
 
 extern const char* nvvk_vk_result_to_string(VkResult r);
@@ -23,8 +23,8 @@ extern const char* nvvk_vk_result_to_string(VkResult r);
 extern u32 nv_vk_get_mem_type(const u32 memoryTypeBits, const VkMemoryPropertyFlags memoryProperties);
 
 /* externallyAllocated = true asserts *dstMemory will not be written to by this function */
-extern void nv_vk_create_buffer(
-    size_t size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer* dstBuffer, VkDeviceMemory* dstMemory, bool externallyAllocated);
+extern void
+nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer* dstBuffer, VkDeviceMemory* dstMemory, bool externallyAllocated);
 
 /*  */
 extern void nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size);
@@ -47,8 +47,9 @@ extern u8* nv_vk_create_texture_from_disk(const char* path, u32* width, u32* hei
 extern void nv_vk_create_texture_empty(
     u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, int* image_size, VkImage* dst, VkDeviceMemory* dstMem);
 
-extern void nv_vk_transition_texture_layout(VkCommandBuffer cmd, VkImage image, u32 mipLevels, VkImageAspectFlagBits aspect, VkImageLayout oldLayout, VkImageLayout newLayout,
-    VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags sourceStage, VkPipelineStageFlags destinationStage);
+extern void nv_vk_transition_texture_layout(
+    VkCommandBuffer cmd, VkImage image, u32 mipLevels, VkImageAspectFlagBits aspect, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask,
+    VkAccessFlags dstAccessMask, VkPipelineStageFlags sourceStage, VkPipelineStageFlags destinationStage);
 
 extern nv_format nv_vk_get_supported_format_for_draw(nv_format fmt);
 

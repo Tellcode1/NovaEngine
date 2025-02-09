@@ -34,8 +34,8 @@ typedef struct nv_collider_ray_hit
 
 // mask defines the layers that the collider can collide with
 // both layer and mask must be bitmasks
-extern nv_collider_t* nv_collider_init(
-    nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type type, nv_collider_shape shape, uint64_t layer, uint64_t mask, bool start_enabled);
+extern nv_collider_t*
+            nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type type, nv_collider_shape shape, uint64_t layer, uint64_t mask, bool start_enabled);
 extern void nv_collider_destroy(nv_collider_t* col);
 
 extern vec2 nv_collider_get_position(const nv_collider_t* col);

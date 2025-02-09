@@ -15,11 +15,11 @@ NOVA_HEADER_START;
 // The smallest size of memory that the allocator will take from a page
 // i.e. The smallest amount of memory handled by lmalloc internally, this chunk will be broken down into subchunks and returned.
 #ifndef LMALLOC_DEFAULT_CHUNK_SIZE
-#define LMALLOC_DEFAULT_CHUNK_SIZE 512
+#  define LMALLOC_DEFAULT_CHUNK_SIZE 512
 #endif
 
 #ifndef LMALLOC_DEFAULT_PAGE_SIZE
-#define LMALLOC_DEFAULT_PAGE_SIZE 4096
+#  define LMALLOC_DEFAULT_PAGE_SIZE 4096
 #endif
 
 typedef struct nv_allocator_t     nv_allocator_t;
@@ -27,7 +27,7 @@ typedef struct nv_allocator_stack nv_allocator_stack;
 typedef struct nv_allocator_heap  nv_allocator_heap;
 
 // stack allocator functions.
-extern void  nv_allocator_stack_init(nv_allocator_stack* allocator, unsigned char* buf, size_t available);
+extern void nv_allocator_stack_init(nv_allocator_stack* allocator, unsigned char* buf, size_t available);
 
 extern void* saalloc(nv_allocator_t* parent, size_t alignment, size_t size);
 extern void* sacalloc(nv_allocator_t* parent, size_t alignment, size_t size);
@@ -41,7 +41,7 @@ extern void* heaprealloc(nv_allocator_t* parent, void* prevblock, size_t alignme
 extern void  heapfree(nv_allocator_t* parent, void* block);
 
 // custom mmap based heap allocator.
-extern void  nv_allocator_heap_init(nv_allocator_heap* pool);
+extern void nv_allocator_heap_init(nv_allocator_heap* pool);
 
 extern void* poolmalloc(nv_allocator_t* allocator, size_t alignment, size_t size);
 extern void* poolcalloc(nv_allocator_t* allocator, size_t alignment, size_t size);

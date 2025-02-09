@@ -3,9 +3,9 @@
 
 // implementation: vk.c
 
+#include "../../external/volk/volk.h"
 #include "../../std/math/math.h"
 #include "../../std/stdafx.h"
-#include "../../external/volk/volk.h"
 #include "vkstdafx.h"
 
 NOVA_HEADER_START;
@@ -14,7 +14,7 @@ NOVA_HEADER_START;
 
 typedef struct nv_descriptor_set_t     nv_descriptor_set_t;
 typedef struct nv_descriptor_pool_size nv_descriptor_pool_size;
-typedef struct nv_descriptor_pool_t      nv_descriptor_pool_t;
+typedef struct nv_descriptor_pool_t    nv_descriptor_pool_t;
 typedef struct nv_descriptor_set_t     nv_descriptor_set_t;
 
 struct nv_descriptor_pool_size
@@ -38,7 +38,7 @@ struct nv_descriptor_set_t
   int                          canary;
   VkDescriptorSetLayout        layout;
   VkDescriptorSet              set;
-  nv_descriptor_pool_t*          pool;
+  nv_descriptor_pool_t*        pool;
   struct VkWriteDescriptorSet* writes;
   int                          nwrites;
 };

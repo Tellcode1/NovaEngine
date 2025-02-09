@@ -51,7 +51,7 @@ extern void nv_input_init();
 extern void nv_input_update();
 extern void nv_input_shutdown();
 
-void        nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn response);
+void nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn response);
 
 extern void nv_input_bind_key_to_action(SDL_Scancode key, const char* action);
 extern void nv_input_bind_mouse_to_action(int bton, const char* action);
@@ -74,7 +74,7 @@ extern bool nv_input_is_action_just_unsignalled(const char* action);
 
 /// @brief signals the action for a frame
 /// @return 0 on action signalled, -1 if it can't find the action specified.
-extern int                nv_input_signal_action(const char* action);
+extern int nv_input_signal_action(const char* action);
 
 extern nv_input_key_state nv_input_get_key_state(const SDL_Scancode sc);
 extern bool               nv_input_is_key_signalled(const SDL_Scancode sc);
@@ -82,9 +82,9 @@ extern bool               nv_input_is_key_unsignalled(const SDL_Scancode sc);
 extern bool               nv_input_is_key_just_signalled(const SDL_Scancode sc);
 extern bool               nv_input_is_key_just_unsignalled(const SDL_Scancode sc);
 
-extern vec2               nv_input_get_mouse_position(void);
-extern vec2               nv_input_get_last_frame_mouse_position(void);
-extern vec2               nv_input_get_mouse_delta(void);
+extern vec2 nv_input_get_mouse_position(void);
+extern vec2 nv_input_get_last_frame_mouse_position(void);
+extern vec2 nv_input_get_mouse_delta(void);
 
 // button is 1 for left mouse, 2 for middle, 3 for right
 extern bool nv_input_is_mouse_signalled(nv_input_mouse_button button);

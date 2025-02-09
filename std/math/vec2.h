@@ -6,7 +6,7 @@
 
 NOVA_HEADER_START;
 
-#define _NV_DEC_VEC2(TYPE, FUNC, NAME, SQRT_FUNC)                                                                                                                         \
+#define _NV_DEC_VEC2(TYPE, FUNC, NAME, SQRT_FUNC)                                                                                                                             \
   typedef struct NAME                                                                                                                                                         \
   {                                                                                                                                                                           \
     TYPE x, y;                                                                                                                                                                \
@@ -29,8 +29,7 @@ NOVA_HEADER_START;
   static inline NAME FUNC##normalize(const NAME v)                                                                                                                            \
   {                                                                                                                                                                           \
     TYPE magnitude = FUNC##mag(v);                                                                                                                                            \
-    if (magnitude == 0)                                                                                                                                                       \
-      return (NAME){};                                                                                                                                                        \
+    if (magnitude == 0) return (NAME){};                                                                                                                                      \
     return FUNC##divs(v, magnitude);                                                                                                                                          \
   }                                                                                                                                                                           \
                                                                                                                                                                               \

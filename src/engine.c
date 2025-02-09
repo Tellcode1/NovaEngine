@@ -593,7 +593,8 @@ nvui_render(nv_renderer_t* rd)
     float pcent = ((slider->value - slider->min) / (slider->max - slider->min));
     pcent       = NVM_CLAMP(pcent, 0.0f, 1.0f);
 
-    nv_renderer_render_quad(rd, slider->slider_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
+    nv_renderer_render_quad(
+        rd, slider->slider_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
         (vec3f){ t->size.x * pcent, t->size.y, 1.0f }, slider->slider_color, 1);
   }
 }

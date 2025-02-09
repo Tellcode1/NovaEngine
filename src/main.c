@@ -121,25 +121,24 @@ get_month_str(const struct tm* t)
   return (const char*[]){ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }[t->tm_mon];
 }
 
+extern char** environ;
+
 int
 main(int argc, char* argv[])
 {
   char        windowname[64] = "clocker";
   int         window_width = 200, window_height = 200;
   bool        recompile_shaders = 0;
-  nv_option_t options[]         = { { NV_OP_TYPE_STRING, NULL, "window-name", windowname, sizeof(windowname) }, { NV_OP_TYPE_INT, NULL, "window-width", &window_width, 0 },
-            { NV_OP_TYPE_INT, NULL, "window-height", &window_height, 0 }, { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 } };
+  nv_option_t options[]         = { { NV_OP_TYPE_STRING, NULL, "window-name", windowname, sizeof(windowname) },
+                                    { NV_OP_TYPE_INT, NULL, "window-width", &window_width, 0 },
+                                    { NV_OP_TYPE_INT, NULL, "window-height", &window_height, 0 },
+                                    { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 } };
 
   char error[256];
   if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
+    nv_props_gen_and_print_help(options, nv_arrlen(options));
     nv_log_error("PROPS error: %s", error);
-    nv_log_error(
-        R"(CLOCKER: OPTIONS:
-window-name=clocker : string -> The title of the window
-window-width=200 : int -> The starting size of the window
-window-height=200 : int -> The starting size of the window
-recompile-shaders=false : bool -> Recompile all shaders)");
   }
 
   timer tm = timer_begin(0.1);

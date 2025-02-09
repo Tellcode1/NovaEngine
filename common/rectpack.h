@@ -26,5 +26,6 @@ extern size_t nv_skyline_bin_max_height(const nv_skyline_bin_t* bin, size_t x, s
 extern int    nv_skyline_bin_find_best_placement(const nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t* best_x, size_t* best_y);
 extern void   nv_skyline_bin_place_rect(nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t x, size_t y);
 extern void   nv_skyline_bin_pack_rects(nv_skyline_bin_t* bin, nv_skyline_rect_t* rects, size_t nrects);
+extern void   nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h);
 
 #endif //__NOVA_RECT_PACK_H__

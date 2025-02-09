@@ -1,8 +1,8 @@
 #ifndef __NOVA_IMAGE_H__
 #define __NOVA_IMAGE_H__
 
-#include "format.h"
 #include "../std/stdafx.h"
+#include "format.h"
 
 NOVA_HEADER_START;
 
@@ -22,9 +22,9 @@ extern nv_image_t nv_image_load_png(const char* path);
 // jpg and jpeg (they're the same thing by the way)
 extern nv_image_t nv_image_load_jpeg(const char* path);
 
-extern void       nv_image_write_(const nv_image_t* tex, const char* path);
-extern void       nv_image_write_png(const nv_image_t* tex, const char* path);
-extern void       nv_image_write_jpeg(const nv_image_t* tex, const char* path);
+extern void nv_image_write_(const nv_image_t* tex, const char* path);
+extern void nv_image_write_png(const nv_image_t* tex, const char* path);
+extern void nv_image_write_jpeg(const nv_image_t* tex, const char* path);
 
 // dst_channels must be greater than src channels!
 extern unsigned char* nv_image_pad_channels(const nv_image_t* src, int dst_channels);

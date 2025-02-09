@@ -34,4 +34,6 @@ struct nv_option_t
  */
 extern int nv_props_parse(int argc, char* argv[], nv_option_t* options, int noptions, char* error, size_t error_size);
 
+extern void nv_props_gen_and_print_help(const nv_option_t* options, int noptions);
+
 #endif //__NOVA_PROGRAM_OPTIONS_H__

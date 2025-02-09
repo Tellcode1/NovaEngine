@@ -9,7 +9,8 @@ NOVA_HEADER_START;
 
 typedef uint32_t VkFormat_;
 
-typedef enum nv_format {
+typedef enum nv_format
+{
   NOVA_FORMAT_UNDEFINED = 0,
 
   // These are UNORM's by the way.
@@ -64,7 +65,7 @@ extern nv_format nv_vk_format_to_nv_format(VkFormat_ format);
 // dst is a pointer to a const char *
 // like:
 // const char *str; nv_FormatToString(NOVA_FORMAT_R8, &str);
-extern void nv_format_to_string(nv_format format, const char **dst);
+extern void nv_format_to_string(nv_format format, const char** dst);
 
 extern bool nv_format_has_color_channel(nv_format fmt);
 

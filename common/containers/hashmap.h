@@ -39,8 +39,8 @@ nv_hashmap_std_key_eq(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2
     hash_fn may be NULL for the standard FNV-1A function.
     equal_fn may also be NULL for standard memcmp == 0
 */
-extern void nv_hashmap_init(
-    int init_size, int keysize, int valuesize, nv_hashmap_hash_fn hash_fn, nv_hashmap_key_equal_fn equal_fn, nv_allocator_t* allocator, nv_hashmap_t* dst);
+extern void
+nv_hashmap_init(int init_size, int keysize, int valuesize, nv_hashmap_hash_fn hash_fn, nv_hashmap_key_equal_fn equal_fn, nv_allocator_t* allocator, nv_hashmap_t* dst);
 
 extern void nv_hashmap_destroy(nv_hashmap_t* map);
 

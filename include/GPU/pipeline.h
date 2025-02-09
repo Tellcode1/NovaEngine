@@ -5,8 +5,8 @@
 
 #include "../../external/volk/volk.h"
 
-#include "../../std/stdafx.h"
 #include "../../std/io.h"
+#include "../../std/stdafx.h"
 #include "../engine/renderer.h"
 #include "vk.h"
 #include "vkstdafx.h"
@@ -20,11 +20,9 @@ typedef struct nvsm_shader_t nvsm_shader_t;
 typedef void (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((ptr) == NULL)                                                                                                                                                          \
-  nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
+  if ((ptr) == NULL) nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
-  if ((val) == (to))                                                                                                                                                          \
-  nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
+  if ((val) == (to)) nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
 
 #define _NVVK_TO_BIT(n) (1 << n)
 
@@ -46,8 +44,7 @@ typedef u32 nvvk_pipeline_flags;
 static void
 _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
 {
-  if (result == VK_SUCCESS)
-    return;
+  if (result == VK_SUCCESS) return;
 
   struct tm* time = _nv_get_time();
   // Non fatal error codes are positive
@@ -87,7 +84,6 @@ typedef struct nv_gpu_pipeline_create_info    nv_gpu_pipeline_create_info;
 typedef struct nv_gpu_swapchain_create_info   nv_gpu_swapchain_create_info;
 typedef struct nv_gpu_render_pass_create_info nv_gpu_render_pass_create_info;
 typedef struct nv_gpu_pipeline_blend_state    nv_gpu_pipeline_blend_state;
-
 
 struct nv_vk_pipeline
 {
@@ -155,11 +151,11 @@ struct nv_gpu_pipeline_create_info
   const VkPushConstantRange*               pPushConstants;
   const struct nvsm_shader_t* const*       pShaders;
 
-  int                                      nAttributeDescriptions;
-  int                                      nBindingDescriptions;
-  int                                      nDescriptorLayouts;
-  int                                      nPushConstants;
-  int                                      nShaders;
+  int nAttributeDescriptions;
+  int nBindingDescriptions;
+  int nDescriptorLayouts;
+  int nPushConstants;
+  int nShaders;
 };
 
 struct nv_gpu_swapchain_create_info

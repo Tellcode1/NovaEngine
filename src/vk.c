@@ -17,6 +17,7 @@
 #include "../std/string.h"
 
 #include <SDL2/SDL_vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #define HAS_FLAG(flag) ((nv_gpu_vk_flag_register & flag) || (flags & flag))
 #define STR(s) #s
@@ -1160,7 +1161,7 @@ nvvk_create_instance(const char* title)
   app_info.pEngineName        = "Carbon";
   app_info.engineVersion      = 0;
 
-  unsigned char      buffer[1024];
+  unsigned char      buffer[512];
   nv_allocator_stack stack;
   nv_allocator_stack_init(&stack, buffer, sizeof(buffer));
 
@@ -4226,9 +4227,9 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd)
   cam->perspective               = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
 
   nv_camera_uniform_buffer ub = {};
-  NV_MATRIX_COPY(ub.perspective, cam->perspective, 4);
-  NV_MATRIX_COPY(ub.ortho, cam->ortho, 4);
-  NV_MATRIX_COPY(ub.view, cam->view, 4);
+  NV_MATRIX_COPY(ub.perspective, cam->perspective);
+  NV_MATRIX_COPY(ub.ortho, cam->ortho);
+  NV_MATRIX_COPY(ub.view, cam->view);
   cam->mem_mapped[nv_renderer_get_frame(rd)] = ub;
 }
 

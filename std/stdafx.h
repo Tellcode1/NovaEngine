@@ -40,6 +40,20 @@ NOVA_HEADER_START;
 #  endif
 #endif
 
+#ifndef NV_ALIGN_TO
+#  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L // C11+
+#    define NV_ALIGN_TO(N) _Alignas(N)
+#  elif defined(__GNUC__) || defined(__clang__) // GCC, Clang
+#    define NV_ALIGN_TO(N) __attribute__((aligned(N)))
+#  elif defined(_MSC_VER) // MSVC
+#    define NV_ALIGN_TO(N) __declspec(align(N))
+#  elif defined(__INTEL_COMPILER)
+#    define NV_ALIGN_TO(N) __declspec(align(N))
+#  else
+#    error "no align"
+#  endif
+#endif
+
 #ifndef real_t
 #  define real_t double
 #endif
@@ -62,6 +76,10 @@ NOVA_HEADER_START;
 #  define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
 #endif
 
+#ifndef nv_zero_init
+#  define nv_zero_init(STRUCT) ((NV_TYPEOF(STRUCT)){ 0 })
+#endif
+
 #ifndef NDEBUG
 #  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
     if (!((bool)(expr)))                                                                                                                                                      \
@@ -70,10 +88,7 @@ NOVA_HEADER_START;
       return retval;                                                                                                                                                          \
     }
 #  define nv_assert(expr)                                                                                                                                                     \
-    if (!((bool)(expr)))                                                                                                                                                      \
-    {                                                                                                                                                                         \
-      nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
-    }
+    if (!((bool)(expr))) { nv_log_and_abort("Assertion failed -> %s", #expr); }
 #else
 // These are typecasted to void because they give warnings because result (its
 // like expr != NULL) is not used

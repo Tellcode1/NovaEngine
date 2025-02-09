@@ -504,9 +504,10 @@ load_all_entries(const char* shader_list_file_path, int* count)
     {
       nv_strcpy(entry->stage, "000");
       nv_strcpy(entry->output_path, "");
-      nvsm_log_error("Shader \"%s\": has invalid or no header.\nHeader Format "
-                     "-> // output: "
-                     "{output} stage: {stage} name: {name}",
+      nvsm_log_error(
+          "Shader \"%s\": has invalid or no header.\nHeader Format "
+          "-> // output: "
+          "{output} stage: {stage} name: {name}",
           entry->path);
     }
 
@@ -538,7 +539,8 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
   nv_strncpy(copy, entry->output_path, 255);
   create_parent_dirs(copy);
 
-  nv_snprintf(g_Buffer, 1024, "%s %s %s -o %s -S %s", shader_compiler, shader_compiler_args, entry->path, nv_strcmp(entry->output_path, "") != 0 ? entry->output_path : "",
+  nv_snprintf(
+      g_Buffer, 1024, "%s %s %s -o %s -S %s", shader_compiler, shader_compiler_args, entry->path, nv_strcmp(entry->output_path, "") != 0 ? entry->output_path : "",
       entry->stage);
 
   if (system(g_Buffer) != 0) { return -1; }
@@ -679,7 +681,7 @@ main(int argc, char* argv[])
 
   int  pixel_size = 256;
   bool help       = 0;
-  int  atlas_w = 2048, atlas_h = 1024;
+  int  atlas_w = 256, atlas_h = 256;
   // clang-format off
   nv_option_t options[] = {
     { NV_OP_TYPE_STRING, "i", "input", input, sizeof(input) },
@@ -741,10 +743,13 @@ fontc_read_font(const char* path, fontc_file_t* file)
 
   size_t total_glyph_size = file->header.numglyphs * sizeof(fontc_glyph_t);
 
-  file->glyphs                     = nv_malloc(total_glyph_size);
-  file->bitmap                     = nv_malloc(file->header.bmpwidth * file->header.bmpheight);
-  fontc_glyph_t* compressed_glyphs = nv_malloc(file->header.glyphs_compressed_sz);
-  unsigned char* compressed_image  = nv_malloc(file->header.img_compressed_sz);
+  file->glyphs = nv_malloc(total_glyph_size);
+  file->bitmap = nv_malloc(file->header.bmpwidth * file->header.bmpheight);
+
+  size_t total_compressed_sz = file->header.glyphs_compressed_sz + file->header.img_compressed_sz;
+
+  fontc_glyph_t* compressed_glyphs = nv_malloc(total_compressed_sz);
+  unsigned char* compressed_image  = (char*)compressed_glyphs + file->header.glyphs_compressed_sz;
 
   fread(compressed_glyphs, file->header.glyphs_compressed_sz, 1, f);
   fread(compressed_image, file->header.img_compressed_sz, 1, f);
@@ -753,7 +758,6 @@ fontc_read_font(const char* path, fontc_file_t* file)
   nv_assert(nv_bufdecompress(compressed_image, file->header.img_compressed_sz, file->bitmap, file->header.bmpwidth * file->header.bmpheight) != -1);
 
   nv_free(compressed_glyphs);
-  nv_free(compressed_image);
 
   fclose(f);
 }
@@ -906,7 +910,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_bufcompress(atlas.data, image_o_size, compressed_image, &image_o_size);
   nv_bufcompress(glyphs, glyph_o_size, compressed_glyphs, &glyph_o_size);
 
-  nv_free(atlas.data);
+  nv_texture_atlas_destroy(&atlas);
   nv_free(glyphs);
 
   file.glyphs = compressed_glyphs;

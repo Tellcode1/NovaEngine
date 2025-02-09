@@ -59,7 +59,7 @@ NOVA_HEADER_START;
   static inline NAME FUNC##scale(const NAME m, const vec3##TYPE_PREFIX v)                                                                                                     \
   {                                                                                                                                                                           \
     NAME matrix = FUNC##init(1.0f);                                                                                                                                           \
-    for (int i = 0; i < 3; i++) { matrix.data[i] = v4##TYPE_PREFIX##muls(m.data[i], ((float*)&v)[i]); }                                                                       \
+    for (int i = 0; i < 3; i++) { matrix.data[i] = v4##TYPE_PREFIX##muls(m.data[i], ((TYPE*)&v)[i]); }                                                                        \
     matrix.data[3] = m.data[3];                                                                                                                                               \
     return matrix;                                                                                                                                                            \
   }                                                                                                                                                                           \
@@ -75,8 +75,8 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline NAME FUNC##rotate(const NAME m, const TYPE angle_rads, const vec3##TYPE_PREFIX v)                                                                             \
   {                                                                                                                                                                           \
-    const TYPE c = cos(angle_rads);                                                                                                                                          \
-    const TYPE s = sin(angle_rads);                                                                                                                                          \
+    const TYPE c = cos(angle_rads);                                                                                                                                           \
+    const TYPE s = sin(angle_rads);                                                                                                                                           \
                                                                                                                                                                               \
     const vec3##TYPE_PREFIX axis = v3##TYPE_PREFIX##normalize(v);                                                                                                             \
     const vec3##TYPE_PREFIX temp = v3##TYPE_PREFIX##muls(axis, (1.0f - c));                                                                                                   \
@@ -149,7 +149,7 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline NAME FUNC##perspective(TYPE fovradians, TYPE aspect_ratio, TYPE near, TYPE far)                                                                               \
   {                                                                                                                                                                           \
-    const float halftan = tan(fovradians * 0.5f);                                                                                                                             \
+    const TYPE halftan = tan(fovradians * 0.5f);                                                                                                                              \
                                                                                                                                                                               \
     NAME result      = {};                                                                                                                                                    \
     result.data[0].x = 1.0f / (aspect_ratio * halftan);                                                                                                                       \
@@ -163,16 +163,17 @@ NOVA_HEADER_START;
   static inline NAME FUNC##ortho(TYPE left, TYPE right, TYPE bottom, TYPE top, TYPE near, TYPE far)                                                                           \
   {                                                                                                                                                                           \
     return (NAME){ (vec4##TYPE_PREFIX){ 2.0f / (right - left), 0.0f, 0.0f, 0.0f }, (vec4##TYPE_PREFIX){ 0.0f, 2.0f / (bottom - top), 0.0f, 0.0f },                            \
-      (vec4##TYPE_PREFIX){ 0.0f, 0.0f, 1.0f / (near - far), 0.0f },                                                                                                           \
-      (vec4##TYPE_PREFIX){ -(right + left) / (right - left), -(bottom + top) / (bottom - top), near / (near - far), 1.0f } };                                                 \
+                   (vec4##TYPE_PREFIX){ 0.0f, 0.0f, 1.0f / (near - far), 0.0f },                                                                                              \
+                   (vec4##TYPE_PREFIX){ -(right + left) / (right - left), -(bottom + top) / (bottom - top), near / (near - far), 1.0f } };                                    \
   }
 
 _NV_DECL_MAT4(mat4f, m4f, 4, float, f);
 _NV_DECL_MAT4(mat4d, m4d, 4, double, d);
 _NV_DECL_MAT4(mat4, m4, 4, flt_t, );
 
-#define NV_MATRIX_COPY(m1, m2, size)                                                                                                                                          \
+#define NV_MATRIX_COPY(m1, m2)                                                                                                                                                \
   do {                                                                                                                                                                        \
+    const int size = nv_arrlen(m1.data);                                                                                                                                      \
     for (int __nv_matrix_copy_i = 0; __nv_matrix_copy_i < (size); __nv_matrix_copy_i++)                                                                                       \
       for (int __nv_matrix_copy_j = 0; __nv_matrix_copy_j < (size); __nv_matrix_copy_j++)                                                                                     \
         ((&(m1).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j] = (&(m2).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j]);                                                    \

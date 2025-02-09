@@ -5,7 +5,8 @@
 
 NOVA_HEADER_START;
 
-typedef enum lerrc {
+typedef enum lerrc
+{
   NOVA_ERR_UNKOWN = -1,
 
   NOVA_ERR_NONE = 0,
@@ -13,7 +14,7 @@ typedef enum lerrc {
   // An invalid parameter has been passed to a function
   NOVA_ERR_INVALID_PARAM,
 
-  // Function returned invalid 
+  // Function returned invalid
   NOVA_ERR_INVALID_RET,
 
   // Internal state error, most likely not the user's (developer's) fault
