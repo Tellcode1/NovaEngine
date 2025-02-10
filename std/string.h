@@ -11,6 +11,7 @@ NOVA_HEADER_START;
 
 // Whether to use the __builtin functions provided by GCC
 // They are generally faster, so no reason not to?
+// Can only work if the program is compiling with GNU C
 #ifndef NOVA_STR_USE_BUILTIN
 #  define NOVA_STR_USE_BUILTIN 1
 #endif
@@ -117,7 +118,7 @@ extern int nv_strcasencmp(const char* s1, const char* s2, size_t max);
 /*
  *  case insensitively compare no more than max chars
  */
-extern int nv_strcasencmp(const char* s1, const char* s2, size_t max);
+extern int nv_strcasecmp(const char* s1, const char* s2);
 
 /*
  *  find the first occurence of a character in a string

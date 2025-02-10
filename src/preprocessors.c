@@ -57,7 +57,7 @@ _nvsm_log_error(const char* fn, const char* fmt, ...)
 
 #if defined(NVSM)
 
-#  include "../std/io.h"
+#  include "../std/print.h"
 #  include "../std/props.h"
 #  include "../std/stdafx.h"
 #  include "../std/string.h"
@@ -90,10 +90,11 @@ main(int argc, char* argv[])
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)))
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
-    nvsm_log_error("%s", error);
-    return -1;
+    nvsm_log_error("PROPS error: %s", error);
+    nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
+    nv_printf("%s\n", error);
   }
 
   if (help)
@@ -656,9 +657,10 @@ nvsm_shutdown()
 
 #if (FONTC)
 
-#  include "../std/io.h"
+#  include "../std/print.h"
 #  include "../std/props.h"
 #  include "../std/stdafx.h"
+#  include "../std/strconv.h"
 #  include "../std/string.h"
 #  include "../std/timer.h"
 
@@ -670,16 +672,13 @@ nvsm_shutdown()
 
 #  if (FONTC_EXECUTABLE)
 
-static const char* FONTC_HELP_MSG = "usage:\n./fontc -i < Font file path to bake "
-                                    "> (optionally, ) -o < output file=bakedfont >";
-
 int
 main(int argc, char* argv[])
 {
   char input[256]  = "No path given";
   char output[256] = "bakedfont";
 
-  int  pixel_size = 256;
+  int  pixel_size = 128;
   bool help       = 0;
   int  atlas_w = 256, atlas_h = 256;
   // clang-format off
@@ -687,30 +686,25 @@ main(int argc, char* argv[])
     { NV_OP_TYPE_STRING, "i", "input", input, sizeof(input) },
     { NV_OP_TYPE_STRING, "o", "output", output, sizeof(output) },
     { NV_OP_TYPE_INT, "p", "pixel-size", &pixel_size, 0 },
-    { NV_OP_TYPE_INT, "w", "atlas-width", &atlas_w, 0 },
-    { NV_OP_TYPE_INT, "h", "atlas-height", &atlas_h, 0 },
+    { NV_OP_TYPE_INT, "aw", "atlas-width", &atlas_w, 0 },
+    { NV_OP_TYPE_INT, "ah", "atlas-height", &atlas_h, 0 },
     { NV_OP_TYPE_BOOL, "h", "help", &help, 0 }
   };
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)))
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
-    nvsm_log_error("%s", error);
-    return -1;
+    nvsm_log_error("PROPS error: %s", error);
+    help = 1;
   }
 
   if (help)
   {
-    nv_log_custom("help", "%s", FONTC_HELP_MSG);
+    nv_props_gen_help(options, nv_arrlen(options), error, sizeof(error));
+    nv_printf("%s", error);
     return 0;
   }
-
-  char buffer[512] = {};
-  getcwd(buffer, 511);
-  nv_strcat(buffer, "/");
-  nv_strcat(buffer, argv[1]);
-  buffer[511] = 0;
 
   nv_log_info("read:  %s", input);
   nv_log_info("write: %s", output);
@@ -805,6 +799,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
 
   int glyph_count = 0;
 
+#  pragma omp parallel for
   for (int i = 0; i < 256; i++)
   {
     if (glyph_count >= glyph_alloc_size)
@@ -871,7 +866,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   }
   nv_texture_atlas_finish(&atlas);
 
-  nv_log_info("atlas size w=%i h=%i", atlas.w, atlas.h);
+  nv_log_info("final atlas size w=%i h=%i (uncompressed %b)", atlas.w, atlas.h, atlas.w * atlas.h * nv_format_get_bytes_per_pixel(atlas.fmt));
 
   const float atlas_w = atlas.w, atlas_h = atlas.h;
   const float units_per_em = (float)face->units_per_EM;
@@ -879,6 +874,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_assert(atlas_h != 0.0);
   nv_assert(units_per_em != 0.0);
 
+#  pragma omp parallel for
   for (int i = 0; i < glyph_count; i++)
   {
     fontc_glyph_t* glyph = &glyphs[i];
@@ -938,9 +934,9 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   buf[127] = 0;
   nv_log_info("Wrote %s to %s", buf, out);
   nv_log_info("Here's a summary of what was written:");
-  nv_log_info("file header:    %b of %b (%.2f%%)", sizeof(fontc_file_header_t), bytes_written, (sizeof(fontc_file_header_t) / (float)bytes_written) * 100.0);
+  nv_log_info("file header: %b of %b (%.2f%%)", sizeof(fontc_file_header_t), bytes_written, (sizeof(fontc_file_header_t) / (float)bytes_written) * 100.0);
   nv_log_info("glyph vertices: %b of %b (%.2f%%)", glyph_o_size, bytes_written, (glyph_o_size / (float)bytes_written) * 100.0);
-  nv_log_info("the bitmap:     %b of %b (%.2f%%)", image_o_size, bytes_written, (image_o_size / (float)bytes_written) * 100.0);
+  nv_log_info("the bitmap: %b of %b (%.2f%%)", image_o_size, bytes_written, (image_o_size / (float)bytes_written) * 100.0);
 
   nv_free(compressed_image);
   nv_free(compressed_glyphs);

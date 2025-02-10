@@ -32,8 +32,13 @@ struct nv_option_t
  * @param error buffer for error messages.
  * @param error_size size of the error buffer.
  */
-extern int nv_props_parse(int argc, char* argv[], nv_option_t* options, int noptions, char* error, size_t error_size);
+extern int nv_props_parse(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size);
 
-extern void nv_props_gen_and_print_help(const nv_option_t* options, int noptions);
+/**
+ * @brief generate a help message and write it into buf
+ *
+ * @param buf_size size of buf for writing the help message to
+ */
+extern void nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t buf_size);
 
 #endif //__NOVA_PROGRAM_OPTIONS_H__

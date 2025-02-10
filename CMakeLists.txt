@@ -61,6 +61,7 @@ set(LIBS
     SDL2
     freetype
     box2d
+    omp
 )
 
 target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/std/stdafx.h)

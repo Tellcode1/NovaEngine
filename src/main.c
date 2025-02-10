@@ -8,6 +8,7 @@
 #include "../include/engine/scene.h"
 #include "../include/engine/shadermanager.h"
 #include "../include/engine/ui.h"
+#include "../std/print.h"
 #include "../std/props.h"
 #include "../std/stdafx.h"
 #include "../std/timer.h"
@@ -137,8 +138,9 @@ main(int argc, char* argv[])
   char error[256];
   if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
-    nv_props_gen_and_print_help(options, nv_arrlen(options));
     nv_log_error("PROPS error: %s", error);
+    nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
+    nv_printf("%s\n", error);
   }
 
   timer tm = timer_begin(0.1);

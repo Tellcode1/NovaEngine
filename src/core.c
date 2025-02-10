@@ -21,10 +21,11 @@
 #include "../common/containers/string.h"
 #include "../common/image.h"
 #include "../common/mem.h"
-#include "../std/io.h"
 #include "../std/math/math.h"
+#include "../std/print.h"
 #include "../std/props.h"
 #include "../std/stdafx.h"
+#include "../std/strconv.h"
 #include "../std/string.h"
 
 #define ALIGN_UP(ptr, alignment) (void*)(((uintptr_t)(ptr) + (alignment - 1)) & ~(alignment - 1))
@@ -361,7 +362,7 @@ bool
 nv_atobool(const char s[])
 {
   NV_SKIP_WHITSPACE(s);
-  if (nv_strcmp(s, "false") == 0 || nv_strcmp(s, "0") == 0) { return false; }
+  if (nv_strcasecmp(s, "false") == 0 || nv_strcmp(s, "0") == 0) { return false; }
   return true;
 }
 
@@ -371,12 +372,13 @@ nv_ptoa2(void* p, char* buf, size_t max)
   if (p == NULL) { return nv_strncpy2(buf, "NULL", max); }
 
   unsigned long addr   = (unsigned long)p;
-  char          digs[] = "0123456789abcdef";
+  const char    digs[] = "0123456789abcdef";
 
   size_t w = 0;
 
   w += nv_strncpy2(buf, "0x", max);
 
+  // stolen from stack overflow
   for (int i = (sizeof(addr) * 2) - 1; i >= 0 && w < max - 1; i--)
   {
     int dig = (addr >> (i * 4)) & 0xF;
@@ -549,6 +551,8 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
   if (!g_stdstream) { g_stdstream = stdout; }
   if (file && !vdest) { vdest = g_stdstream; }
 
+  nv_assert(fmt != NULL);
+
   void*  _writeptr     = NULL;
   size_t chars_written = 0;
   size_t written       = 0;
@@ -563,16 +567,11 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
     _writeptr = &writep;
 
   const char* const dest_end = writep + max_chars;
+  const char* const fmt_end  = fmt + nv_strlen(fmt); // point to NULL terminator of fmt
 
   NV_ALIGN_TO(64) char pad_buf[64];
 
   const char* s = NULL;
-  void*       p = NULL;
-  intmax_t    n = 0;
-  uintmax_t   u = 0;
-  double      f = 0;
-  size_t      b = 0;
-  char        c = 0;
 
   const char* iter = fmt;
   va_list     args;
@@ -643,102 +642,54 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
       switch (*iter)
       {
         case 'F':
-        case 'f':
-          f       = va_arg(args, double);
-          written = nv_ftoa2(f, g_writebuf, precision, max_chars - chars_written, 0);
-          break;
+        case 'f': written = nv_ftoa2(va_arg(args, double), g_writebuf, precision, max_chars - chars_written, 0); break;
         case 'l':
-          if ((iter + 1) == fmt + nv_strlen(fmt)) { break; }
-          iter++;
-          if (*iter == 'd' || *iter == 'i')
-          {
-            n       = va_arg(args, long int);
-            written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
-          }
-          else if (*iter == 'u')
-          {
-            u       = va_arg(args, long unsigned);
-            written = nv_itoa_u2(u, g_writebuf, 10, max_chars - chars_written);
-          }
-          else if (*iter == 'f' || *iter == 'F')
-          {
-            f       = va_arg(args, long double);
-            written = nv_ftoa2(f, g_writebuf, precision, max_chars - chars_written, 0);
-          }
-          else { iter--; }
+          if ((iter + 1) < fmt_end) { iter++; }
+
+          if (*iter == 'd' || *iter == 'i') { written = nv_itoa2(va_arg(args, long int), g_writebuf, 10, max_chars - chars_written); }
+          else if (*iter == 'u') { written = nv_itoa_u2(va_arg(args, long unsigned), g_writebuf, 10, max_chars - chars_written); }
+          else if (*iter == 'f' || *iter == 'F') { written = nv_ftoa2(va_arg(args, long double), g_writebuf, precision, max_chars - chars_written, 0); }
           break;
         case 'd':
-        case 'i':
-          n       = va_arg(args, int);
-          written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
-          break;
+        case 'i': written = nv_itoa2(va_arg(args, int), g_writebuf, 10, max_chars - chars_written); break;
         case 'z':
-          if ((iter + 1) != dest_end && ((*(iter + 1) == 'u') || (*(iter + 1) == 'i'))) { iter++; }
-          if (*iter == 'i')
-          {
-            iter++;
-            n       = va_arg(args, ssize_t);
-            written = nv_itoa2(n, g_writebuf, 10, max_chars - chars_written);
-          }
-          else
-          {
-            iter++;
-            u       = va_arg(args, size_t);
-            written = nv_itoa_u2(u, g_writebuf, 10, max_chars - chars_written);
-          }
+          if ((iter + 1) < fmt_end) { iter++; }
+          if (*iter == 'i') { written = nv_itoa2(va_arg(args, ssize_t), g_writebuf, 10, max_chars - chars_written); }
+          else { written = nv_itoa_u2(va_arg(args, size_t), g_writebuf, 10, max_chars - chars_written); }
           break;
-        case 'u':
-          u       = va_arg(args, unsigned);
-          written = nv_itoa_u2(u, g_writebuf, 10, max_chars - chars_written);
-          break;
+        case 'u': written = nv_itoa_u2(va_arg(args, unsigned), g_writebuf, 10, max_chars - chars_written); break;
         case '#':
-          if ((iter + 1) != dest_end && (*(iter + 1) == 'x'))
+          if ((iter + 1) < fmt_end && (*(iter + 1) == 'x'))
           {
             iter++;
-            u             = va_arg(args, uintmax_t);
             g_writebuf[0] = '0';
             g_writebuf[1] = 'x';
-            written       = 2 + nv_itoa_u2(u, g_writebuf + 2, 16, max_chars - chars_written);
+            written       = 2 + nv_itoa_u2(va_arg(args, uintmax_t), g_writebuf + 2, 16, max_chars - chars_written);
           }
           break;
-        case 'x':
-          n       = va_arg(args, intmax_t);
-          written = nv_itoa2(n, g_writebuf, 16, max_chars - chars_written);
-          break;
-        case 'p':
-          p       = va_arg(args, void*);
-          written = nv_ptoa2(p, g_writebuf, max_chars - chars_written);
-          break;
-        case 'b': // bytes
-          b       = va_arg(args, size_t);
-          written = nv_btoa2(b, 1, g_writebuf, max_chars - chars_written);
-          break;
+        case 'x': written = nv_itoa2(va_arg(args, intmax_t), g_writebuf, 16, max_chars - chars_written); break;
+        case 'p': written = nv_ptoa2(va_arg(args, void*), g_writebuf, max_chars - chars_written); break;
+        /* bytes, custom */
+        case 'b': written = nv_btoa2(va_arg(args, size_t), 1, g_writebuf, max_chars - chars_written); break;
         case 's':
-          s = va_arg(args, const char*);
-          if (!s) s = "(null)";
-          written = nv_strlen(s);
-          _nv_printf_write(_writeptr, file, &chars_written, max_chars, s, written);
+          s = va_arg(args, const char*) ?: "(null)"; // this operator cool!!
+          _nv_printf_write(_writeptr, file, &chars_written, max_chars, s, nv_strlen(s));
           wbuffer_used = false;
           break;
         case 'c':
         case '%':
-          if (*iter == 'c')
-            c = (char)va_arg(args, int);
-          else
-            c = '%';
+        default:
           if (chars_written < max_chars - 1)
           {
-            if (file) { fputc(c, (FILE*)_writeptr); }
-            else if (writep) { *writep++ = c; }
+            // if user is asking for literal % sign, *iter will be the percent sign!!
+            char ch = (*iter == 'c') ? (char)va_arg(args, int) : *iter;
+            if (file)
+              fputc(ch, (FILE*)_writeptr);
+            else if (writep)
+              *writep++ = ch;
             wbuffer_used = false;
             chars_written++;
           }
-          break;
-        default:
-          if (file) { fputc(*iter, (FILE*)_writeptr); }
-          else if (writep) { *writep++ = *iter; }
-          wbuffer_used = false;
-          chars_written++;
           break;
       }
 
@@ -3233,8 +3184,6 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
 
   nv_skyline_bin_resize(&atlas->bin, new_w, new_h);
 
-  nv_log_info("resized to %lu x %lu", atlas->w, atlas->h);
-
   pthread_mutex_unlock(&atlas->mutex);
 }
 
@@ -3741,11 +3690,11 @@ nv_freelist_find(nv_freelist_t* list, void* alloc)
   return NULL;
 }
 
-static inline nv_option_t*
-nv_option_find(nv_option_t* options, int noptions, const char* short_name, const char* long_name)
+static inline const nv_option_t*
+nv_option_find(const nv_option_t* options, int noptions, const char* short_name, const char* long_name)
 {
   size_t i = 0;
-  for (nv_option_t* opt = options; i < noptions; opt++, i++)
+  for (const nv_option_t* opt = options; i < noptions; opt++, i++)
   {
     if (short_name && opt->short_name && nv_strcmp(opt->short_name, short_name) == 0) { return opt; }
     if (long_name && opt->long_name && nv_strcmp(opt->long_name, long_name) == 0) { return opt; }
@@ -3755,10 +3704,10 @@ nv_option_find(nv_option_t* options, int noptions, const char* short_name, const
 
 // What the hell is documentation?
 static inline int
-_nv_props_parse_short_arg(int argc, char* argv[], nv_option_t* options, int noptions, char* error, size_t error_size, int* i)
+_nv_props_parse_short_arg(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size, int* i)
 {
-  char*        name = argv[*i] + 1; // move past -
-  nv_option_t* opt  = nv_option_find(options, noptions, name, NULL);
+  char*              name = argv[*i] + 1; // move past -
+  const nv_option_t* opt  = nv_option_find(options, noptions, name, NULL);
   if (!opt)
   {
     nv_snprintf(error, error_size, "unknown option: -%s", name);
@@ -3803,7 +3752,7 @@ _nv_props_parse_short_arg(int argc, char* argv[], nv_option_t* options, int nopt
 }
 
 static inline int
-_nv_props_parse_long_arg(int argc, char* argv[], nv_option_t* options, int noptions, char* error, size_t error_size, int* i)
+_nv_props_parse_long_arg(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size, int* i)
 {
   char* name = argv[*i] + 2; // move past --
 
@@ -3818,7 +3767,7 @@ _nv_props_parse_long_arg(int argc, char* argv[], nv_option_t* options, int nopti
     value++;
   }
 
-  nv_option_t* opt = nv_option_find(options, noptions, NULL, name);
+  const nv_option_t* opt = nv_option_find(options, noptions, NULL, name);
   if (!opt)
   {
     nv_snprintf(error, error_size, "unknown option: --%s", name);
@@ -3880,9 +3829,14 @@ nv_props_get_tp_name(nv_option_type tp)
 }
 
 void
-nv_props_gen_and_print_help(const nv_option_t* options, int noptions)
+nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t buf_size)
 {
-  nv_printf("Options: %i\n", noptions);
+  size_t available = buf_size;
+  size_t written   = nv_snprintf(buf, 256, "Options: %i\n", noptions);
+  nv_assert(available > written);
+
+  available -= written;
+  buf += written;
 
   for (int i = 0; i < noptions; i++)
   {
@@ -3891,12 +3845,15 @@ nv_props_gen_and_print_help(const nv_option_t* options, int noptions)
     const char* short_name = opt->short_name ? opt->short_name : "<empty>";
     const char* long_name  = opt->long_name ? opt->long_name : "<empty>";
 
-    nv_printf("\t-%s, --%s <%s>\n", short_name, long_name, nv_props_get_tp_name(opt->type));
+    written = nv_snprintf(buf, available, "\t-%s, --%s <%s>\n", short_name, long_name, nv_props_get_tp_name(opt->type));
+    buf += written;
+    if (written > available) { break; }
+    available -= written;
   }
 }
 
 int
-nv_props_parse(int argc, char* argv[], nv_option_t* options, int noptions, char* error, size_t error_size)
+nv_props_parse(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size)
 {
   int  i       = 1; // program name is argv[0]
   bool success = 1;
