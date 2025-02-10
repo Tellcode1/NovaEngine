@@ -41,7 +41,7 @@ struct fontc_file_t
 };
 
 extern void fontc_read_font(const char* path, fontc_file_t* file);
-extern void fontc_bake_font(const char* font_path, const char* out, int pixel_size, int atlas_w, int atlas_h);
+extern void fontc_bake_font(const char* font_path, const char* out, int pixel_size, int atlas_w, int atlas_h, int num_threads);
 
 NOVA_HEADER_END;
 

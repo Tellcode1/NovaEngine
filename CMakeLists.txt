@@ -13,6 +13,8 @@ include_directories(${SDL2_INCLUDE_DIRS})
 find_package(Freetype REQUIRED)
 include_directories(${FREETYPE_INCLUDE_DIRS})
 
+find_package(OpenMP REQUIRED)
+
 set(NOVA_BUILD_EXAMPLE false CACHE BOOL "Enable example build" )
 
 # The name of the output
@@ -42,7 +44,7 @@ add_library(Nova STATIC ${SOURCES})
 # core is the common library that every library should link with
 add_library(core STATIC src/core.c)
 target_compile_options(core PRIVATE -g)
-target_link_libraries(core jpeg png z)
+target_link_libraries(core jpeg png z OpenMP::OpenMP_C)
 
 add_executable(shadermanager src/preprocessors.c)
 target_compile_definitions(shadermanager PRIVATE NVSM=1 NVSM_EXECUTABLE=1)
@@ -61,7 +63,6 @@ set(LIBS
     SDL2
     freetype
     box2d
-    omp
 )
 
 target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/std/stdafx.h)

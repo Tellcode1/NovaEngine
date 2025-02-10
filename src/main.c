@@ -136,8 +136,7 @@ main(int argc, char* argv[])
                                     { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 } };
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
-  {
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1) {
     nv_log_error("PROPS error: %s", error);
     nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);

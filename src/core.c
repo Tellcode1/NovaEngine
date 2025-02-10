@@ -659,8 +659,7 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
           break;
         case 'u': written = nv_itoa_u2(va_arg(args, unsigned), g_writebuf, 10, max_chars - chars_written); break;
         case '#':
-          if ((iter + 1) < fmt_end && (*(iter + 1) == 'x'))
-          {
+          if ((iter + 1) < fmt_end && (*(iter + 1) == 'x')) {
             iter++;
             g_writebuf[0] = '0';
             g_writebuf[1] = 'x';
@@ -3691,11 +3690,9 @@ nv_freelist_find(nv_freelist_t* list, void* alloc)
 }
 
 static inline const nv_option_t*
-nv_option_find(const nv_option_t* options, int noptions, const char* short_name, const char* long_name)
-{
+nv_option_find(const nv_option_t* options, int noptions, const char* short_name, const char* long_name) {
   size_t i = 0;
-  for (const nv_option_t* opt = options; i < noptions; opt++, i++)
-  {
+  for (const nv_option_t* opt = options; i < noptions; opt++, i++) {
     if (short_name && opt->short_name && nv_strcmp(opt->short_name, short_name) == 0) { return opt; }
     if (long_name && opt->long_name && nv_strcmp(opt->long_name, long_name) == 0) { return opt; }
   }
@@ -3704,8 +3701,7 @@ nv_option_find(const nv_option_t* options, int noptions, const char* short_name,
 
 // What the hell is documentation?
 static inline int
-_nv_props_parse_short_arg(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size, int* i)
-{
+_nv_props_parse_short_arg(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size, int* i) {
   char*              name = argv[*i] + 1; // move past -
   const nv_option_t* opt  = nv_option_find(options, noptions, name, NULL);
   if (!opt)
@@ -3752,8 +3748,7 @@ _nv_props_parse_short_arg(int argc, char* argv[], const nv_option_t* options, in
 }
 
 static inline int
-_nv_props_parse_long_arg(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size, int* i)
-{
+_nv_props_parse_long_arg(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size, int* i) {
   char* name = argv[*i] + 2; // move past --
 
   // if there is an equals to
@@ -3829,8 +3824,7 @@ nv_props_get_tp_name(nv_option_type tp)
 }
 
 void
-nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t buf_size)
-{
+nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t buf_size) {
   size_t available = buf_size;
   size_t written   = nv_snprintf(buf, 256, "Options: %i\n", noptions);
   nv_assert(available > written);
@@ -3853,8 +3847,7 @@ nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t bu
 }
 
 int
-nv_props_parse(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size)
-{
+nv_props_parse(int argc, char* argv[], const nv_option_t* options, int noptions, char* error, size_t error_size) {
   int  i       = 1; // program name is argv[0]
   bool success = 1;
 

@@ -4,13 +4,10 @@
 #include "stdafx.h"
 
 /**
- * @brief Converts an integer to ASCII (Alpha).
+ * @brief Converts an integer to ASCII.
  *
- * @param x The integer to convert.
- * @param out Output buffer.
- * @param base Conversion base.
  * @param max Maximum number of characters to write.
- * @return The number of characters written (excluding the null terminator).
+ * @return The number of characters written (excluding null terminator).
  */
 extern size_t nv_itoa2(intmax_t x, char out[], int base, size_t max);
 
@@ -22,12 +19,9 @@ extern size_t nv_itoa_u2(uintmax_t x, char out[], int base, size_t max);
 /**
  * @brief Converts a double to ASCII.
  *
- * @param x The double value.
- * @param out Output buffer.
  * @param precision Number of digits after the decimal point.
- * @param max Maximum number of characters.
  * @param remove_zeroes If true, trailing zeroes are removed.
- * @return The number of characters written.
+ * @return number of characters written. (excluding null terminator)
  */
 extern size_t nv_ftoa2(double x, char out[], int precision, size_t max, bool remove_zeroes);
 
@@ -62,36 +56,31 @@ extern double nv_atof(const char s[]);
 extern bool nv_atobool(const char s[]);
 
 static inline char*
-nv_itoa(intmax_t x, char out[], int base, size_t max)
-{
+nv_itoa(intmax_t x, char out[], int base, size_t max) {
   nv_itoa2(x, out, base, max);
   return out;
 }
 
 static inline char*
-nv_itoa_u(uintmax_t x, char out[], int base, size_t max)
-{
+nv_itoa_u(uintmax_t x, char out[], int base, size_t max) {
   nv_itoa_u2(x, out, base, max);
   return out;
 }
 
 static inline char*
-nv_ftoa(double x, char out[], int precision, size_t max, bool remove_zeroes)
-{
+nv_ftoa(double x, char out[], int precision, size_t max, bool remove_zeroes) {
   nv_ftoa2(x, out, precision, max, remove_zeroes);
   return out;
 }
 
 static inline char*
-nv_ptoa(void* p, char* buf, size_t max)
-{
+nv_ptoa(void* p, char* buf, size_t max) {
   nv_ptoa2(p, buf, max);
   return buf;
 }
 
 static inline char*
-nv_btoa(size_t x, bool upgrade, char* buf, size_t max)
-{
+nv_btoa(size_t x, bool upgrade, char* buf, size_t max) {
   nv_btoa2(x, upgrade, buf, max);
   return buf;
 }
