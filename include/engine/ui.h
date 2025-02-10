@@ -33,7 +33,7 @@ struct nvui_slider
   nv_transform transform;
   vec4f        bg_color, slider_color;
   nv_sprite *  bg_sprite, *slider_sprite;
-  float        min, max, value;
+  flt_t        min, max, value;
   bool         moved;        // was the slider's handle moved
   bool         interactable; // whether this slider can be controlled by the mouse.
                              // default off

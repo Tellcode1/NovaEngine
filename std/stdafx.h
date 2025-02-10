@@ -9,9 +9,7 @@
 #include <time.h>
 
 #ifdef __cplusplus
-#  define NOVA_HEADER_START                                                                                                                                                   \
-    extern "C"                                                                                                                                                                \
-    {
+#  define NOVA_HEADER_START extern "C" {
 #  define NOVA_HEADER_END }
 #else
 #  define NOVA_HEADER_START
@@ -68,6 +66,9 @@ NOVA_HEADER_START;
 #define NV_MIN(a, b) ((a) < (NV_TYPEOF(a))(b) ? (a) : (NV_TYPEOF(a))(b))
 #define NV_CONCAT(x, y) x##y
 
+/*
+ * GNUC and builtin have protection from accidentally passing in pointers instead of stack arrays
+ */
 #if defined(__GNUC__)
 #  define nv_arrlen(arr) _Generic(&(arr), typeof (*(arr))(*): 0, default: (sizeof(arr) / sizeof((arr)[0])))
 #elif defined(__has_builtin) && __has_builtin(__builtin_choose_expr) && __has_builtin(__builtin_types_compatible_p)
@@ -77,13 +78,16 @@ NOVA_HEADER_START;
 #endif
 
 #ifndef nv_zero_init
-#  define nv_zero_init(STRUCT) ((NV_TYPEOF(STRUCT)){ 0 })
+#  ifndef __cplusplus
+#    define nv_zero_init(OBJ) (OBJ = ((NV_TYPEOF(OBJ)){ 0 }))
+#  else
+#    define nv_zero_init(OBJ) (OBJ = ((NV_TYPEOF(OBJ)){}))
+#  endif
 #endif
 
 #ifndef NDEBUG
 #  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
-    if (!((bool)(expr)))                                                                                                                                                      \
-    {                                                                                                                                                                         \
+    if (!((bool)(expr))) {                                                                                                                                                    \
       nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
       return retval;                                                                                                                                                          \
     }
@@ -136,14 +140,12 @@ extern void _nv_log(va_list args, const char* fn, const char* succeeder, const c
 #define nv_time_function(func) _nv_time_function(func, __LINE__)
 
 static inline struct tm*
-_nv_get_time()
-{
+_nv_get_time() {
   time_t     now;
   struct tm* tm;
 
   now = time(0);
-  if ((tm = localtime(&now)) == NULL)
-  {
+  if ((tm = localtime(&now)) == NULL) {
     nv_log_error("Error extracting time stuff");
     return NULL;
   }
@@ -167,7 +169,7 @@ typedef int8_t  i8;
 // They ARE 32 and 64 bits by IEEE-754 but aren't set by the standard
 // But there is a 99.9% chance that they will be
 typedef float  f32;
-typedef double f64;
+typedef real_t f64;
 
 NOVA_HEADER_END;
 

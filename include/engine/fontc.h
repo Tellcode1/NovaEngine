@@ -19,7 +19,7 @@ typedef struct fontc_glyph_t       fontc_glyph_t;
 struct fontc_file_header_t
 {
   int   magic;
-  float line_height, space_width;
+  flt_t line_height, space_width;
   int   bmpwidth, bmpheight;
   int   img_compressed_sz, glyphs_compressed_sz;
   int   numglyphs;
@@ -28,9 +28,9 @@ struct fontc_file_header_t
 struct fontc_glyph_t
 {
   unsigned codepoint;
-  float    advance;
-  float    x0, x1, y0, y1;
-  float    l, b, r, t;
+  flt_t    advance;
+  flt_t    x0, x1, y0, y1;
+  flt_t    l, b, r, t;
 };
 
 struct fontc_file_t

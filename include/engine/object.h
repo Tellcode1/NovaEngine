@@ -16,7 +16,7 @@ typedef struct nv_transform
   vec4 rotation;
 } nv_transform;
 
-typedef void (*nv_object_update_fn)(float dt);
+typedef void (*nv_object_update_fn)(flt_t dt);
 typedef void (*nv_object_render_fn)(nv_renderer_t* rd);
 typedef struct nv_object nv_object;
 

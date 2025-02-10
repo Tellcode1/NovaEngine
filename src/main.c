@@ -174,8 +174,8 @@ main(int argc, char* argv[])
 
   nv_input_init();
 
-  const float updateTime = 3.0f; // seconds. 1.5f = 1.5 seconds
-  float       totalTime  = 0.0f;
+  const flt_t updateTime = 3.0f; // seconds. 1.5f = 1.5 seconds
+  flt_t       totalTime  = 0.0f;
   u32         numFrames  = 0;
 
   cfont_t OpenSans;
@@ -183,14 +183,14 @@ main(int argc, char* argv[])
 
   int curr_showing_fps = 0;
 
-  const float scale = 2.0f;
+  const flt_t scale = 2.0f;
 
   nv_log_info("Initialized in %fs", timer_time_since_start(&tm));
 
   while (nv_running())
   {
     nv_update();
-    const double dt = nv_get_delta_time();
+    const real_t dt = nv_get_delta_time();
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) { nv_consume_event(&event); }
@@ -202,7 +202,7 @@ main(int argc, char* argv[])
     if (totalTime >= updateTime)
     {
       curr_showing_fps = ceilf(numFrames / totalTime);
-      nv_log_info("%i FPS %f MS/Frame", curr_showing_fps, (totalTime / (float)(numFrames)));
+      nv_log_info("%i FPS %f MS/Frame", curr_showing_fps, (totalTime / (flt_t)(numFrames)));
       numFrames = 0;
       totalTime = 0.0;
     }

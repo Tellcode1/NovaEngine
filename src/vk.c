@@ -17,6 +17,8 @@
 #include "../std/string.h"
 
 #include <SDL2/SDL_vulkan.h>
+#include <bits/pthreadtypes.h>
+#include <pthread.h>
 #include <vulkan/vulkan_core.h>
 
 #define HAS_FLAG(flag) ((nv_gpu_vk_flag_register & flag) || (flags & flag))
@@ -123,8 +125,8 @@ struct nv_renderer_t
   VkCommandPool  commandPool;
 
   u32 attachment_count;
-  u32 renderer_frame;
-  u32 imageIndex;
+  u32 frame;
+  u32 image_index;
 
   int shadow_image_size; // the size of ONE depth texture. Multiply by
                          // SwapchainImageCount to get total size
@@ -135,8 +137,8 @@ struct nv_renderer_t
 
   VkFormat depth_buffer_format;
 
-  nv_dynarray_t renderData;
-  nv_dynarray_t drawBuffers;
+  nv_dynarray_t render_data;
+  nv_dynarray_t draw_cmd_buffers;
 
   nv_dynarray_t drawcalls;
 
@@ -159,8 +161,8 @@ struct nv_gpu_sampler
   VkFilter             filter;
   VkSamplerMipmapMode  mipmap_mode;
   VkSamplerAddressMode address_mode;
-  float                max_anisotropy;
-  float                mip_lod_bias, min_lod, max_lod;
+  flt_t                max_anisotropy;
+  flt_t                mip_lod_bias, min_lod, max_lod;
   VkSampler            vksampler;
 };
 
@@ -228,14 +230,14 @@ struct ctext_drawcall_t
   ctext_glyph_vertex_t* vertices;
   u32*                  indices;
   vec4f                 color;
-  float                 scale;
+  flt_t                 scale;
 };
 
 struct ctext_label_t
 {
   ctext_hori_align h_align;
   ctext_vert_align v_align;
-  float            scale;
+  flt_t            scale;
   int              index;
   nv_string_t      text;
   cfont_t*         fnt;
@@ -247,7 +249,7 @@ struct push_constants
   mat4f model;
   vec4f color;
   vec4f outline_color;
-  float scale;
+  flt_t scale;
 };
 
 typedef enum ctext_err_t
@@ -261,12 +263,12 @@ typedef enum ctext_err_t
 
 int
 nv_renderer_get_frame(const nv_renderer_t* rd) {
-  return rd->renderer_frame;
+  return rd->frame;
 }
 
 VkCommandBuffer
 nv_renderer_get_draw_buffer(const nv_renderer_t* rd) {
-  return *(VkCommandBuffer*)nv_dynarray_get(&rd->drawBuffers, rd->renderer_frame);
+  return *(VkCommandBuffer*)nv_dynarray_get(&rd->draw_cmd_buffers, rd->frame);
 }
 
 VkRenderPass
@@ -288,12 +290,12 @@ nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd) {
 
 bool
 nv_Quad_Visible(const vec3* pos, const vec3* siz) {
-  const float half_width  = siz->x * 0.5f;
-  const float half_height = siz->y * 0.5f;
-  const float deltax      = pos->x - camera.position.x;
-  const float deltay      = pos->y - camera.position.y;
-  const float dx          = ABSF(deltax); // delta x & y
-  const float dy          = ABSF(deltay); //
+  const flt_t half_width  = siz->x * 0.5f;
+  const flt_t half_height = siz->y * 0.5f;
+  const flt_t deltax      = pos->x - camera.position.x;
+  const flt_t deltay      = pos->y - camera.position.y;
+  const flt_t dx          = ABSF(deltax); // delta x & y
+  const flt_t dy          = ABSF(deltay); //
 
   return (dx <= (half_width + camera.ortho_size.x) && dy <= (half_height + camera.ortho_size.y));
 }
@@ -438,7 +440,7 @@ nv_renderer_destroy(nv_renderer_t* rd) {
   // we were only making frames_in_flight fences and it was working for some
   // reason!! that was the reason we were getting errors!
   for (int i = 0; i < (int)swap_chain_image_count; i++) {
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
     nv_gpu_destroy_texture(data->depth_image);
     vkDestroyImageView(
         device,
@@ -469,7 +471,7 @@ nv_renderer_destroy(nv_renderer_t* rd) {
 
   nv_dynarray_destroy(&g_Samplers);
   nv_dynarray_destroy(&rd->drawcalls);
-  nv_dynarray_destroy(&rd->renderData);
+  nv_dynarray_destroy(&rd->render_data);
 
   nv_gpu_free_memory(rd->depth_image_memory);
 
@@ -479,9 +481,9 @@ nv_renderer_destroy(nv_renderer_t* rd) {
   vkFreeCommandBuffers(device, cmd_pool, 1, &buffer);
   vkDestroyCommandPool(device, cmd_pool, NOVA_VK_ALLOCATOR);
 
-  vkFreeCommandBuffers(device, rd->commandPool, nv_dynarray_size(&rd->drawBuffers), (VkCommandBuffer*)nv_dynarray_data(&rd->drawBuffers));
+  vkFreeCommandBuffers(device, rd->commandPool, nv_dynarray_size(&rd->draw_cmd_buffers), (VkCommandBuffer*)nv_dynarray_data(&rd->draw_cmd_buffers));
   vkDestroyCommandPool(device, rd->commandPool, NOVA_VK_ALLOCATOR);
-  nv_dynarray_destroy(&rd->drawBuffers);
+  nv_dynarray_destroy(&rd->draw_cmd_buffers);
 
   nvsm_shutdown();
 
@@ -507,7 +509,7 @@ create_optional_images(nv_renderer_t* rd) {
   VkImage* swapchainImages = (VkImage*)nv_malloc(swap_chain_image_count * sizeof(VkImage));
   nvvk_result_check(vkGetSwapchainImagesKHR(device, rd->swapchain, &swap_chain_image_count, swapchainImages));
 
-  nv_dynarray_resize(&rd->renderData, swap_chain_image_count);
+  nv_dynarray_resize(&rd->render_data, swap_chain_image_count);
 
   if (rd->flags & NOVA_RENDERER_MULTISAMPLING_ENABLE) {
     int color_image_size = 0;
@@ -527,7 +529,7 @@ create_optional_images(nv_renderer_t* rd) {
   // attachment vector will be like <color resolve, depth attachment, swapchain
   // image>
   for (int i = 0; i < (int)swap_chain_image_count; i++) {
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
     (data->sc_image)                    = nv_calloc(sizeof(nv_gpu_texture));
     data->sc_image->image               = swapchainImages[i];
 
@@ -562,7 +564,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd) {
   nv_dynarray_init(sizeof(VkImageView), 3, &nv_allocator_default, &attachments);
 
   for (int i = 0; i < (int)swap_chain_image_count; i++) {
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
 
     // we don't know anything about the swapchain_image, as it's a swapchain
     // image so we have to manually create the image view;
@@ -711,8 +713,8 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 
   nv_renderer_frame_render_info data = {};
   for (int i = 0; i < frames_in_flight; i++) {
-    nv_dynarray_push_back(&rd->drawBuffers, &data);
-    nv_dynarray_push_back(&rd->renderData, &data);
+    nv_dynarray_push_back(&rd->draw_cmd_buffers, &data);
+    nv_dynarray_push_back(&rd->render_data, &data);
   }
 
   VkCommandBufferAllocateInfo cmdAllocInfo = {};
@@ -720,7 +722,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   cmdAllocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   cmdAllocInfo.commandBufferCount          = frames_in_flight;
   cmdAllocInfo.commandPool                 = rd->commandPool;
-  nvvk_result_check(vkAllocateCommandBuffers(device, &cmdAllocInfo, (VkCommandBuffer*)nv_dynarray_data(&rd->drawBuffers)));
+  nvvk_result_check(vkAllocateCommandBuffers(device, &cmdAllocInfo, (VkCommandBuffer*)nv_dynarray_data(&rd->draw_cmd_buffers)));
 
   rd->depth_buffer_format = nv_format_to_vk_format(NOVA_FORMAT_D32); // replace (probably)
 
@@ -749,8 +751,8 @@ nv_renderer_init(const nv_renderer_config* conf) {
 
   nv_dynarray_init(sizeof(nv_gpu_sampler), 4, &nv_allocator_default, &g_Samplers);
   nv_dynarray_init(sizeof(nv_draw_call_t), 4, &nv_allocator_default, &rd->drawcalls);
-  nv_dynarray_init(sizeof(VkCommandBuffer), frames_in_flight, &nv_allocator_default, &rd->drawBuffers);
-  nv_dynarray_init(sizeof(nv_renderer_frame_render_info), frames_in_flight, &nv_allocator_default, &rd->renderData);
+  nv_dynarray_init(sizeof(VkCommandBuffer), frames_in_flight, &nv_allocator_default, &rd->draw_cmd_buffers);
+  nv_dynarray_init(sizeof(nv_renderer_frame_render_info), frames_in_flight, &nv_allocator_default, &rd->render_data);
 
   if (conf->multisampling_enable) { rd->flags |= NOVA_RENDERER_MULTISAMPLING_ENABLE; }
   if (conf->window_resizable) { rd->flags |= NOVA_RENDERER_WINDOW_RESIZABLE; }
@@ -768,7 +770,7 @@ nv_renderer_init(const nv_renderer_config* conf) {
 
     const VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
 
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
     nvvk_result_check(vkCreateSemaphore(device, &semaphoreCreateInfo, NOVA_VK_ALLOCATOR, &data->render_finish_semaphore));
     nvvk_result_check(vkCreateSemaphore(device, &semaphoreCreateInfo, NOVA_VK_ALLOCATOR, &data->image_available_semaphore));
     nvvk_result_check(vkCreateFence(device, &fenceCreateInfo, NOVA_VK_ALLOCATOR, &data->in_flight_fence));
@@ -801,7 +803,7 @@ _nvvk_renderer_resize(nv_renderer_t* rd) {
 
   // adhoc method of resetting them
   for (int i = 0; i < (int)swap_chain_image_count; i++) {
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
     vkDestroySemaphore(device, data->image_available_semaphore, NOVA_VK_ALLOCATOR);
     vkDestroySemaphore(device, data->render_finish_semaphore, NOVA_VK_ALLOCATOR);
     vkDestroyFence(device, data->in_flight_fence, NOVA_VK_ALLOCATOR);
@@ -820,16 +822,16 @@ _nvvk_renderer_resize(nv_renderer_t* rd) {
   }
 
   for (u32 i = 0; i < swap_chain_image_count; i++) {
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
     vkDestroyImageView(
         device,
         nv_gpu_texture_get_view(data->sc_image),
         NOVA_VK_ALLOCATOR); // as the view was silently smushed into the
                             // structure, we just kinda smush it out as well.
     vkDestroyFramebuffer(device, data->color_framebuffer, NOVA_VK_ALLOCATOR);
-    free(data->sc_image);
+    nv_free(data->sc_image);
   }
-  nv_dynarray_clear(&rd->renderData);
+  nv_dynarray_clear(&rd->render_data);
 
   i32 w, h;
   SDL_Vulkan_GetDrawableSize(window, &w, &h);
@@ -873,12 +875,12 @@ _nvvk_renderer_resize(nv_renderer_t* rd) {
   nv_gpu_create_swapchain(&scio, &rd->swapchain);
   vkDestroySwapchainKHR(device, old_swapchain, NOVA_VK_ALLOCATOR);
 
-  nv_dynarray_resize(&rd->renderData, swap_chain_image_count);
+  nv_dynarray_resize(&rd->render_data, swap_chain_image_count);
   create_optional_images(rd);
   create_framebuffers_and_swapchain_image_views(rd);
 
   for (int i = 0; i < (int)swap_chain_image_count; i++) {
-    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, i);
+    nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, i);
     nvvk_result_check(vkCreateSemaphore(device, &semaphoreCreateInfo, NOVA_VK_ALLOCATOR, &data->render_finish_semaphore));
     nvvk_result_check(vkCreateSemaphore(device, &semaphoreCreateInfo, NOVA_VK_ALLOCATOR, &data->image_available_semaphore));
     nvvk_result_check(vkCreateFence(device, &fenceCreateInfo, NOVA_VK_ALLOCATOR, &data->in_flight_fence));
@@ -889,13 +891,13 @@ _nvvk_renderer_resize(nv_renderer_t* rd) {
 
 bool
 nv_renderer_begin(nv_renderer_t* rd) {
-  nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, rd->renderer_frame);
+  nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, rd->frame);
 
   vkWaitForFences(device, 1, &data->in_flight_fence, VK_TRUE, UINT64_MAX);
 
-  const VkResult imageAcquireResult = vkAcquireNextImageKHR(device, rd->swapchain, UINT64_MAX, data->image_available_semaphore, VK_NULL_HANDLE, &rd->imageIndex);
+  const VkResult imageAcquireResult = vkAcquireNextImageKHR(device, rd->swapchain, UINT64_MAX, data->image_available_semaphore, VK_NULL_HANDLE, &rd->image_index);
 
-  const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_dynarray_get(&rd->drawBuffers, rd->renderer_frame);
+  const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_dynarray_get(&rd->draw_cmd_buffers, rd->frame);
 
   if (imageAcquireResult == VK_ERROR_OUT_OF_DATE_KHR || imageAcquireResult == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized()) {
     _nvvk_renderer_resize(rd);
@@ -908,10 +910,9 @@ nv_renderer_begin(nv_renderer_t* rd) {
 
   vkResetFences(device, 1, &data->in_flight_fence);
 
-  // * Maybe the user should have control of the clear color but I don't really
-  // care lmao
+  // I do, in fact, care about my beloveds
 
-  VkFramebuffer fb = (*(nv_renderer_frame_render_info*)(nv_dynarray_get(&rd->renderData, rd->imageIndex))).color_framebuffer;
+  VkFramebuffer fb = (*(nv_renderer_frame_render_info*)(nv_dynarray_get(&rd->render_data, rd->image_index))).color_framebuffer;
 
   // Why was this static?
   VkRenderPassBeginInfo renderPassInfo = {
@@ -920,8 +921,11 @@ nv_renderer_begin(nv_renderer_t* rd) {
     .framebuffer     = fb,
     .renderArea      = (VkRect2D){ .extent = (VkExtent2D){ rd->render_extent.width, rd->render_extent.height }, .offset = {} },
     .clearValueCount = 2,
-    .pClearValues    = (VkClearValue[2]){ { .color = (VkClearColorValue){ { rd->clear_color.x, rd->clear_color.y, rd->clear_color.z, rd->clear_color.w } } },
-                                          { .depthStencil = (VkClearDepthStencilValue){ 1.0f, 0 } } },
+    .pClearValues =
+        (VkClearValue[2]){
+            { .color = (VkClearColorValue){ { rd->clear_color.x, rd->clear_color.y, rd->clear_color.z, rd->clear_color.w } } },
+            { .depthStencil = (VkClearDepthStencilValue){ 1.0f, 0 } },
+        },
   };
 
   const VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, NULL, 0, NULL };
@@ -929,18 +933,20 @@ nv_renderer_begin(nv_renderer_t* rd) {
   vkBeginCommandBuffer(drawBuffer, &beginInfo);
   vkCmdBeginRenderPass(drawBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  VkViewport viewport = {};
-  viewport.x          = 0.0f;
-  viewport.y          = 0.0f;
-  viewport.width      = rd->render_extent.width;
-  viewport.height     = rd->render_extent.height;
-  viewport.minDepth   = 0.0f;
-  viewport.maxDepth   = 1.0f;
+  VkViewport viewport = {
+    .x        = 0.0f,
+    .y        = 0.0f,
+    .width    = rd->render_extent.width,
+    .height   = rd->render_extent.height,
+    .minDepth = 0.0f,
+    .maxDepth = 1.0f,
+  };
   vkCmdSetViewport(drawBuffer, 0, 1, &viewport);
 
-  VkRect2D scissor = {};
-  scissor.offset   = (VkOffset2D){ 0, 0 };
-  scissor.extent   = (VkExtent2D){ (unsigned)rd->render_extent.width, (unsigned)rd->render_extent.height };
+  VkRect2D scissor = {
+    .offset = (VkOffset2D){ 0, 0 },
+    .extent = (VkExtent2D){ (unsigned)rd->render_extent.width, (unsigned)rd->render_extent.height },
+  };
   vkCmdSetScissor(drawBuffer, 0, 1, &scissor);
 
   return true;
@@ -950,7 +956,7 @@ nv_renderer_begin(nv_renderer_t* rd) {
 
 void
 nv_renderer_end(nv_renderer_t* rd) {
-  const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_dynarray_get(&rd->drawBuffers, rd->renderer_frame);
+  const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_dynarray_get(&rd->draw_cmd_buffers, rd->frame);
 
   for (int i = 0; i < (int)rd->ctext->labels.m_size; i++) {
     ctext_label_t* label = nv_dynarray_get(&rd->ctext->labels, i);
@@ -976,7 +982,7 @@ nv_renderer_end(nv_renderer_t* rd) {
   VkSubmitInfo submitInfo = {};
   submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  const nv_renderer_frame_render_info* data               = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->renderData, rd->renderer_frame);
+  const nv_renderer_frame_render_info* data               = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, rd->frame);
   const VkSemaphore                    waitSemaphores[]   = { data->image_available_semaphore };
   const VkSemaphore                    signalSemaphores[] = { data->render_finish_semaphore };
 
@@ -1000,7 +1006,7 @@ nv_renderer_end(nv_renderer_t* rd) {
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores    = signalSemaphores; // This is signalSemaphores so that this starts as
                                                      // soon as the signaled semaphores are signaled.
-  presentInfo.pImageIndices  = &rd->imageIndex;
+  presentInfo.pImageIndices  = &rd->image_index;
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains    = &rd->swapchain;
 
@@ -1009,7 +1015,7 @@ nv_renderer_end(nv_renderer_t* rd) {
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized()) { _nvvk_renderer_resize(rd); }
 
-  rd->renderer_frame = (rd->renderer_frame + 1) % (1 + (int)rd->buffer_mode);
+  rd->frame = (rd->frame + 1) % (1 + (int)rd->buffer_mode);
 }
 
 void
@@ -1021,7 +1027,7 @@ nv_renderer_set_clear_color(struct nv_renderer_t* rd, vec4 col) {
 // engine
 u32           MAX_SAMPLES;
 unsigned char SUPPORTS_MULTISAMPLING;
-float         MAX_ANISOTROPY;
+flt_t         MAX_ANISOTROPY;
 
 static SDL_UNUSED const char* ValidationLayers[] = {
   "VK_LAYER_KHRONOS_validation",
@@ -1444,7 +1450,7 @@ nvvk_validate_queues(nv_dynarray_t* queue_create_infos) {
   }
 
   nv_dynarray_t unique_queue_families = setify(graphics_family, present_family, compute_family, transfer_family);
-  const float   queue_priority        = 1.0f;
+  const flt_t   queue_priority        = 1.0f;
 
   for (int i = 0; i < (int)nv_dynarray_size(&unique_queue_families); i++) {
     VkDeviceQueueCreateInfo queue_info = {};
@@ -1536,13 +1542,15 @@ _nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight) {
 
 void
 _ctext_load_font_upload_glyph_atlas(const nv_texture_atlas_t* atlas, cfont_t* dst) {
-  nv_gpu_texture_create_info image_info = { .format      = NOVA_FORMAT_R8,
-                                            .samples     = NOVA_SAMPLE_COUNT_1_SAMPLES,
-                                            .type        = VK_IMAGE_TYPE_2D,
-                                            .usage       = NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE,
-                                            .extent      = (nv_extent3D){ .width = atlas->w, .height = atlas->h, .depth = 1 },
-                                            .arraylayers = 1,
-                                            .miplevels   = 1 };
+  nv_gpu_texture_create_info image_info = {
+    .format      = NOVA_FORMAT_R8,
+    .samples     = NOVA_SAMPLE_COUNT_1_SAMPLES,
+    .type        = VK_IMAGE_TYPE_2D,
+    .usage       = NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE,
+    .extent      = (nv_extent3D){ .width = atlas->w, .height = atlas->h, .depth = 1 },
+    .arraylayers = 1,
+    .miplevels   = 1,
+  };
   nv_gpu_create_texture(&image_info, &dst->texture);
 
   VkMemoryRequirements imageMemoryRequirements;
@@ -1580,6 +1588,61 @@ _ctext_load_font_update_descriptors(nv_ctext_module* ctext, cfont_t* dst) {
   }
 }
 
+// typedef struct _ctext_font_load
+// {
+//   nv_renderer_t* rd;
+//   const char*    font_path;
+//   int            scale;
+//   cfont_t*       dst;
+// } _ctext_font_load;
+
+// static inline void*
+// _ctext_load_font_internal(void* _user_data) {
+//   _ctext_font_load* load      = (_ctext_font_load*)_user_data;
+//   nv_renderer_t*    rd        = load->rd;
+//   const char*       font_path = load->font_path;
+//   int               scale     = load->scale;
+//   cfont_t*          dst       = load->dst;
+
+//   nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
+//   nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
+
+//   fontc_file_t f_file;
+//   fontc_read_font(font_path, &f_file);
+
+//   nv_texture_atlas_t atlas;
+
+//   dst->line_height = f_file.header.line_height;
+//   dst->space_width = f_file.header.space_width;
+//   atlas.w          = f_file.header.bmpwidth;
+//   atlas.h          = f_file.header.bmpheight;
+//   atlas.data       = f_file.bitmap;
+
+//   for (int i = 0; i < f_file.header.numglyphs; i++) {
+//     ctext_glyph_t glyph = {
+//       .x0      = f_file.glyphs[i].x0,
+//       .x1      = f_file.glyphs[i].x1,
+//       .y0      = f_file.glyphs[i].y0,
+//       .y1      = f_file.glyphs[i].y1,
+//       .l       = f_file.glyphs[i].l,
+//       .r       = f_file.glyphs[i].r,
+//       .b       = f_file.glyphs[i].b,
+//       .t       = f_file.glyphs[i].t,
+//       .advance = f_file.glyphs[i].advance,
+//     };
+//     char glyphi = f_file.glyphs[i].codepoint;
+//     nv_hashmap_insert(&dst->glyph_map, &glyphi, &glyph);
+//   }
+
+//   _ctext_load_font_upload_glyph_atlas(&atlas, dst);
+//   _ctext_load_font_update_descriptors(rd->ctext, dst);
+
+//   nv_free(f_file.glyphs);
+//   nv_free(f_file.bitmap);
+
+//   return NULL;
+// }
+
 void
 ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst) {
   if (!rd || !dst) { nv_log_error("pInfo or dst is NULL!"); }
@@ -1606,16 +1669,18 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
   atlas.data       = f_file.bitmap;
 
   for (int i = 0; i < f_file.header.numglyphs; i++) {
-    ctext_glyph_t glyph  = { .x0      = f_file.glyphs[i].x0,
-                             .x1      = f_file.glyphs[i].x1,
-                             .y0      = f_file.glyphs[i].y0,
-                             .y1      = f_file.glyphs[i].y1,
-                             .l       = f_file.glyphs[i].l,
-                             .r       = f_file.glyphs[i].r,
-                             .b       = f_file.glyphs[i].b,
-                             .t       = f_file.glyphs[i].t,
-                             .advance = f_file.glyphs[i].advance };
-    char          glyphi = f_file.glyphs[i].codepoint;
+    ctext_glyph_t glyph = {
+      .x0      = f_file.glyphs[i].x0,
+      .x1      = f_file.glyphs[i].x1,
+      .y0      = f_file.glyphs[i].y0,
+      .y1      = f_file.glyphs[i].y1,
+      .l       = f_file.glyphs[i].l,
+      .r       = f_file.glyphs[i].r,
+      .b       = f_file.glyphs[i].b,
+      .t       = f_file.glyphs[i].t,
+      .advance = f_file.glyphs[i].advance,
+    };
+    char glyphi = f_file.glyphs[i].codepoint;
     nv_hashmap_insert(&dst->glyph_map, &glyphi, &glyph);
   }
 
@@ -1732,8 +1797,8 @@ split_string_by_lines(const char* str) {
 // Get the unscaled size of the string
 // Warning: slow
 static void
-ctext_get_text_size(const cfont_t* fnt, const char* str, float* w, float* h) {
-  float width = 0.0f, height = fnt->line_height, prev_width = 0.0f;
+ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h) {
+  flt_t width = 0.0f, height = fnt->line_height, prev_width = 0.0f;
 
   bool is_new_line = true;
 
@@ -1776,7 +1841,7 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, float* w, float* h) {
 
 // TODO: Implement instancing: Very hard
 static int
-_ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* drawcall, float scale, float zpos, const int glyph_iter, float x, const float y) {
+_ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* drawcall, flt_t scale, flt_t zpos, const int glyph_iter, flt_t x, const flt_t y) {
   int iter = 0;
   while (*str) {
     switch (*str) {
@@ -1788,10 +1853,10 @@ _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* 
           nv_log_info("no glyph when rendering char %i", *str);
           break;
         }
-        const float glyph_x0 = (glyph->x0 * scale) + x;
-        const float glyph_x1 = (glyph->x1 * scale) + x;
-        const float glyph_y0 = (glyph->y0 * scale) + y;
-        const float glyph_y1 = (glyph->y1 * scale) + y;
+        const flt_t glyph_x0 = (glyph->x0 * scale) + x;
+        const flt_t glyph_x1 = (glyph->x1 * scale) + x;
+        const flt_t glyph_y0 = (glyph->y0 * scale) + y;
+        const flt_t glyph_y1 = (glyph->y1 * scale) + y;
 
         const int             index_offset = (fnt->chars_drawn + iter) * 4;
         ctext_glyph_vertex_t* v_out        = drawcall->vertices + (glyph_iter + iter) * 4;
@@ -1841,9 +1906,9 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   }
 
   nv_dynarray_t lines;
-  float         text_w, text_h;
-  float         scale;
-  float         ypos, xpos;
+  flt_t         text_w, text_h;
+  flt_t         scale;
+  flt_t         ypos, xpos;
   int           actual_chars_drawn;
   const int     old_chars_drawn = fnt->chars_drawn;
 
@@ -1854,8 +1919,8 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   text_h = -fnt->line_height * ((int)lines.m_size - 1);
 
   if (pInfo->scale_for_fit) {
-    float scale_x = (pInfo->bbox.x) / text_w;
-    float scale_y = (pInfo->bbox.y) / text_h;
+    flt_t scale_x = (pInfo->bbox.x) / text_w;
+    flt_t scale_y = (pInfo->bbox.y) / text_h;
     // multiply with normal scale to get new scale
     scale *= fminf(scale_x, scale_y);
   }
@@ -1903,7 +1968,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
         // has drawn. only this call.
         NVM_MAX(actual_chars_drawn, 0),
         xpos,
-        (ypos + ((float)i * fnt->line_height * scale)));
+        (ypos + ((flt_t)i * fnt->line_height * scale)));
   }
 
   for (int i = 0; i < lines.m_size; i++) {
@@ -1951,6 +2016,8 @@ _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* 
 
 void
 ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...) {
+  // if (!nv_async_is_task_complete(&fnt->load_task)) { return; }
+
   char*  buffer;
   size_t buffer_size;
 
@@ -2075,7 +2142,7 @@ ctext_label_set_vertical_align(ctext_label_t* label, ctext_vert_align v_align) {
 }
 
 void
-ctext_label_set_text_scale(ctext_label_t* label, float scale) {
+ctext_label_set_text_scale(ctext_label_t* label, flt_t scale) {
   label->scale = scale;
 }
 
@@ -2120,13 +2187,13 @@ ctext_shutdown(struct nv_renderer_t* rd) {
   nv_free(rd->ctext);
 }
 
-float
+flt_t
 ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox) {
-  float width, height;
+  flt_t width, height;
   ctext_get_text_size(fnt, str, &width, &height);
 
-  float scale_x = bbox.x / width;
-  float scale_y = bbox.y / height;
+  flt_t scale_x = bbox.x / width;
+  flt_t scale_y = bbox.y / height;
   return fminf(scale_x, scale_y);
 }
 
@@ -2135,7 +2202,7 @@ ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox) {
 // nv_descriptors vv
 void
 nv_descriptor_set_submit_write(nv_descriptor_set_t* set, const VkWriteDescriptorSet* write) {
-  set->writes = realloc(set->writes, (set->nwrites + 1) * sizeof(VkWriteDescriptorSet));
+  set->writes = nv_realloc(set->writes, (set->nwrites + 1) * sizeof(VkWriteDescriptorSet));
   nv_assert(set->writes != NULL);
   nv_memcpy(&set->writes[set->nwrites], write, sizeof(VkWriteDescriptorSet));
   set->nwrites++;
@@ -2268,7 +2335,7 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
   if (need_realloc || ((pool->nsets + 1) > pool->max_child_sets)) {
     if ((pool->nsets + 1) > pool->max_child_sets) {
       pool->max_child_sets = NVM_MAX(pool->max_child_sets * 2, 1);
-      pool->sets           = realloc(pool->sets, pool->max_child_sets * sizeof(nv_descriptor_set_t));
+      pool->sets           = nv_realloc(pool->sets, pool->max_child_sets * sizeof(nv_descriptor_set_t));
     }
 
     _nv_descriptor_pool_allocate(pool);
@@ -2539,8 +2606,8 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   VkViewport viewportState = {
     .x        = 0,
     .y        = 0,
-    .width    = (float)(pCreateInfo->extent.width),
-    .height   = (float)(pCreateInfo->extent.height),
+    .width    = (flt_t)(pCreateInfo->extent.width),
+    .height   = (flt_t)(pCreateInfo->extent.height),
     .minDepth = 0.0f,
     .maxDepth = 1.0f,
   };
@@ -3061,8 +3128,19 @@ nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecuti
     if (res != VK_SUCCESS) return res;
   }
 
+  static pthread_mutex_t vk_queue_mutex;
+  static bool            mutex_init = 0;
+  if (!mutex_init) {
+    pthread_mutex_init(&vk_queue_mutex, NULL);
+    mutex_init = 1;
+  }
+
+  pthread_mutex_lock(&vk_queue_mutex);
+
   res = vkQueueSubmit(queue, 1, &submitInfo, fence);
   if (res != VK_SUCCESS) return res;
+
+  pthread_mutex_unlock(&vk_queue_mutex);
 
   if (waitForExecution) {
     if (fence != VK_NULL_HANDLE) {
@@ -3147,14 +3225,14 @@ nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height,
       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
       VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-  VkBufferImageCopy region               = {};
-  region.imageExtent                     = (VkExtent3D){ width, height, 1 };
-  region.imageOffset                     = (VkOffset3D){ 0, 0, 0 };
-  region.bufferOffset                    = 0;
-  region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-  region.imageSubresource.layerCount     = 1;
-  region.imageSubresource.baseArrayLayer = 0;
-  region.imageSubresource.mipLevel       = 0;
+  VkBufferImageCopy region = {
+    .bufferOffset      = 0,
+    .bufferRowLength   = 0,
+    .bufferImageHeight = 0,
+    .imageSubresource  = (VkImageSubresourceLayers){ .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1 },
+    .imageOffset       = (VkOffset3D){ 0, 0, 0 },
+    .imageExtent       = (VkExtent3D){ width, height, 1 },
+  };
   vkCmdCopyBufferToImage(cmd, stagingBuffer, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
   nv_vk_transition_texture_layout(
@@ -3477,7 +3555,7 @@ void
 nv_gpu_free_memory(nv_gpu_memory_t* mem) {
   if (mem && mem->memory) {
     vkFreeMemory(device, mem->memory, NULL);
-    free(mem);
+    nv_free(mem);
   }
 }
 
@@ -4027,13 +4105,13 @@ nv_camera_get_front_vector(nv_camera_t* cam) {
 }
 
 void
-nv_camera_rotate(nv_camera_t* cam, float yaw_, float pitch_) {
+nv_camera_rotate(nv_camera_t* cam, flt_t yaw_, flt_t pitch_) {
   cam->yaw += yaw_;
   cam->pitch -= pitch_;
 
   cam->yaw = fmodf(cam->yaw, 360.0f);
 
-  const float bound = 89.9f;
+  const flt_t bound = 89.9f;
   cam->pitch        = NVM_CLAMP(cam->pitch, -bound, bound);
 }
 
@@ -4051,8 +4129,8 @@ nv_camera_set_position(nv_camera_t* cam, const vec3 pos) {
 
 void
 nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd) {
-  const float yaw_rads = NVM_DEG2RAD(cam->yaw), pitch_rads = NVM_DEG2RAD(cam->pitch);
-  const float cospitch = cosf(pitch_rads);
+  const flt_t yaw_rads = NVM_DEG2RAD(cam->yaw), pitch_rads = NVM_DEG2RAD(cam->pitch);
+  const flt_t cospitch = cosf(pitch_rads);
   vec3        new_front;
   new_front.x = cosf(yaw_rads) * cospitch;
   new_front.y = sinf(pitch_rads);
@@ -4069,7 +4147,7 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd) {
   cam->position = cam->actual_pos;
 
   const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
-  const float       aspect       = (float)RenderExtent.width / (float)RenderExtent.height;
+  const flt_t       aspect       = (flt_t)RenderExtent.width / (flt_t)RenderExtent.height;
   cam->perspective               = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
 
   nv_camera_uniform_buffer ub = {};

@@ -38,7 +38,7 @@ extern void nv_image_enlarge(nv_image_t* dst, const nv_image_t* src, int scale);
 // Does not allocate memory for the dst image, or modify anything except the data buffer of the dst image
 // however, dst->w and dst->h is also set by the function
 // You can allocate the image with size {.w = src->w / scale, .h = src->h / scale}
-extern void nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, float scale);
+extern void nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, flt_t scale);
 
 NOVA_HEADER_END;
 

@@ -729,7 +729,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_texture_atlas_init(&atlas, init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4);
 
   file.header.magic       = FONTC_MAGIC;
-  file.header.line_height = -face->size->metrics.height / (float)face->height;
+  file.header.line_height = -face->size->metrics.height / (flt_t)face->height;
 
   int            glyph_alloc_size = 256;
   fontc_glyph_t* glyphs           = nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_size);
@@ -765,7 +765,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
 
       if (i == ' ') {
 #  pragma omp critical
-        file.header.space_width = (float)thread_face->glyph->metrics.horiAdvance / (float)thread_face->units_per_EM;
+        file.header.space_width = (flt_t)thread_face->glyph->metrics.horiAdvance / (flt_t)thread_face->units_per_EM;
         continue;
       }
 
@@ -819,8 +819,8 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
 
   nv_log_info("final atlas size w=%i h=%i (uncompressed %b)", atlas.w, atlas.h, atlas.w * atlas.h * nv_format_get_bytes_per_pixel(atlas.fmt));
 
-  const float atlas_w = atlas.w, atlas_h = atlas.h;
-  const float units_per_em = (float)face->units_per_EM;
+  const flt_t atlas_w = atlas.w, atlas_h = atlas.h;
+  const flt_t units_per_em = (flt_t)face->units_per_EM;
   nv_assert(atlas_w != 0.0);
   nv_assert(atlas_h != 0.0);
   nv_assert(units_per_em != 0.0);
@@ -857,7 +857,7 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_bufcompress(glyphs, glyph_o_size, compressed_glyphs, &glyph_o_size);
 
   size_t old_img_size = atlas_w * atlas_h * nv_format_get_bytes_per_pixel(atlas.fmt);
-  nv_log_info("atlas size compressed from %b to %b (-%.2f%%)", old_img_size, image_o_size, (1.0f - (image_o_size / (float)old_img_size)) * 100.0f);
+  nv_log_info("atlas size compressed from %b to %b (-%.2f%%)", old_img_size, image_o_size, (1.0f - (image_o_size / (flt_t)old_img_size)) * 100.0f);
 
   nv_texture_atlas_destroy(&atlas);
   nv_free(glyphs);
@@ -887,9 +887,9 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   buf[127] = 0;
   nv_log_info("Wrote %s to %s", buf, out);
   nv_log_info("Here's a summary of what was written:");
-  nv_log_info("file header: %b of %b (%.2f%%)", sizeof(fontc_file_header_t), bytes_written, (sizeof(fontc_file_header_t) / (float)bytes_written) * 100.0);
-  nv_log_info("glyph vertices: %b of %b (%.2f%%)", glyph_o_size, bytes_written, (glyph_o_size / (float)bytes_written) * 100.0);
-  nv_log_info("the bitmap: %b of %b (%.2f%%)", image_o_size, bytes_written, (image_o_size / (float)bytes_written) * 100.0);
+  nv_log_info("file header: %b of %b (%.2f%%)", sizeof(fontc_file_header_t), bytes_written, (sizeof(fontc_file_header_t) / (flt_t)bytes_written) * 100.0);
+  nv_log_info("glyph vertices: %b of %b (%.2f%%)", glyph_o_size, bytes_written, (glyph_o_size / (flt_t)bytes_written) * 100.0);
+  nv_log_info("the bitmap: %b of %b (%.2f%%)", image_o_size, bytes_written, (image_o_size / (flt_t)bytes_written) * 100.0);
 
   nv_free(compressed_image);
   nv_free(compressed_glyphs);

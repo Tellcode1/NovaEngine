@@ -53,7 +53,7 @@ extern VkQueue transfer_queue;
 
 extern u32           MAX_SAMPLES;
 extern unsigned char SUPPORTS_MULTISAMPLING;
-extern float         MAX_ANISOTROPY;
+extern flt_t         MAX_ANISOTROPY;
 
 NOVA_HEADER_END;
 

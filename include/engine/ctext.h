@@ -5,6 +5,7 @@
 
 #include "object.h"
 #include "scene.h"
+#include "../../std/async.h"
 
 #include "../../std/math/mat.h"
 #include "../../std/math/vec2.h"
@@ -51,8 +52,7 @@ typedef enum ctext_vert_align
 // Since the hash is to be used for individual characters, we can expect
 // that there will only be one entry for each character.
 static inline unsigned
-ctext_hash(const void* key, int nbytes)
-{
+ctext_hash(const void* key, int nbytes) {
   (void)nbytes;
   return *(char*)key;
 }
@@ -64,7 +64,7 @@ extern nv_object* ctext_label_get_object(const ctext_label_t* label);
 extern void       ctext_label_set_text(ctext_label_t* label, const char* text);
 extern void       ctext_label_set_horizontal_align(ctext_label_t* label, ctext_hori_align h_align);
 extern void       ctext_label_set_vertical_align(ctext_label_t* label, ctext_vert_align v_align);
-extern void       ctext_label_set_text_scale(ctext_label_t* label, float scale);
+extern void       ctext_label_set_text_scale(ctext_label_t* label, flt_t scale);
 
 // Initializes the text renderer for ONLY that renderer
 extern void ctext_init(struct nv_renderer_t* rd);
@@ -81,7 +81,7 @@ extern void _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt);
 
 // Get the scale needed to fit the string in a box
 // The scale is calculated as if both the string and the box were at (0,0)
-extern float ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox);
+extern flt_t ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox);
 
 struct ctext_text_render_info_t
 {
@@ -90,23 +90,25 @@ struct ctext_text_render_info_t
   ctext_vert_align vertical;
   vec4f            color;
   vec3f            position;
-  float            scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
+  flt_t            scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
   vec2             bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
   bool             scale_for_fit; // calculates the scale needed to fit the text into a box
 };
 
 struct ctext_glyph_t
 {
-  float x0, x1, y0, y1;
-  float l, r, b, t;
-  float advance;
+  flt_t x0, x1, y0, y1;
+  flt_t l, r, b, t;
+  flt_t advance;
 };
 
 /* Internal CFont struct. Do not modify yourselves! */
 struct cfont_t
 {
-  float line_height;
-  float space_width;
+  flt_t line_height;
+  flt_t space_width;
+
+  // nv_async_task_t load_task;
 
   nv_gpu_texture*  texture;
   nv_gpu_memory_t* texture_mem;
@@ -131,8 +133,7 @@ struct cfont_t
 };
 
 static inline ctext_text_render_info_t
-ctext_init_text_render_info()
-{
+ctext_init_text_render_info() {
   return (ctext_text_render_info_t){ .model         = m4finit(1.0f),
                                      .horizontal    = CTEXT_HORI_ALIGN_CENTER,
                                      .vertical      = CTEXT_VERT_ALIGN_CENTER,

@@ -9,11 +9,11 @@
 
 typedef struct timer
 {
-  double start;
-  double end;
+  real_t start;
+  real_t end;
 } timer;
 
-static inline double
+static inline real_t
 __timer_get_currtime()
 {
   struct timeval tv;
@@ -24,7 +24,7 @@ __timer_get_currtime()
 // the timer will finish after 's' seconds
 // pass __FLT_MAX__ for duration for it to just not end
 static inline timer
-timer_begin(double duration)
+timer_begin(real_t duration)
 {
   if (duration <= 0.0f)
   {
@@ -61,13 +61,13 @@ timer_is_done(const timer* tm)
   return __timer_get_currtime() >= tm->end;
 }
 
-static inline float
+static inline flt_t
 timer_time_since_start(const timer* tm)
 {
   return (__timer_get_currtime() - tm->start);
 }
 
-static inline float
+static inline flt_t
 timer_time_since_done(const timer* tm)
 {
   return (__timer_get_currtime() - tm->end);

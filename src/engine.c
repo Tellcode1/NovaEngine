@@ -15,9 +15,9 @@
 
 u8     nv_current_frame   = 0;
 u64    nv_last_frame_time = 0; // div by SDL_GetPerformanceCounterFrequency to get actual time.
-double nv_time            = 0.0;
+real_t nv_time            = 0.0;
 
-double nv_delta_time = 0.0;
+real_t nv_delta_time = 0.0;
 
 u64 nv_frame_start_time       = 0;
 u64 nv_fixed_frame_start_time = 0;
@@ -64,11 +64,11 @@ nv_consume_event(const SDL_Event* event)
 void
 nv_update()
 {
-  nv_time = (double)SDL_GetTicks64() * (1.0 / 1000.0);
+  nv_time = (real_t)SDL_GetTicks64() * (1.0 / 1000.0);
 
   nv_last_frame_time = sdl_time;
   sdl_time           = SDL_GetPerformanceCounter();
-  nv_delta_time      = (sdl_time - nv_last_frame_time) / (double)SDL_GetPerformanceFrequency();
+  nv_delta_time      = (sdl_time - nv_last_frame_time) / (real_t)SDL_GetPerformanceFrequency();
 }
 
 // nv
@@ -347,8 +347,8 @@ typedef struct ray_cast_context
   bool                 has_hit;
 } ray_cast_context;
 
-float
-cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+flt_t
+cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, flt_t fraction, void* context)
 {
   (void)point;
   (void)normal;
@@ -400,7 +400,7 @@ void
 nv_scene_update()
 {
   const int   substeps = 4;
-  const float timeStep = 1.0 / 60.0;
+  const flt_t timeStep = 1.0 / 60.0;
 
   b2World_Step(scene_main->world, timeStep, substeps);
 
@@ -416,7 +416,7 @@ nv_scene_update()
     objects[i].col->position      = BVEC2_TO_VEC2(pos);
   }
 
-  const float dt = nv_get_delta_time();
+  const flt_t dt = nv_get_delta_time();
   for (int i = 0; i < (int)scene_main->objects.m_size; i++)
   {
     if (objects[i].update_fn) { objects[i].update_fn(dt); }
@@ -590,7 +590,7 @@ nvui_render(nv_renderer_t* rd)
     nv_renderer_render_quad(
         rd, slider->bg_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x, t->position.y, 0.0f }, (vec3f){ t->size.x, t->size.y, 1.0f }, slider->bg_color, 0);
 
-    float pcent = ((slider->value - slider->min) / (slider->max - slider->min));
+    flt_t pcent = ((slider->value - slider->min) / (slider->max - slider->min));
     pcent       = NVM_CLAMP(pcent, 0.0f, 1.0f);
 
     nv_renderer_render_quad(
@@ -642,9 +642,9 @@ nvui_update()
     {
       if (nv_input_is_mouse_signalled(NOVA_MOUSE_BUTTON_LEFT))
       {
-        float rel_mx     = mouse_position.x - (t->position.x - t->size.x * 0.5f);
-        float clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->size.x);
-        float percentage = clamped_mx / t->size.x;
+        flt_t rel_mx     = mouse_position.x - (t->position.x - t->size.x * 0.5f);
+        flt_t clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->size.x);
+        flt_t percentage = clamped_mx / t->size.x;
         slider->value    = slider->min + (percentage * (slider->max - slider->min));
         slider->moved    = 1;
       }
@@ -787,12 +787,12 @@ nv_input_update()
   g_nv_input_last_frame_mouse_state = g_nv_input_mouse_state;
   g_nv_input_mouse_state            = SDL_GetMouseState(&mx, &my);
 
-  const float width  = nv_get_window_size().width;
-  const float height = nv_get_window_size().height;
+  const flt_t width  = nv_get_window_size().width;
+  const flt_t height = nv_get_window_size().height;
 
   g_nv_input_last_frame_mouse_position = g_nv_input_mouse_position;
-  g_nv_input_mouse_position.x          = ((float)mx / width) * 2.0f - 1.0f;
-  g_nv_input_mouse_position.y          = ((float)my / height) * 2.0f - 1.0f;
+  g_nv_input_mouse_position.x          = ((flt_t)mx / width) * 2.0f - 1.0f;
+  g_nv_input_mouse_position.y          = ((flt_t)my / height) * 2.0f - 1.0f;
   g_nv_input_mouse_position.y *= -1.0f;
 
   const u8* const sdl_kb_state = SDL_GetKeyboardState(NULL);

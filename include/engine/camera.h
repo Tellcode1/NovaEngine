@@ -51,12 +51,12 @@ struct nv_camera_t
   vec3  front;
   vec3  up;
   vec3  right;
-  float yaw;
-  float pitch;
+  flt_t yaw;
+  flt_t pitch;
 
-  float fov;
-  float near_clip;
-  float far_clip;
+  flt_t fov;
+  flt_t near_clip;
+  flt_t far_clip;
 
   nv_gpu_buffer_t           ub;
   nv_gpu_memory_t*          mem;
@@ -74,7 +74,7 @@ extern mat4 nv_camera_get_projection(nv_camera_t* cam);
 extern mat4 nv_camera_get_view(nv_camera_t* cam);
 extern vec3 nv_camera_get_up_vector(nv_camera_t* cam);
 extern vec3 nv_camera_get_front_vector(nv_camera_t* cam);
-extern void nv_camera_rotate(nv_camera_t* cam, float yaw_, float pitch_);
+extern void nv_camera_rotate(nv_camera_t* cam, flt_t yaw_, flt_t pitch_);
 extern void nv_camera_move(nv_camera_t* cam, const vec3 amt);
 extern void nv_camera_set_position(nv_camera_t* cam, const vec3 pos);
 extern void nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd);

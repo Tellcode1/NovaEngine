@@ -46,8 +46,8 @@ typedef struct nv_gpu_sampler_create_info
   /* VkFilter */ uint32_t             filter;
   /* VkSamplerMipmapMode */ uint32_t  mipmap_mode;
   /* VkSamplerAddressMode */ uint32_t address_mode;
-  float                               max_anisotropy;
-  float                               mip_lod_bias, min_lod, max_lod;
+  flt_t                               max_anisotropy;
+  flt_t                               mip_lod_bias, min_lod, max_lod;
 } nv_gpu_sampler_create_info;
 
 extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, int* w, int* h);
