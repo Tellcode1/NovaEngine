@@ -1,31 +1,58 @@
-A C Vulkan based game engine. Primarily written in C99.
-Freetype, SDL and Vulkan are the only dependancies (uses git submodule).
+# NovaEngine
+
+A Vulkan-based game engine primarily written in **C99**.  
+**Dependencies**: FreeType, SDL, and Vulkan (managed via Git submodules).
 
 ## Installation
-1. clone project repo:
+
+1. Clone the project repository:  
    ```bash
    git clone https://github.com/Tellcode1/NovaEngine.git
+   ```
 
-2. move to project source and install submodules:
-  ```bash
-  cd NovaEngine ; git submodule update --init --recursive
-3. make build directory and build example:
-  ```bash
-  mkdir build; cd build; cmake .. -DNOVA_BUILD_EXAMPLE=1 ; make -j
-4. run example:
-  ```bash
-  ./nova_example
+2. Navigate to the project directory and initialize submodules:  
+   ```bash
+   cd NovaEngine
+   git submodule update --init --recursive
+   ```
 
-The project builds a static library (Nova) that you can link with.
-Nova provides both a Makefile and a CMakeFile in the repository.
+3. Create a build directory and build the example:  
+   ```bash
+   mkdir build
+   cd build
+   cmake .. -DNOVA_BUILD_EXAMPLE=1
+   make -j
+   ```
 
-When using CMake, add the project as subdirectory:
-  ```bash
-  add_subdirectory(${CMAKE_SOURCE_DIR}/NovaEngine)
-And then, link statically:
-  ```bash
-  target_link_libraries({PROJECT NAME} Nova)
+4. Run the example:  
+   ```bash
+   ./nova_example
+   ```
 
-When using make, Just make the project and statically link with it:
-  ```bash
-  cc your_project.o -l Nova
+---
+
+## Usage
+
+NovaEngine builds a static library (`Nova`) that can be linked with your project.  
+
+### Using CMake  
+1. Add NovaEngine as a subdirectory in your `CMakeLists.txt`:  
+   ```cmake
+   add_subdirectory(${CMAKE_SOURCE_DIR}/NovaEngine)
+   ```
+
+2. Link the library statically:  
+   ```cmake
+   target_link_libraries(${PROJECT_NAME} Nova)
+   ```
+
+### Using Make  
+1. Build NovaEngine:  
+   ```bash
+   make
+   ```
+
+2. Link statically with your project:  
+   ```bash
+   cc your_project.o -lNova
+   ```

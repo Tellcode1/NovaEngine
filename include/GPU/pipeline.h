@@ -47,12 +47,13 @@ _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const cha
   if (result == VK_SUCCESS) return;
 
   struct tm* time = _nv_get_time();
+
+  const char* errstr = "err";
+  if (result >= 0) { errstr = "warn"; }
+
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors
-  if (result < 0)
-    nv_printf("[%d:%d:%d] vkerr: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FUNC, nvvk_vk_result_to_string(result));
-  else
-    nv_printf("[%d:%d:%d] vkwarn: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FUNC, nvvk_vk_result_to_string(result));
+  nv_printf("[%d:%d:%d] [%s:%li] vk%s: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FILE, LINE, errstr, FUNC, nvvk_vk_result_to_string(result));
 }
 
 /*

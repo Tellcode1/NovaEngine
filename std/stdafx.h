@@ -3,6 +3,7 @@
 
 // implementation: core.c
 
+#include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -52,6 +53,14 @@ NOVA_HEADER_START;
 #    define NV_ALIGN_TO(N) __declspec(align(N))
 #  else
 #    error "no align"
+#  endif
+#endif
+
+#ifndef NV_USED
+#  if defined(__GNUC__) || defined(__clang__)
+#    define NV_USED __attribute__((__used__))
+#  else
+#    define NV_USED
 #  endif
 #endif
 
@@ -158,6 +167,9 @@ _nv_get_time()
 
   return tm;
 }
+
+#define nv_safecall_c_fn(fn)                                                                                                                                                  \
+  if ((fn) != 0) { nv_log_error("%s() => %i", #fn, errno); }
 
 typedef uint64_t u64;
 typedef uint32_t u32;

@@ -24,16 +24,16 @@ AllowShortBlocksOnASingleLine: Always
 AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true
-BreakBeforeTernaryOperators: True
-BinPackArguments: False
-BinPackParameters: False
+BreakBeforeTernaryOperators: true
+BinPackArguments: false
+BinPackParameters: false
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Allman
 BraceWrapping:
-  AfterStruct: True
-  AfterUnion: True
-  BeforeElse: True
-  BeforeCatch: True
-  BeforeLambdaBody: True
-  AfterEnum: True
+  AfterStruct: true
+  AfterUnion: true
+  BeforeElse: true
+  BeforeCatch: true
+  BeforeLambdaBody: true
+  AfterEnum: true
 BreakConstructorInitializers: BeforeComma

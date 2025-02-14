@@ -1146,7 +1146,7 @@ setify(u32 i1, u32 i2, u32 i3, u32 i4)
   nv_dynarray_t ret;
   nv_dynarray_init(sizeof(u32), 4, &nv_allocator_default, &ret);
   u32 nums[4] = { i1, i2, i3, i4 };
-  for (int j = 0; j < nv_arrlen(nums); j++)
+  for (int j = 0; j < (int)nv_arrlen(nums); j++)
   {
     const u32 e          = nums[j];
     bool      already_in = false;
@@ -1200,7 +1200,7 @@ nvvk_create_instance(const char* title)
   const char** enabled_exts =
       ac.alloc(&ac, 1, sizeof(const char*) * (nv_arrlen(RequiredInstanceExtensions) + SDLExtensionCount + extensionCount + nv_arrlen(WantedInstanceExtensions)));
 
-  for (int i = 0; i < nv_arrlen(RequiredInstanceExtensions); i++)
+  for (int i = 0; i < (int)nv_arrlen(RequiredInstanceExtensions); i++)
   {
     const char* ext                  = RequiredInstanceExtensions[i];
     enabled_exts[enabled_exts_count] = ext;
@@ -1217,7 +1217,7 @@ nvvk_create_instance(const char* title)
   for (u32 i = 0; i < extensionCount; i++)
   {
     const char* name = ((VkExtensionProperties*)nv_dynarray_data(&extensions))[i].extensionName;
-    for (int j = 0; j < nv_arrlen(WantedInstanceExtensions); j++)
+    for (int j = 0; j < (int)nv_arrlen(WantedInstanceExtensions); j++)
     {
       const char* want = WantedInstanceExtensions[j];
       if (nv_strcmp(name, want) == 0)
@@ -1247,7 +1247,7 @@ nvvk_create_instance(const char* title)
 
   if (nv_arrlen(ValidationLayers) != 0)
   {
-    for (int j = 0; j < nv_arrlen(ValidationLayers); j++)
+    for (int j = 0; j < (int)nv_arrlen(ValidationLayers); j++)
     {
       for (uint32_t i = 0; i < layerCount; i++)
       {
@@ -1258,7 +1258,7 @@ nvvk_create_instance(const char* title)
     if (!validationLayersAvailable)
     {
       nv_log_error("Failed to initialize validation layers\nRequested layers:");
-      for (int i = 0; i < nv_arrlen(ValidationLayers); i++)
+      for (int i = 0; i < (int)nv_arrlen(ValidationLayers); i++)
       {
         nv_log_error("\t%s", ValidationLayers[i]);
       }
@@ -1272,7 +1272,7 @@ nvvk_create_instance(const char* title)
       nv_dynarray_t missingLayers;
       nv_dynarray_init(sizeof(const char*), 16, &ac, &missingLayers);
 
-      for (int i = 0; i < nv_arrlen(ValidationLayers); i++)
+      for (int i = 0; i < (int)nv_arrlen(ValidationLayers); i++)
       {
         const char* layer          = ValidationLayers[i];
         bool        layerAvailable = false;
@@ -1425,7 +1425,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
     nv_dynarray_init(sizeof(VkExtensionProperties), extension_count, &nv_allocator_default, &available_extensions);
     nvvk_result_check(vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, (VkExtensionProperties*)nv_dynarray_data(&available_extensions)));
 
-    for (int i = 0; i < nv_arrlen(RequiredDeviceExtensions); i++)
+    for (int i = 0; i < (int)nv_arrlen(RequiredDeviceExtensions); i++)
     {
       const char* extension = RequiredDeviceExtensions[i];
       bool        validated = false;
@@ -1474,7 +1474,7 @@ nvvk_validate_extensions(nv_dynarray_t* available_extensions)
   nv_dynarray_init(sizeof(VkExtensionProperties), extension_count, &nv_allocator_default, &extensions);
   vkEnumerateDeviceExtensionProperties(phys_device, NULL, &extension_count, (VkExtensionProperties*)nv_dynarray_data(&extensions));
 
-  for (int i = 0; i < nv_arrlen(WantedDeviceExtensions); i++)
+  for (int i = 0; i < (int)nv_arrlen(WantedDeviceExtensions); i++)
   {
     const char* wanted = WantedDeviceExtensions[i];
     for (u32 i = 0; i < extension_count; i++)
@@ -1488,7 +1488,7 @@ nvvk_validate_extensions(nv_dynarray_t* available_extensions)
     }
   }
 
-  for (int i = 0; i < nv_arrlen(RequiredDeviceExtensions); i++)
+  for (int i = 0; i < (int)nv_arrlen(RequiredDeviceExtensions); i++)
   {
     const char* required  = RequiredDeviceExtensions[i];
     bool        validated = false;
@@ -1601,7 +1601,7 @@ nvvk_create_device()
 
   nvvk_result_check(vkCreateDevice(phys_device, &deviceCreateInfo, NOVA_VK_ALLOCATOR, &device));
 
-  for (int i = 0; i < nv_dynarray_size(&enabled_extensions); i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&enabled_extensions); i++)
   {
     const char* ext_name_allocated = *(const char**)nv_dynarray_get(&enabled_extensions, i);
     nv_free((void*)ext_name_allocated);
@@ -1613,7 +1613,7 @@ nvvk_create_device()
 }
 
 void
-_nvvk_initialize_context(const char* title, u32 windowWidth, u32 windowHeight)
+_nvvk_initialize_context(const char* title)
 {
   instance = nvvk_create_instance(title);
   nv_assert(instance != NULL);
@@ -1824,9 +1824,9 @@ ctext_destroy_font(cfont_t* fnt)
 }
 
 bool
-_ctext_font_resize_buffer(cfont_t* fnt, int new_buffer_size)
+_ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
 {
-  int new_allocation_size;
+  size_t new_allocation_size;
 
   if (fnt->allocated_size < new_buffer_size) { new_allocation_size = NVM_MAX(fnt->allocated_size * 2, new_buffer_size); }
   else if (new_buffer_size < (fnt->allocated_size / 3)) { new_allocation_size = NVM_MAX(fnt->allocated_size / 3, new_buffer_size); }
@@ -2083,7 +2083,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
       nv_log_error("Invalid vertical alignment. Specified (int)%u. (Implement?)", pInfo->vertical);
       break;
   }
-  for (int i = 0; i < lines.m_size; i++)
+  for (size_t i = 0; i < lines.m_size; i++)
   {
     // render_line returns the number of chars DRAWN. not the number of
     // characters in the string.
@@ -2117,7 +2117,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
         (ypos + ((flt_t)i * fnt->line_height * scale)));
   }
 
-  for (int i = 0; i < lines.m_size; i++)
+  for (size_t i = 0; i < lines.m_size; i++)
   {
     char* line = ((char**)nv_dynarray_data(&lines))[i];
     nv_free(line);
@@ -2766,7 +2766,7 @@ nv_vk_destroy_global_pipelines()
     g_Pipelines.Ctext,
     g_Pipelines.Line,
   };
-  for (int i = 0; i < nv_arrlen(pipelines); i++)
+  for (int i = 0; i < (int)nv_arrlen(pipelines); i++)
   {
     nv_vk_destroy_pipeline(&pipelines[i]);
   }

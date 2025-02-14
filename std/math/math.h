@@ -13,8 +13,8 @@ static const real_t NVM_RAD2DEG_CONSTANT = 57.29577951308232;    // 1.0 / DEG2RA
 
 #define NVM_LERP(a, b, t) (a + ((b - a) * t))
 
-#define NVM_MAX(a, b) ((a) > (b) ? (a) : (b))
-#define NVM_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define NVM_MAX(a, b) ((a) > ((NV_TYPEOF(a))(b)) ? (a) : ((NV_TYPEOF(a))(b)))
+#define NVM_MIN(a, b) ((a) < ((NV_TYPEOF(a))(b)) ? (a) : ((NV_TYPEOF(a))(b)))
 
 #define NVM_CLAMP(x, min, max) (((x) < (min)) ? (min) : (((x) > (max)) ? (max) : (x)))
 #define NVM_CLAMP01(x) NVM_CLAMP((x), 0, 1)

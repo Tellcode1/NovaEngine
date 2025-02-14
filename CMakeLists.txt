@@ -26,7 +26,8 @@ set(SOURCES
     src/core.c
     src/engine.c
     src/vk.c
-    src/preprocessors.c
+    src/nvsm.c
+    src/fontc.c
 )
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/box2d)
@@ -46,13 +47,13 @@ add_library(core STATIC src/core.c)
 target_compile_options(core PRIVATE -g)
 target_link_libraries(core jpeg png z OpenMP::OpenMP_C)
 
-add_executable(shadermanager src/preprocessors.c)
-target_compile_definitions(shadermanager PRIVATE NVSM=1 NVSM_EXECUTABLE=1)
+add_executable(shadermanager src/nvsm.c)
+target_compile_definitions(shadermanager PRIVATE NVSM_EXECUTABLE=1)
 target_link_libraries(shadermanager m core)
 target_compile_options(shadermanager PRIVATE --fast-math)
 
-add_executable(fontc src/preprocessors.c)
-target_compile_definitions(fontc PRIVATE FONTC=1 FONTC_EXECUTABLE=1)
+add_executable(fontc src/fontc.c)
+target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
 target_link_libraries(fontc freetype m core)
 target_compile_options(fontc PRIVATE -g)
 
@@ -66,9 +67,9 @@ set(LIBS
 )
 
 target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/std/stdafx.h)
-target_link_options(Nova PRIVATE -g)
-target_compile_options(Nova PRIVATE -g)
-target_compile_definitions(Nova PRIVATE NVSM=1 FONTC=1 FONTC_EXECUTABLE=0 NVSM_EXECUTABLE=0) # avoid making multiple main's 
+target_link_options(Nova PRIVATE -g -Wall -Wextra)
+target_compile_options(Nova PRIVATE -g -Wall -Wextra)
+target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 
 if (NOVA_BUILD_EXAMPLE)

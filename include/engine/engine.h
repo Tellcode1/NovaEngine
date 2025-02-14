@@ -71,7 +71,7 @@ nv_get_time()
 }
 
 extern void nv_initialize_context(const char* window_title, int window_width, int window_height);
-extern void _nvvk_initialize_context(const char* window_title, u32 window_width, u32 window_height);
+extern void _nvvk_initialize_context(const char* window_title);
 
 static const u32    NV_FIXED_FRAME_RATE = 60;
 static const real_t NV_FIXED_TICK_RATE  = 1000.0 / (real_t)NV_FIXED_FRAME_RATE; // 1000 milliseconds

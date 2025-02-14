@@ -44,7 +44,7 @@ nv_initialize_context(const char* window_title, int window_width, int window_hei
 
   nv_log_info("Created window (name=%s w=%i h=%i flags=%#x)", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
-  _nvvk_initialize_context(window_title, window_width, window_height);
+  _nvvk_initialize_context(window_title);
 
   // This fixes really large values of delta time for the first frame.
   sdl_time = SDL_GetPerformanceCounter();
