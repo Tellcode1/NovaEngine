@@ -3,9 +3,9 @@
 
 // implementation: vk.c
 
+#include "../../std/async.h"
 #include "object.h"
 #include "scene.h"
-#include "../../std/async.h"
 
 #include "../../std/math/mat.h"
 #include "../../std/math/vec2.h"
@@ -52,7 +52,8 @@ typedef enum ctext_vert_align
 // Since the hash is to be used for individual characters, we can expect
 // that there will only be one entry for each character.
 static inline unsigned
-ctext_hash(const void* key, int nbytes) {
+ctext_hash(const void* key, int nbytes)
+{
   (void)nbytes;
   return *(char*)key;
 }
@@ -133,7 +134,8 @@ struct cfont_t
 };
 
 static inline ctext_text_render_info_t
-ctext_init_text_render_info() {
+ctext_init_text_render_info()
+{
   return (ctext_text_render_info_t){ .model         = m4finit(1.0f),
                                      .horizontal    = CTEXT_HORI_ALIGN_CENTER,
                                      .vertical      = CTEXT_VERT_ALIGN_CENTER,

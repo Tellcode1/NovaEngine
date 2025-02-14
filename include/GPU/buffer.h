@@ -24,6 +24,8 @@ typedef enum nv_gpu_buffer_type
 typedef struct nv_gpu_buffer_t
 {
   struct VkBuffer_T* buffer;
+  void*              mapping; // For nv_gpu_write_to_buffer()
+  bool               is_mapped;
   // The size of the buffer
   // Even if there are multiple children, this gives only the size of ONE buffer
   size_t             size, offset;
@@ -32,12 +34,18 @@ typedef struct nv_gpu_buffer_t
   nv_gpu_buffer_type type;
 } nv_gpu_buffer_t;
 
-// Note: 'nchilds' count of buffers of size 'size' will be created.
-// The size will NOT be divided among the children.
 extern void nv_gpu_create_buffer(size_t size, int alignment, uint32_t usage, nv_gpu_buffer_t* dst);
 extern void nv_gpu_destroy_buffer(nv_gpu_buffer_t* buffer);
 
-extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, size_t offset);
+// Open the buffer for writing.
+// Writing must still be done through the nv_gpu_write_to_buffer() function
+// However, mapped writes will be much faster as nv_gpu_write_to_buffer() will map the buffer memory multiple times
+// When only once to write is needed
+extern void nv_gpu_map_buffer(nv_gpu_buffer_t* buffer);
+
+extern void nv_gpu_unmap_buffer(nv_gpu_buffer_t* buffer);
+
+extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* data, size_t offset);
 
 // Note: Memory must be able to hold all the buffers!
 // You can get the size of the memory by just looking up the size of one buffer

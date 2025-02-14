@@ -48,8 +48,16 @@ extern void nv_vk_create_texture_empty(
     u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, int* image_size, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern void nv_vk_transition_texture_layout(
-    VkCommandBuffer cmd, VkImage image, u32 mipLevels, VkImageAspectFlagBits aspect, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask,
-    VkAccessFlags dstAccessMask, VkPipelineStageFlags sourceStage, VkPipelineStageFlags destinationStage);
+    VkCommandBuffer       cmd,
+    VkImage               image,
+    u32                   mipLevels,
+    VkImageAspectFlagBits aspect,
+    VkImageLayout         oldLayout,
+    VkImageLayout         newLayout,
+    VkAccessFlags         srcAccessMask,
+    VkAccessFlags         dstAccessMask,
+    VkPipelineStageFlags  sourceStage,
+    VkPipelineStageFlags  destinationStage);
 
 extern nv_format nv_vk_get_supported_format_for_draw(nv_format fmt);
 

@@ -42,8 +42,11 @@ const char* list                 = "../compilelist.txt";
 
 #define NVSM_HAS_FLAG(flag) (nv_strcmp(argv[i], flag) == 0)
 
+#if defined(NVSM)
+
 static inline void
-_nvsm_log_error(const char* fn, const char* fmt, ...) {
+_nvsm_log_error(const char* fn, const char* fmt, ...)
+{
   const char* preceder  = " nvsm error: ";
   const char* succeeder = "\n";
   va_list     args;
@@ -52,9 +55,7 @@ _nvsm_log_error(const char* fn, const char* fmt, ...) {
   va_end(args);
 }
 
-#define nvsm_log_error(err, ...) _nvsm_log_error(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
-
-#if defined(NVSM)
+#  define nvsm_log_error(err, ...) _nvsm_log_error(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
 
 #  include "../std/print.h"
 #  include "../std/props.h"
@@ -74,7 +75,8 @@ compile-force: forcefully compile all shaders in list file,\n\
 \n"
 
 int
-main(int argc, char* argv[]) {
+main(int argc, char* argv[])
+{
   char buf[256] = "../compilelist.txt";
   char cmd[256] = "compile";
 
@@ -88,13 +90,15 @@ main(int argc, char* argv[]) {
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1) {
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
+  {
     nvsm_log_error("PROPS error: %s", error);
     nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);
   }
 
-  if (help) {
+  if (help)
+  {
     nv_printf("usage: %s <compile list path = \"../compilelist.txt\"> <cmd = compile>\n" CMD_HELP_MSG, argv[0]);
     return 0;
   }
@@ -114,14 +118,16 @@ main(int argc, char* argv[]) {
 #  else
 
 int
-compare_shader_t(const void* a, const void* b) {
+compare_shader_t(const void* a, const void* b)
+{
   const struct nvsm_shader_t* shader1 = (const struct nvsm_shader_t*)a;
   const struct nvsm_shader_t* shader2 = (const struct nvsm_shader_t*)b;
   return nv_strncmp(shader1->name, shader2->name, 128);
 }
 
 void
-nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** dst) {
+nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** dst)
+{
   struct nvsm_shader_t* new_map = nv_malloc((nshaders + 1) * sizeof(struct nvsm_shader_t));
   if (nshaders > 0) { nv_memcpy(new_map, shader_map, nshaders * sizeof(struct nvsm_shader_t)); }
   if (shader_map != NULL) nv_free(shader_map);
@@ -140,7 +146,8 @@ nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** d
 }
 
 struct nvsm_shader_t*
-find_shader(const char* name) {
+find_shader(const char* name)
+{
   struct nvsm_shader_t shader = {};
 
   nv_strncpy(shader.name, name, sizeof(shader.name) - 1);
@@ -150,12 +157,14 @@ find_shader(const char* name) {
 }
 
 bool
-does_shader_exist(const char* name) {
+does_shader_exist(const char* name)
+{
   return find_shader(name) != NULL;
 }
 
 int
-nvsm_load_shader(const char* name, struct nvsm_shader_t** out) {
+nvsm_load_shader(const char* name, struct nvsm_shader_t** out)
+{
   if (name == NULL || nv_strlen(name) == 0) { return -1; }
 
   struct nvsm_shader_t shader = {};
@@ -166,7 +175,8 @@ nvsm_load_shader(const char* name, struct nvsm_shader_t** out) {
   struct nvsm_shader_t* shaderptr = (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
 
   if (shaderptr) { *out = shaderptr; }
-  else {
+  else
+  {
     // should we check out is NULL before setting it or not
     *out = NULL;
     return -1;
@@ -176,7 +186,8 @@ nvsm_load_shader(const char* name, struct nvsm_shader_t** out) {
 }
 
 int
-nvsm_load_shader_from_disk(const char* path, nvsm_shader_t** out) {
+nvsm_load_shader_from_disk(const char* path, nvsm_shader_t** out)
+{
   (void)path;
   (void)out;
   // nvsm_shader_entry_t entry = {0};
@@ -198,9 +209,11 @@ nvsm_load_shader_from_disk(const char* path, nvsm_shader_t** out) {
 }
 
 int
-read_shader_spirv(const char* output, unsigned** spirv, int* spirvsize) {
+read_shader_spirv(const char* output, unsigned** spirv, int* spirvsize)
+{
   FILE* f = fopen(output, "rb");
-  if (f == NULL) {
+  if (f == NULL)
+  {
     nv_log_error("%s : %s", output, strerror(errno));
     goto err;
   }
@@ -225,7 +238,8 @@ read_shader_spirv(const char* output, unsigned** spirv, int* spirvsize) {
 
 err:
   nvsm_log_error("Could not read in spirv for output path \"%s\"", output);
-  if (f) {
+  if (f)
+  {
     fclose(f);
     *spirv     = NULL;
     *spirvsize = 0;
@@ -237,7 +251,8 @@ err:
 #    include "../include/GPU/pipeline.h"
 
 void
-_nvsm_create_shader(VkDevice vkdevice, const unsigned* bytes, int nbytes, struct nvsm_shader_t* out) {
+_nvsm_create_shader(VkDevice vkdevice, const unsigned* bytes, int nbytes, struct nvsm_shader_t* out)
+{
   // SpvReflectShaderModule reflect_module;
   // spvReflectCreateShaderModule(nbytes, bytes, &reflect_module);
 
@@ -256,23 +271,27 @@ _nvsm_create_shader(VkDevice vkdevice, const unsigned* bytes, int nbytes, struct
 }
 
 void
-nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries, int nentries) {
+nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries, int nentries)
+{
   struct nvsm_shader_t* new_shader_map = nv_malloc((nshaders + nentries) * sizeof(struct nvsm_shader_t));
-  if (shader_map) {
+  if (shader_map)
+  {
     nv_memcpy(new_shader_map, shader_map, nshaders * sizeof(struct nvsm_shader_t));
     nv_free(shader_map);
   }
   shader_map = new_shader_map;
 
   int index = 0;
-  for (int i = 0; i < nentries; i++) {
+  for (int i = 0; i < nentries; i++)
+  {
     if (nv_strncmp(entries[i].stage, "vert", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_VERTEX_BIT; }
     else if (nv_strncmp(entries[i].stage, "frag", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_FRAGMENT_BIT; }
     else if (nv_strncmp(entries[i].stage, "tese", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT; }
     else if (nv_strncmp(entries[i].stage, "tesc", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT; }
     else if (nv_strncmp(entries[i].stage, "geom", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_GEOMETRY_BIT; }
     else if (nv_strncmp(entries[i].stage, "comp", 4) == 0) { shader_map[nshaders + index].stage = VK_SHADER_STAGE_COMPUTE_BIT; }
-    else {
+    else
+    {
       nvsm_log_error("Invalid stage for shader \"%s\". It will not be added.", entries[i].name);
       continue;
     }
@@ -281,7 +300,8 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
 
     unsigned* spirv;
     int       spirvsize = 0;
-    if (read_shader_spirv((const char*)entries[i].output_path, &spirv, &spirvsize) != 0) {
+    if (read_shader_spirv((const char*)entries[i].output_path, &spirv, &spirvsize) != 0)
+    {
       nv_free(spirv);
       continue;
     }
@@ -295,29 +315,35 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
 #  endif // NVSM_EXECUTABLE != 1
 
 void
-nvsm_set_list_file(const char* path) {
+nvsm_set_list_file(const char* path)
+{
   list = path;
 }
 
 void
-nvsm_set_shader_compiler(const char* exec) {
+nvsm_set_shader_compiler(const char* exec)
+{
   shader_compiler = exec;
 }
 
 void
-nvsm_set_shader_compiler_args(const char* args) {
+nvsm_set_shader_compiler_args(const char* args)
+{
   shader_compiler_args = args;
 }
 
 char const*
-nvsm_get_shader_compiler_args(void) {
+nvsm_get_shader_compiler_args(void)
+{
   return shader_compiler_args;
 }
 
 nvsm_shader_cache_entry_t*
-load_cache(int* count) {
+load_cache(int* count)
+{
   FILE* f = fopen("shaders.cache", "rb");
-  if (f == NULL) {
+  if (f == NULL)
+  {
     *count = 0;
     return NULL; // safe to return. nvsm will gracefully handle this.
   }
@@ -327,7 +353,8 @@ load_cache(int* count) {
   nv_assert(fread(write, sizeof(nvsm_shader_disk_t), *count, f) == (size_t)(*count));
 
   nvsm_shader_cache_entry_t* entries = nv_calloc(*count * sizeof(nvsm_shader_cache_entry_t));
-  for (int i = 0; i < (*count); i++) {
+  for (int i = 0; i < (*count); i++)
+  {
     nv_strncpy(entries[i].name, write[i].name, 128);
     nv_strncpy(entries[i].path, write[i].path, 128);
     entries[i].last_modified = write[i].last_modified;
@@ -340,16 +367,19 @@ load_cache(int* count) {
 }
 
 void
-update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count) {
+update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count)
+{
   FILE* f = fopen("shaders.cache", "wb");
-  if (!f) {
+  if (!f)
+  {
     nvsm_log_error("Could not open cache file for update due to %s", strerror(errno));
     return;
   }
 
   nvsm_shader_disk_t* write = nv_malloc(sizeof(nvsm_shader_disk_t) * count);
 
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++)
+  {
     nv_strncpy(write[i].name, entries[i].name, 128);
     nv_strncpy(write[i].path, entries[i].path, 128);
     write[i].last_modified = entries[i].last_modified;
@@ -364,13 +394,15 @@ update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count) {
 }
 
 void
-write_new_cache(const nvsm_shader_entry_t* restrict entries, int count) {
+write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
+{
   FILE* f = fopen("shaders.cache", "wb");
   nv_assert(f != NULL); // writing
 
   nvsm_shader_disk_t* write = nv_malloc(sizeof(nvsm_shader_disk_t) * count);
 
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++)
+  {
     nv_strncpy(write[i].name, entries[i].name, 128);
     nv_strncpy(write[i].path, entries[i].path, 128);
     write[i].last_modified = entries[i].last_modified;
@@ -385,9 +417,11 @@ write_new_cache(const nvsm_shader_entry_t* restrict entries, int count) {
 }
 
 void
-create_parent_dirs(const char path[256]) {
+create_parent_dirs(const char path[256])
+{
   char* last_separator = nv_strrchr(path, PATH_SEP);
-  if (last_separator != NULL) {
+  if (last_separator != NULL)
+  {
     *last_separator = '\0';
 
     char buffer[256];
@@ -397,8 +431,10 @@ create_parent_dirs(const char path[256]) {
 
     if (buffer[len - 1] == PATH_SEP) { buffer[len - 1] = 0; }
 
-    for (char* p = buffer + 1; *p; p++) {
-      if (*p == PATH_SEP) {
+    for (char* p = buffer + 1; *p; p++)
+    {
+      if (*p == PATH_SEP)
+      {
         *p = 0;
         MKDIR(buffer);
         *p = PATH_SEP;
@@ -410,7 +446,8 @@ create_parent_dirs(const char path[256]) {
 }
 
 time_t
-get_mtime(const char* fpath) {
+get_mtime(const char* fpath)
+{
   struct stat file_stats;
   if (stat(fpath, &file_stats) == 0) { return file_stats.st_mtime; }
   else { nvsm_log_error("stat error: %s", strerror(errno)); }
@@ -418,9 +455,11 @@ get_mtime(const char* fpath) {
 }
 
 nvsm_shader_entry_t*
-load_all_entries(const char* shader_list_file_path, int* count) {
+load_all_entries(const char* shader_list_file_path, int* count)
+{
   FILE* f = fopen(shader_list_file_path, "r");
-  if (f == NULL) {
+  if (f == NULL)
+  {
     nvsm_log_error("Could not open list file for reading: %s", strerror(errno));
     return NULL;
   }
@@ -430,13 +469,15 @@ load_all_entries(const char* shader_list_file_path, int* count) {
   nv_assert(entries != NULL);
 
   char line[256];
-  for (int i = 0;; i++) {
+  for (int i = 0;; i++)
+  {
     if (!fgets(line, 256, f)) { break; }
     else if (nv_strlen(line) == 1)
       continue; // line only contains \n
     line[nv_strcspn(line, "\n")] = 0;
 
-    if (i >= currallocsize) {
+    if (i >= currallocsize)
+    {
       currallocsize *= 2;
       entries = realloc(entries, currallocsize * sizeof(nvsm_shader_entry_t));
       nv_assert(entries != NULL);
@@ -449,7 +490,8 @@ load_all_entries(const char* shader_list_file_path, int* count) {
 
     // to get stage + verify that it exists
     FILE* shader_file = fopen(entry->path, "r");
-    if (shader_file == NULL) {
+    if (shader_file == NULL)
+    {
       nvsm_log_error("Could not open shader file \"%s\": %s", entry->path, strerror(errno));
       continue;
     }
@@ -457,9 +499,13 @@ load_all_entries(const char* shader_list_file_path, int* count) {
     nv_assert(fgets(line, 256, shader_file) != NULL);
 
     const char* li = line;
-    while (*li == ' ') { li++; }
+    while (*li == ' ')
+    {
+      li++;
+    }
     if (nv_strncmp(li, "//", 2) == 0) { sscanf(li, "// output: %s stage: %s name: %s", entry->output_path, entry->stage, entry->name); }
-    else {
+    else
+    {
       nv_strcpy(entry->stage, "000");
       nv_strcpy(entry->output_path, "");
       nvsm_log_error(
@@ -489,7 +535,8 @@ load_all_entries(const char* shader_list_file_path, int* count) {
 
 static char* g_Buffer = NULL;
 int
-compile_shader(const struct nvsm_shader_entry_t* entry) {
+compile_shader(const struct nvsm_shader_entry_t* entry)
+{
   if (!g_Buffer) { g_Buffer = nv_calloc(1024); }
   char copy[256];
   copy[255] = '\0';
@@ -513,12 +560,17 @@ compile_shader(const struct nvsm_shader_entry_t* entry) {
 }
 
 void
-nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_cache_entry_t* cacheentries, int cachecount) {
+nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_cache_entry_t* cacheentries, int cachecount)
+{
   int compiled = 0;
-  for (int i = 0; i < nentries; i++) {
-    for (int j = 0; j < cachecount; j++) {
-      if (nv_strcmp(cacheentries[j].path, entries[i].path) == 0) {
-        if (cacheentries[j].last_modified != entries[i].last_modified) {
+  for (int i = 0; i < nentries; i++)
+  {
+    for (int j = 0; j < cachecount; j++)
+    {
+      if (nv_strcmp(cacheentries[j].path, entries[i].path) == 0)
+      {
+        if (cacheentries[j].last_modified != entries[i].last_modified)
+        {
           if (compile_shader(&entries[i]) != 0) { nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path); }
           else { compiled++; }
           cacheentries[j].last_modified = entries[i].last_modified;
@@ -531,14 +583,17 @@ nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_
 }
 
 void
-nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries) {
-  for (int i = 0; i < nentries; i++) {
+nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries)
+{
+  for (int i = 0; i < nentries; i++)
+  {
     if (compile_shader(&entries[i]) != 0) { nvsm_log_error("Error while compiling shader \"%s\".", entries[i].path); }
   }
 }
 
 void
-nvsm_compile_updated() {
+nvsm_compile_updated()
+{
   nv_log_custom(" nvsm: ", "Shader compilation begin");
   timer stopwatch = timer_begin(0.1);
 
@@ -548,13 +603,15 @@ nvsm_compile_updated() {
   int                        cachecount   = 0;
   nvsm_shader_cache_entry_t* cacheentries = load_cache(&cachecount);
 
-  if (cacheentries == NULL) {
+  if (cacheentries == NULL)
+  {
     nvsm_log_error("Could not open cache for reading. return.");
     nvsm_compile_without_cache(entries, nentries);
   }
   else { nvsm_compile_from_cache(entries, nentries, cacheentries, cachecount); }
 
-  if (cacheentries == NULL) {
+  if (cacheentries == NULL)
+  {
     nvsm_log_error("No cache or modified cache. Writing new cache file...");
     write_new_cache(entries, nentries);
   }
@@ -572,7 +629,8 @@ nvsm_compile_updated() {
 }
 
 void
-nvsm_compile_all() {
+nvsm_compile_all()
+{
   nv_log_custom(" nvsm: ", "Shader compilation begin");
   timer stopwatch = timer_begin(0.1);
 
@@ -583,7 +641,10 @@ nvsm_compile_all() {
   nvsm_register_all_shaders(device, entries, count);
 #  endif // #if NVSM_EXECUTABLE != 1
 
-  for (int i = 0; i < count; i++) { compile_shader(&entries[i]); }
+  for (int i = 0; i < count; i++)
+  {
+    compile_shader(&entries[i]);
+  }
 
   write_new_cache(entries, count);
 
@@ -593,9 +654,11 @@ nvsm_compile_all() {
 }
 
 void
-nvsm_shutdown() {
+nvsm_shutdown()
+{
 #  if !(NVSM_EXECUTABLE)
-  for (int i = 0; i < nshaders; i++) {
+  for (int i = 0; i < nshaders; i++)
+  {
     nvsm_shader_t* shader = &shader_map[i];
     vkDestroyShaderModule(device, shader->shader_module, NOVA_VK_ALLOCATOR);
   }
@@ -614,16 +677,17 @@ nvsm_shutdown() {
 #  include "../std/timer.h"
 
 #  include <errno.h>
+#  include <omp.h>
 #  include <stdio.h>
 #  include <stdlib.h>
-#  include <omp.h>
 
 #  include "../include/engine/fontc.h"
 
 #  if (FONTC_EXECUTABLE)
 
 int
-main(int argc, char* argv[]) {
+main(int argc, char* argv[])
+{
   char input[256]  = "No path given";
   char output[256] = "bakedfont";
 
@@ -644,12 +708,14 @@ main(int argc, char* argv[]) {
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1) {
-    nvsm_log_error("PROPS error: %s", error);
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
+  {
+    nv_log_error("PROPS error: %s", error);
     help = 1;
   }
 
-  if (help) {
+  if (help)
+  {
     nv_props_gen_help(options, nv_arrlen(options), error, sizeof(error));
     nv_printf("%s", error);
     return 0;
@@ -669,14 +735,17 @@ main(int argc, char* argv[]) {
 #  endif // FONTC_EXECUTABLE
 
 void
-fontc_read_font(const char* path, fontc_file_t* file) {
+fontc_read_font(const char* path, fontc_file_t* file)
+{
   FILE* f = fopen(path, "rb");
-  if (!f) {
+  if (!f)
+  {
     nv_log_error("Failed to open font file for reading: %s", strerror(errno));
     return;
   }
   fread(&file->header, sizeof(fontc_file_header_t), 1, f);
-  if (file->header.magic != FONTC_MAGIC) {
+  if (file->header.magic != FONTC_MAGIC)
+  {
     nv_log_error("Invalid magic number for font file");
     return;
   }
@@ -689,7 +758,7 @@ fontc_read_font(const char* path, fontc_file_t* file) {
   size_t total_compressed_sz = file->header.glyphs_compressed_sz + file->header.img_compressed_sz;
 
   fontc_glyph_t* compressed_glyphs = nv_malloc(total_compressed_sz);
-  unsigned char* compressed_image  = (char*)compressed_glyphs + file->header.glyphs_compressed_sz;
+  unsigned char* compressed_image  = (unsigned char*)compressed_glyphs + file->header.glyphs_compressed_sz;
 
   fread(compressed_glyphs, file->header.img_compressed_sz + file->header.glyphs_compressed_sz, 1, f);
 
@@ -709,15 +778,18 @@ fontc_read_font(const char* path, fontc_file_t* file) {
 #  include "../common/containers/atlas.h"
 
 void
-fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init_atlas_w, int init_atlas_h, int num_threads) {
+fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init_atlas_w, int init_atlas_h, int num_threads)
+{
   FT_Library lib;
   FT_Face    face;
-  if (FT_Init_FreeType(&lib)) {
+  if (FT_Init_FreeType(&lib))
+  {
     nv_log_error("Failed to initialize ft");
     return;
   }
 
-  if (FT_New_Face(lib, font_path, 0, &face)) {
+  if (FT_New_Face(lib, font_path, 0, &face))
+  {
     nv_log_error("Failed to load font file: %s", font_path);
     FT_Done_FreeType(lib);
     return;
@@ -733,7 +805,8 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
 
   int            glyph_alloc_size = 256;
   fontc_glyph_t* glyphs           = nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_size);
-  if (!glyphs) {
+  if (!glyphs)
+  {
     nv_log_error("Failed to allocate memory for glyphs");
     return;
   }
@@ -746,7 +819,8 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
 #  pragma omp parallel
   {
     FT_Face thread_face;
-    if (FT_New_Face(lib, font_path, 0, &thread_face)) {
+    if (FT_New_Face(lib, font_path, 0, &thread_face))
+    {
       nv_log_error("Failed to load font file: %s", font_path);
 #  pragma omp critical
       FT_Done_FreeType(lib);
@@ -757,13 +831,15 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
     int           local_count = 0;
 
 #  pragma omp for schedule(dynamic)
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < 256; i++)
+    {
       FT_UInt glyph_index = FT_Get_Char_Index(thread_face, i);
       if (glyph_index == 0) continue;
 
       if (FT_Load_Glyph(thread_face, glyph_index, FT_LOAD_DEFAULT)) continue;
 
-      if (i == ' ') {
+      if (i == ' ')
+      {
 #  pragma omp critical
         file.header.space_width = (flt_t)thread_face->glyph->metrics.horiAdvance / (flt_t)thread_face->units_per_EM;
         continue;
@@ -777,9 +853,11 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
       const unsigned char* buffer = g->bitmap.buffer;
 
       size_t x = SIZE_MAX, y = SIZE_MAX;
-      if (buffer) {
+      if (buffer)
+      {
         nv_image_t glyph_image = { .w = w, .h = h, .fmt = NOVA_FORMAT_R8, .data = (unsigned char*)buffer };
-        if (!nv_texture_atlas_add(&atlas, &glyph_image, &x, &y)) {
+        if (!nv_texture_atlas_add(&atlas, &glyph_image, &x, &y))
+        {
           nv_log_error("atlas error");
           continue;
         }
@@ -826,7 +904,8 @@ fontc_bake_font(const char* font_path, const char* out, int pixel_size, int init
   nv_assert(units_per_em != 0.0);
 
 #  pragma omp parallel for
-  for (int i = 0; i < glyph_count; i++) {
+  for (int i = 0; i < glyph_count; i++)
+  {
     fontc_glyph_t* glyph = &glyphs[i];
     glyph->x0 /= units_per_em;
     glyph->x1 /= units_per_em;

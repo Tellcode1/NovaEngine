@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include <pthread.h>
 
-#warning "UNFINISHED"
+// #warning "UNFINISHED"
 
 NOVA_HEADER_START;
 

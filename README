@@ -1,5 +1,0 @@
-A C Vulkan based game engine. Primarily written in C99. Freetype, SDL and Vulkan are the only dependancies (use git submodule).
-You also need to compile the font using fontc (which is built by the project as well). This will output a ./bakedfont file that The engine will use.
-I'll get to adding a list to easily reference fonts when I get to it.
-Oh btw I know README isn't the place for this sheet but it's not like anyones going to be stumbling on this.
-Active development of a game is being done on the "NV" branch. It's supposed to be a very retro 2D platformer but we'll see.

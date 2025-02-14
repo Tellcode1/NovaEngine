@@ -58,31 +58,36 @@ extern real_t nv_atof(const char s[]);
 extern bool nv_atobool(const char s[]);
 
 static inline char*
-nv_itoa(intmax_t x, char out[], int base, size_t max) {
+nv_itoa(intmax_t x, char out[], int base, size_t max)
+{
   nv_itoa2(x, out, base, max);
   return out;
 }
 
 static inline char*
-nv_itoa_u(uintmax_t x, char out[], int base, size_t max) {
+nv_itoa_u(uintmax_t x, char out[], int base, size_t max)
+{
   nv_itoa_u2(x, out, base, max);
   return out;
 }
 
 static inline char*
-nv_ftoa(real_t x, char out[], int precision, size_t max, bool remove_zeroes) {
+nv_ftoa(real_t x, char out[], int precision, size_t max, bool remove_zeroes)
+{
   nv_ftoa2(x, out, precision, max, remove_zeroes);
   return out;
 }
 
 static inline char*
-nv_ptoa(void* p, char* buf, size_t max) {
+nv_ptoa(void* p, char* buf, size_t max)
+{
   nv_ptoa2(p, buf, max);
   return buf;
 }
 
 static inline char*
-nv_btoa(size_t x, bool upgrade, char* buf, size_t max) {
+nv_btoa(size_t x, bool upgrade, char* buf, size_t max)
+{
   nv_btoa2(x, upgrade, buf, max);
   return buf;
 }

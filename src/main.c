@@ -47,7 +47,10 @@ test_allocator(void)
   bool    pass = 1;
 
   volatile uchar* TestLargeAllocation = ac.alloc(&ac, 1, 100);
-  for (int i = 0; i < 100; i++) { TestLargeAllocation[i] = (uchar)rand(); }
+  for (int i = 0; i < 100; i++)
+  {
+    TestLargeAllocation[i] = (uchar)rand();
+  }
   if (!TestLargeAllocation)
   {
     nv_log_error("Large allocation failed");
@@ -136,7 +139,8 @@ main(int argc, char* argv[])
                                     { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 } };
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1) {
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
+  {
     nv_log_error("PROPS error: %s", error);
     nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);
@@ -179,7 +183,7 @@ main(int argc, char* argv[])
   u32         numFrames  = 0;
 
   cfont_t OpenSans;
-  ctext_load_font(rd, "./OpenSans.ff", 1.0f, &OpenSans);
+  ctext_load_font(rd, "./bakedfont", 1.0f, &OpenSans);
 
   int curr_showing_fps = 0;
 
@@ -193,7 +197,10 @@ main(int argc, char* argv[])
     const real_t dt = nv_get_delta_time();
 
     SDL_Event event;
-    while (SDL_PollEvent(&event)) { nv_consume_event(&event); }
+    while (SDL_PollEvent(&event))
+    {
+      nv_consume_event(&event);
+    }
     nv_input_update();
     nv_camera_update(&camera, rd);
 

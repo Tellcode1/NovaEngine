@@ -594,8 +594,13 @@ nvui_render(nv_renderer_t* rd)
     pcent       = NVM_CLAMP(pcent, 0.0f, 1.0f);
 
     nv_renderer_render_quad(
-        rd, slider->slider_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
-        (vec3f){ t->size.x * pcent, t->size.y, 1.0f }, slider->slider_color, 1);
+        rd,
+        slider->slider_sprite,
+        (vec2f){ 1.0f, 1.0f },
+        (vec3f){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
+        (vec3f){ t->size.x * pcent, t->size.y, 1.0f },
+        slider->slider_color,
+        1);
   }
 }
 
@@ -797,7 +802,10 @@ nv_input_update()
 
   const u8* const sdl_kb_state = SDL_GetKeyboardState(NULL);
   nv_bitset_copy_from(&g_nv_input_last_frame_kb_state, &g_nv_input_kb_state);
-  for (u32 i = 0; i < SDL_NUM_SCANCODES; i++) { nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]); }
+  for (u32 i = 0; i < SDL_NUM_SCANCODES; i++)
+  {
+    nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]);
+  }
 
   int mouse_state = SDL_GetMouseState(NULL, NULL);
 

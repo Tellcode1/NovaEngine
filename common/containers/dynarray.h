@@ -8,13 +8,13 @@ NOVA_HEADER_START;
 
 typedef struct nv_dynarray_t
 {
-  unsigned         m_canary;
-  size_t           m_size;
-  size_t           m_capacity;
-  int              m_typesize;
-  void*            m_data;
-  pthread_rwlock_t m_rwlock;
-  nv_allocator_t   allocator;
+  unsigned        m_canary;
+  size_t          m_size;
+  size_t          m_capacity;
+  int             m_typesize;
+  void*           m_data;
+  pthread_mutex_t m_mutex;
+  nv_allocator_t  allocator;
 } nv_dynarray_t;
 typedef int (*nv_dynarray_compare_fn)(const void* obj1, const void* obj2);
 
@@ -53,7 +53,7 @@ extern void nv_dynarray_push_back(nv_dynarray_t* __restrict vec, const void* __r
 
 // Push a zero initialized member to the vec
 // Returns a pointer to the newly added element
-extern void* __restrict nv_dynarray_push_empty(nv_dynarray_t* __restrict vec);
+extern void* nv_dynarray_push_empty(nv_dynarray_t* __restrict vec);
 
 extern void nv_dynarray_push_set(nv_dynarray_t* __restrict vec, const void* __restrict arr, size_t count);
 

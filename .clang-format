@@ -22,13 +22,13 @@ IndentPPDirectives: AfterHash
 PPIndentWidth: 2
 AllowShortBlocksOnASingleLine: Always
 AllowShortIfStatementsOnASingleLine: WithoutElse
-AllowShortLoopsOnASingleLine: true
+AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true
 BreakBeforeTernaryOperators: True
 BinPackArguments: False
 BinPackParameters: False
 BreakBeforeBinaryOperators: NonAssignment
-BreakBeforeBraces: Custom
+BreakBeforeBraces: Allman
 BraceWrapping:
   AfterStruct: True
   AfterUnion: True

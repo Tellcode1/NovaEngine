@@ -21,7 +21,8 @@ NOVA_HEADER_START;
   static inline TYPE FUNC##mag(const NAME v) { return SQRT_FUNC(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w); }                                                             \
   static inline TYPE FUNC##dot(const NAME v1, const NAME v2) { return (v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w); }                                              \
   static inline bool FUNC##areeq(const NAME v1, const NAME v2) { return (bool)(v1.x == v2.x && v1.y == v2.y && v1.z == v2.z && v1.w == v2.w); }                               \
-  static inline NAME FUNC##normalize(const NAME v) {                                                                                                                          \
+  static inline NAME FUNC##normalize(const NAME v)                                                                                                                            \
+  {                                                                                                                                                                           \
     TYPE magnitude = FUNC##mag(v);                                                                                                                                            \
     if (magnitude == 0) return (NAME){};                                                                                                                                      \
     return FUNC##divs(v, magnitude);                                                                                                                                          \

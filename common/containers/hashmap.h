@@ -96,7 +96,7 @@ struct nv_hashmap_t
   nv_hashmap_key_equal_fn m_equal_fn;
   size_t                  m_entries, m_size;
   size_t                  m_key_size, m_value_size;
-  pthread_rwlock_t        m_rwlock;
+  pthread_mutex_t         m_mutex;
   nv_allocator_t*         allocator;
   unsigned                m_canary;
   char                    padding[4];

@@ -3,13 +3,16 @@
 
 // implementation: core.c
 
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
 
 #ifdef __cplusplus
-#  define NOVA_HEADER_START extern "C" {
+#  define NOVA_HEADER_START                                                                                                                                                   \
+    extern "C"                                                                                                                                                                \
+    {
 #  define NOVA_HEADER_END }
 #else
 #  define NOVA_HEADER_START
@@ -69,10 +72,10 @@ NOVA_HEADER_START;
 /*
  * GNUC and builtin have protection from accidentally passing in pointers instead of stack arrays
  */
-#if defined(__GNUC__)
-#  define nv_arrlen(arr) _Generic(&(arr), typeof (*(arr))(*): 0, default: (sizeof(arr) / sizeof((arr)[0])))
+#if defined(__GNUC__) && (__STDC_VERSION__ >= 199901L)
+#  define nv_arrlen(arr) _Generic(&(arr), NV_TYPEOF(*(arr))(*): 0, default: (sizeof(arr) / sizeof((arr)[0])))
 #elif defined(__has_builtin) && __has_builtin(__builtin_choose_expr) && __has_builtin(__builtin_types_compatible_p)
-#  define nv_arrlen(arr) __builtin_choose_expr(__builtin_types_compatible_p(typeof(arr), typeof(&(arr)[0])), 0, (sizeof(arr) / sizeof((arr)[0])))
+#  define nv_arrlen(arr) __builtin_choose_expr(__builtin_types_compatible_p(NV_TYPEOF(arr), NV_TYPEOF(&(arr)[0])), 0, (sizeof(arr) / sizeof((arr)[0])))
 #else
 #  define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
 #endif
@@ -87,7 +90,8 @@ NOVA_HEADER_START;
 
 #ifndef NDEBUG
 #  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
-    if (!((bool)(expr))) {                                                                                                                                                    \
+    if (!((bool)(expr)))                                                                                                                                                      \
+    {                                                                                                                                                                         \
       nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
       return retval;                                                                                                                                                          \
     }
@@ -140,12 +144,14 @@ extern void _nv_log(va_list args, const char* fn, const char* succeeder, const c
 #define nv_time_function(func) _nv_time_function(func, __LINE__)
 
 static inline struct tm*
-_nv_get_time() {
+_nv_get_time()
+{
   time_t     now;
   struct tm* tm;
 
   now = time(0);
-  if ((tm = localtime(&now)) == NULL) {
+  if ((tm = localtime(&now)) == NULL)
+  {
     nv_log_error("Error extracting time stuff");
     return NULL;
   }

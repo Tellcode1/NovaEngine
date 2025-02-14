@@ -1,11 +1,14 @@
 #ifndef __NOVA_FREELIST_H__
 #define __NOVA_FREELIST_H__
 
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 #include "../../std/stdafx.h"
 #include "../../std/string.h"
+
+NOVA_HEADER_START;
 
 typedef struct nv_chunk_t     nv_chunk_t;
 typedef struct nv_node_t      nv_node_t;
@@ -62,7 +65,9 @@ struct nv_freelist_t
   nv_node_t*           m_root;
   nv_freelist_alloc_fn m_alloc_fn;
   nv_freelist_free_fn  m_free_fn;
-  pthread_rwlock_t     m_rwlock;
+  pthread_mutex_t      m_mutex;
 };
+
+NOVA_HEADER_END;
 
 #endif //__NOVA_FREELIST_H__
