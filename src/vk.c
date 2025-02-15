@@ -17,9 +17,8 @@
 #include "../std/string.h"
 
 #include <SDL2/SDL_vulkan.h>
-#include <bits/pthreadtypes.h>
+#include <math.h>
 #include <pthread.h>
-#include <vulkan/vulkan_core.h>
 
 #define HAS_FLAG(flag) ((nv_gpu_vk_flag_register & flag) || (flags & flag))
 #define STR(s) #s
@@ -96,15 +95,16 @@ struct nv_line_draw_call_t
   vec4f col;
 };
 
-typedef enum nv_DrawCallType
+typedef enum nv_draw_call_type
 {
   NOVA_DRAWCALL_QUAD = 0,
   NOVA_DRAWCALL_LINE = 1,
-} nv_DrawCallType;
+  NOVA_DRAWCALL_INVALID = 0x7fffffff
+} nv_draw_call_type;
 
 struct nv_draw_call_t
 {
-  nv_DrawCallType type;
+  nv_draw_call_type type;
   int             layer;
   union nv_DrawCallData
   {
@@ -343,7 +343,7 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
 
   nv_dynarray_sort(&rd->drawcalls, __drawcall_compar);
 
-  nv_DrawCallType state = (unsigned)-1;
+  nv_draw_call_type state = NOVA_DRAWCALL_INVALID;
 
   for (int i = 0; i < (int)nv_dynarray_size(&rd->drawcalls); i++)
   {
@@ -571,7 +571,7 @@ create_optional_images(nv_renderer_t* rd)
 
     if (i == 0)
     {
-      VkMemoryRequirements memReqs = {};
+      VkMemoryRequirements memReqs = nv_zero_init(VkMemoryRequirements);
       vkGetImageMemoryRequirements(device, nv_gpu_texture_get(data->depth_image), &memReqs);
 
       rd->shadow_image_size = memReqs.size;
@@ -596,7 +596,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 
     // we don't know anything about the swapchain_image, as it's a swapchain
     // image so we have to manually create the image view;
-    VkImageViewCreateInfo imageViewCreateInfo           = {};
+    VkImageViewCreateInfo imageViewCreateInfo           = nv_zero_init(VkImageViewCreateInfo);
     imageViewCreateInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCreateInfo.image                           = nv_gpu_texture_get(data->sc_image);
     imageViewCreateInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
@@ -621,7 +621,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
     }
     else { nv_dynarray_push_set(&attachments, (VkImageView[]){ swapchain_image_view, depth_image_view }, 2); }
 
-    VkFramebufferCreateInfo framebufferInfo = {};
+    VkFramebufferCreateInfo framebufferInfo = nv_zero_init(VkFramebufferCreateInfo);
     framebufferInfo.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.renderPass              = rd->render_pass;
     framebufferInfo.attachmentCount         = nv_dynarray_size(&attachments);
@@ -719,7 +719,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   }
   else { present_mode = VK_PRESENT_MODE_MAILBOX_KHR; }
 
-  nv_gpu_swapchain_create_info scio = {};
+  nv_gpu_swapchain_create_info scio = nv_zero_init(nv_gpu_swapchain_create_info);
   scio.extent.width                 = rd->render_extent.width;
   scio.extent.height                = rd->render_extent.height;
   scio.present_mode                 = present_mode;
@@ -743,7 +743,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   nv_gpu_vk_flag_register |= NVVK_PIPELINE_FLAGS_FORCE_CULLING;
   rd->attachment_count++;
 
-  VkCommandPoolCreateInfo cmdPoolCreateInfo = {};
+  VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zero_init(VkCommandPoolCreateInfo);
   cmdPoolCreateInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cmdPoolCreateInfo.queueFamilyIndex        = graphics_family_index;
   cmdPoolCreateInfo.flags                   = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -751,14 +751,14 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 
   const int frames_in_flight = 1 + (int)conf->buffer_mode;
 
-  nv_renderer_frame_render_info data = {};
+  nv_renderer_frame_render_info data = nv_zero_init(nv_renderer_frame_render_info);
   for (int i = 0; i < frames_in_flight; i++)
   {
     nv_dynarray_push_back(&rd->draw_cmd_buffers, &data);
     nv_dynarray_push_back(&rd->render_data, &data);
   }
 
-  VkCommandBufferAllocateInfo cmdAllocInfo = {};
+  VkCommandBufferAllocateInfo cmdAllocInfo = nv_zero_init(VkCommandBufferAllocateInfo);
   cmdAllocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cmdAllocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   cmdAllocInfo.commandBufferCount          = frames_in_flight;
@@ -767,7 +767,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 
   rd->depth_buffer_format = nv_format_to_vk_format(NOVA_FORMAT_D32); // replace (probably)
 
-  nv_gpu_render_pass_create_info rpi = {};
+  nv_gpu_render_pass_create_info rpi = nv_zero_init(nv_gpu_render_pass_create_info);
   rpi.format                         = swap_chain_image_format;
   rpi.depthBufferFormat              = nv_vk_format_to_nv_format(rd->depth_buffer_format);
   rpi.subpass                        = 0;
@@ -796,6 +796,11 @@ nv_renderer_init(const nv_renderer_config* conf)
   nv_dynarray_init(sizeof(nv_draw_call_t), 4, &nv_allocator_default, &rd->drawcalls);
   nv_dynarray_init(sizeof(VkCommandBuffer), frames_in_flight, &nv_allocator_default, &rd->draw_cmd_buffers);
   nv_dynarray_init(sizeof(nv_renderer_frame_render_info), frames_in_flight, &nv_allocator_default, &rd->render_data);
+
+  nv_assert(nv_dynarray_is_initialized(&g_Samplers) == 0);
+  nv_assert(nv_dynarray_is_initialized(&rd->drawcalls) == 0);
+  nv_assert(nv_dynarray_is_initialized(&rd->draw_cmd_buffers) == 0);
+  nv_assert(nv_dynarray_is_initialized(&rd->render_data) == 0);
 
   if (conf->multisampling_enable) { rd->flags |= NOVA_RENDERER_MULTISAMPLING_ENABLE; }
   if (conf->window_resizable) { rd->flags |= NOVA_RENDERER_WINDOW_RESIZABLE; }
@@ -914,7 +919,7 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
   }
   else { present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR; }
 
-  nv_gpu_swapchain_create_info scio = {};
+  nv_gpu_swapchain_create_info scio = nv_zero_init(nv_gpu_swapchain_create_info);
   scio.extent.width                 = rd->render_extent.width;
   scio.extent.height                = rd->render_extent.height;
   scio.present_mode                 = present_mode;
@@ -1035,7 +1040,7 @@ nv_renderer_end(nv_renderer_t* rd)
   vkCmdEndRenderPass(drawBuffer);
   vkEndCommandBuffer(drawBuffer);
 
-  VkSubmitInfo submitInfo = {};
+  VkSubmitInfo submitInfo = nv_zero_init(VkSubmitInfo);
   submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   const nv_renderer_frame_render_info* data               = (nv_renderer_frame_render_info*)nv_dynarray_get(&rd->render_data, rd->frame);
@@ -1057,7 +1062,7 @@ nv_renderer_end(nv_renderer_t* rd)
 
   vkQueueSubmit(present_queue, 1, &submitInfo, data->in_flight_fence);
 
-  VkPresentInfoKHR presentInfo   = {};
+  VkPresentInfoKHR presentInfo   = nv_zero_init(VkPresentInfoKHR);
   presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores    = signalSemaphores; // This is signalSemaphores so that this starts as
@@ -1169,13 +1174,15 @@ nvvk_create_instance(const char* title)
                      "I can't do anything about that.");
   }
 
-  VkApplicationInfo app_info  = {};
-  app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  app_info.applicationVersion = VK_API_VERSION_1_0;
-  app_info.apiVersion         = VK_API_VERSION_1_0;
-  app_info.pApplicationName   = title;
-  app_info.pEngineName        = "Carbon";
-  app_info.engineVersion      = 0;
+  VkApplicationInfo app_info = {
+    .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+    .pNext              = NULL,
+    .pApplicationName   = title,
+    .applicationVersion = 0,
+    .pEngineName        = "NOVA",
+    .engineVersion      = 0,
+    .apiVersion         = VK_API_VERSION_1_0,
+  };
 
   unsigned char      buffer[512];
   nv_allocator_stack stack;
@@ -1229,11 +1236,14 @@ nvvk_create_instance(const char* title)
     }
   }
 
-  VkInstanceCreateInfo instance_create_info    = {};
-  instance_create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  instance_create_info.pApplicationInfo        = &app_info;
-  instance_create_info.enabledExtensionCount   = enabled_exts_count;
-  instance_create_info.ppEnabledExtensionNames = enabled_exts;
+  VkInstanceCreateInfo instance_create_info = {
+    .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+    .pNext                   = NULL,
+    .flags                   = 0,
+    .pApplicationInfo        = &app_info,
+    .enabledExtensionCount   = enabled_exts_count,
+    .ppEnabledExtensionNames = enabled_exts,
+  };
 
 #ifdef DEBUG
 
@@ -1310,7 +1320,7 @@ nvvk_create_instance(const char* title)
 #ifdef DEBUG
   if (validationLayersAvailable)
   {
-    VkDebugUtilsMessengerCreateInfoEXT create_info = {};
+    VkDebugUtilsMessengerCreateInfoEXT create_info = nv_zero_init(VkDebugUtilsMessengerCreateInfoEXT);
     create_info.sType                              = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     create_info.messageSeverity =
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -1557,15 +1567,24 @@ nvvk_validate_queues(nv_dynarray_t* queue_create_infos)
   }
 
   nv_dynarray_t unique_queue_families = setify(graphics_family, present_family, compute_family, transfer_family);
-  const flt_t   queue_priority        = 1.0f;
+
+  /**
+   * Vulkan gives errores sometimes even though the spec states that if queueCount is 1,
+   * Only 1 element of pQueuePriorities may be checked. Seems like an issue with the validation layers
+   * Should I submit a bug report? Nah. They can deal with it.
+   */
+  const float queue_priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
   for (int i = 0; i < (int)nv_dynarray_size(&unique_queue_families); i++)
   {
-    VkDeviceQueueCreateInfo queue_info = {};
-    queue_info.sType                   = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_info.queueFamilyIndex        = ((u32*)nv_dynarray_data(&unique_queue_families))[i];
-    queue_info.queueCount              = 1;
-    queue_info.pQueuePriorities        = &queue_priority;
+    VkDeviceQueueCreateInfo queue_info = {
+      .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+      .pNext            = NULL,
+      .flags            = 0,
+      .queueFamilyIndex = ((u32*)nv_dynarray_data(&unique_queue_families))[i],
+      .queueCount       = 1,
+      .pQueuePriorities = queue_priorities,
+    };
     nv_dynarray_push_back(queue_create_infos, &queue_info);
   }
 
@@ -1591,13 +1610,14 @@ nvvk_create_device()
   nv_dynarray_init(sizeof(VkDeviceQueueCreateInfo), 0, &nv_allocator_default, &queue_create_infos);
   nvvk_validate_queues(&queue_create_infos);
 
-  VkDeviceCreateInfo deviceCreateInfo      = {};
-  deviceCreateInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  deviceCreateInfo.queueCreateInfoCount    = nv_dynarray_size(&queue_create_infos);
-  deviceCreateInfo.pQueueCreateInfos       = (const VkDeviceQueueCreateInfo*)nv_dynarray_data(&queue_create_infos);
-  deviceCreateInfo.enabledExtensionCount   = nv_dynarray_size(&enabled_extensions);
-  deviceCreateInfo.ppEnabledExtensionNames = (const char* const*)nv_dynarray_data(&enabled_extensions);
-  deviceCreateInfo.pEnabledFeatures        = &WantedFeatures;
+  VkDeviceCreateInfo deviceCreateInfo = {
+    .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+    .queueCreateInfoCount    = nv_dynarray_size(&queue_create_infos),
+    .pQueueCreateInfos       = (const VkDeviceQueueCreateInfo*)nv_dynarray_data(&queue_create_infos),
+    .enabledExtensionCount   = nv_dynarray_size(&enabled_extensions),
+    .ppEnabledExtensionNames = (const char* const*)nv_dynarray_data(&enabled_extensions),
+    .pEnabledFeatures        = &WantedFeatures,
+  };
 
   nvvk_result_check(vkCreateDevice(phys_device, &deviceCreateInfo, NOVA_VK_ALLOCATOR, &device));
 
@@ -1761,20 +1781,34 @@ _ctext_load_font_update_descriptors(nv_ctext_module* ctext, cfont_t* dst)
 void
 ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst)
 {
-  if (!rd || !dst) { nv_log_error("pInfo or dst is NULL!"); }
+  if (!rd || !dst)
+  {
+    nv_log_error("pInfo or dst is NULL!");
+    return;
+  }
 
-  if (scale <= 0.0f) { nv_log_error("attempting to load a font with 0 fontscale."); }
+  if (scale <= 0.0f)
+  {
+    nv_log_error("attempting to load a font with 0 fontscale.");
+    return;
+  }
 
+  *dst = (cfont_t){};
+
+  fontc_file_t f_file;
+  if (fontc_read_font(font_path, &f_file) != 0)
+  {
+    nv_log_error("There was an error loading the font file. Skipping");
+    return;
+  }
+
+  // Store a pointer to the font for future reference
   *(cfont_t**)nv_dynarray_push_empty(&rd->ctext->fonts) = dst;
-  *dst                                                  = (cfont_t){ 0 };
 
   dst->rd = rd;
 
   nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
   nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
-
-  fontc_file_t f_file;
-  fontc_read_font(font_path, &f_file);
 
   nv_texture_atlas_t atlas;
 
@@ -1804,13 +1838,34 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
   _ctext_load_font_upload_glyph_atlas(&atlas, dst);
   _ctext_load_font_update_descriptors(rd->ctext, dst);
 
-  nv_free(f_file.glyphs);
-  nv_free(f_file.bitmap);
+  fontc_clean_font_file(&f_file);
+
+  if (ctext_validate_font(dst) != 0)
+  {
+    // nv_log_error("Broken font. Something has gone horribly wrong");
+    return;
+  }
+}
+
+int
+ctext_validate_font(const cfont_t* fnt)
+{
+  // If the renderer of the font has died, die along with the renderer.
+  if (!fnt || !fnt->rd) return -1;
+  // TODO: Add support for a constant canary across the whole project?
+  if (fnt->glyph_map.m_canary != CONT_CANARY || fnt->drawcalls.m_canary != CONT_CANARY) return -1;
+  return 0;
 }
 
 void
 ctext_destroy_font(cfont_t* fnt)
 {
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return;
+  }
+
   nv_gpu_destroy_texture(fnt->texture);
   nv_gpu_free_memory(fnt->texture_mem);
 
@@ -1826,6 +1881,12 @@ ctext_destroy_font(cfont_t* fnt)
 bool
 _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
 {
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return false;
+  }
+
   size_t new_allocation_size;
 
   if (fnt->allocated_size < new_buffer_size) { new_allocation_size = NVM_MAX(fnt->allocated_size * 2, new_buffer_size); }
@@ -1855,10 +1916,16 @@ _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
 void
 _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 {
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return;
+  }
+
   const VkCommandBuffer cmd       = nv_renderer_get_draw_buffer(rd);
   const VkDeviceSize    offsets[] = { 0 };
 
-  struct push_constants pc = {};
+  struct push_constants pc = nv_zero_init(struct push_constants);
 
   const VkPipeline       pipeline        = g_Pipelines.Ctext.pipeline;
   const VkPipelineLayout pipeline_layout = g_Pipelines.Ctext.pipeline_layout;
@@ -1928,6 +1995,14 @@ split_string_by_lines(const char* str)
 static void
 ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h)
 {
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    *w = FLT_MAX;
+    *h = FLT_MAX;
+    return;
+  }
+
   flt_t width = 0.0f, height = fnt->line_height, prev_width = 0.0f;
 
   bool is_new_line = true;
@@ -1977,6 +2052,12 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h)
 static int
 _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* drawcall, flt_t scale, flt_t zpos, const int glyph_iter, flt_t x, const flt_t y)
 {
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return -1;
+  }
+
   int iter = 0;
   while (*str)
   {
@@ -2045,6 +2126,11 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   if (*str == 0) // nv_strlen == 0
   {
     return 1;
+  }
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return -1;
   }
 
   nv_dynarray_t lines;
@@ -2132,6 +2218,12 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
 void
 _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* pInfo, char* buffer, size_t buffer_size)
 {
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return;
+  }
+
   size_t effective_length = _ctext_get_effective_length(buffer, buffer_size);
   if (effective_length == 0) { return; }
 
@@ -2141,7 +2233,7 @@ _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* 
 
   void* allocation = nv_malloc(allocation_size);
 
-  ctext_drawcall_t drawcall = {};
+  ctext_drawcall_t drawcall = nv_zero_init(ctext_drawcall_t);
   drawcall.vertices         = (ctext_glyph_vertex_t*)allocation;
   drawcall.index_offset     = (vertex_count * sizeof(ctext_glyph_vertex_t));
   drawcall.indices          = (u32*)((uchar*)allocation + drawcall.index_offset);
@@ -2166,7 +2258,14 @@ _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* 
 void
 ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...)
 {
+  if (!fnt || !pInfo || !fmt) return;
+
   // if (!nv_async_is_task_complete(&fnt->load_task)) { return; }
+  if (ctext_validate_font(fnt) != 0)
+  {
+    // nv_log_error("Broken font");
+    return;
+  }
 
   char*  buffer;
   size_t buffer_size;
@@ -2176,6 +2275,9 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
 
   buffer_size = nv_vsnprintf(NULL, SIZE_MAX, fmt, arg);
   buffer      = nv_malloc(buffer_size + 1);
+  nv_assert(buffer != NULL);
+
+  va_end(arg);
   va_start(arg, fmt);
 
   nv_vsnprintf(buffer, buffer_size + 1, fmt, arg);
@@ -2212,8 +2314,14 @@ _ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 
   if (fnt->to_render && !fnt_buffer_resized) { _ctext_render_drawcalls(rd, fnt); }
 
-  uint8_t* mapped;
+  uint8_t* mapped = NULL;
   nv_gpu_map_memory(fnt->buffer_mem, total_buffer_size, 0, (void**)&mapped);
+
+  if (mapped == NULL)
+  {
+    nv_log_error("mapping font buffer memory failed");
+    return;
+  }
 
   // this may be dumb but I am too
 
@@ -2246,7 +2354,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
   for (int i = 0; i < (int)nv_dynarray_size(&fnt->drawcalls); i++)
   {
     ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_dynarray_get(&fnt->drawcalls, i);
-    nv_free(drawcall->vertices);
+    if (drawcall && drawcall->vertices) nv_free(drawcall->vertices);
   }
   nv_dynarray_clear(&fnt->drawcalls);
 }
@@ -2319,6 +2427,9 @@ ctext_init(struct nv_renderer_t* rd)
   nv_dynarray_init(sizeof(cfont_t*), 4, &nv_allocator_default, &ctext->fonts);
   nv_dynarray_init(sizeof(ctext_label_t), 4, &nv_allocator_default, &ctext->labels);
 
+  nv_assert(nv_dynarray_is_initialized(&ctext->fonts) == 0);
+  nv_assert(nv_dynarray_is_initialized(&ctext->labels) == 0);
+
   const VkDescriptorSetLayoutBinding bindings[] = {
     // binding; descriptorType; descriptorCount; stageFlags;
     // pImmutableSamplers;
@@ -2349,6 +2460,7 @@ ctext_init(struct nv_renderer_t* rd)
 void
 ctext_shutdown(struct nv_renderer_t* rd)
 {
+  if (!rd || !rd->ctext) return;
   nv_dynarray_destroy(&rd->ctext->fonts);
   nv_dynarray_destroy(&rd->ctext->labels);
   nv_free(rd->ctext);
@@ -2357,6 +2469,8 @@ ctext_shutdown(struct nv_renderer_t* rd)
 flt_t
 ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox)
 {
+  if (!fnt || !str || ctext_validate_font(fnt) != 0) return INFINITY;
+
   flt_t width, height;
   ctext_get_text_size(fnt, str, &width, &height);
 
@@ -2368,14 +2482,15 @@ ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox)
 // ctext ^^
 
 // nv_descriptors vv
-void
+int
 nv_descriptor_set_submit_write(nv_descriptor_set_t* set, const VkWriteDescriptorSet* write)
 {
   set->writes = nv_realloc(set->writes, (set->nwrites + 1) * sizeof(VkWriteDescriptorSet));
   nv_assert(set->writes != NULL);
-  nv_memcpy(&set->writes[set->nwrites], write, sizeof(VkWriteDescriptorSet));
+  if (!nv_memcpy(&set->writes[set->nwrites], write, sizeof(VkWriteDescriptorSet))) { return -1; }
   set->nwrites++;
   vkUpdateDescriptorSets(device, 1, write, 0, 0);
+  return 0;
 }
 
 void
@@ -2397,9 +2512,11 @@ nv_descriptor_pool_destroy(nv_descriptor_pool_t* pool)
   vkDestroyDescriptorPool(device, pool->pool, NOVA_VK_ALLOCATOR);
 }
 
-void
+int
 _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 {
+  nv_assert(pool != NULL);
+
   VkDescriptorPoolSize allocations[11]     = {};
   int                  descriptors_written = 0;
 
@@ -2410,7 +2527,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
     descriptors_written++;
   }
 
-  if (descriptors_written == 0) { return; }
+  if (descriptors_written == 0) { return 0; }
 
   bool need_more_max_sets = (pool->nsets + 1) > pool->max_child_sets;
   if (need_more_max_sets) { pool->max_child_sets = NVM_MAX(pool->max_child_sets * 2, 1); }
@@ -2421,6 +2538,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
   VkDescriptorPool new_pool;
   nvvk_result_check(vkCreateDescriptorPool(device, &poolInfo, NOVA_VK_ALLOCATOR, &new_pool));
+  if (!new_pool) { return -1; }
 
   VkDescriptorSet* new_sets = nv_malloc(sizeof(VkDescriptorSet) * pool->nsets);
   nv_assert(new_sets != NULL);
@@ -2431,14 +2549,16 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
     for (int i = 0; i < pool->nsets; i++)
     {
       layouts[i] = pool->sets[i]->layout;
+      nv_assert(layouts[i] != NULL);
     }
 
-    VkDescriptorSetAllocateInfo setAllocInfo = {};
+    VkDescriptorSetAllocateInfo setAllocInfo = nv_zero_init(VkDescriptorSetAllocateInfo);
     setAllocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     setAllocInfo.descriptorPool              = new_pool;
     setAllocInfo.descriptorSetCount          = pool->nsets;
     setAllocInfo.pSetLayouts                 = layouts;
     nvvk_result_check(vkAllocateDescriptorSets(device, &setAllocInfo, new_sets));
+    if (!new_sets) { return -1; }
 
     nv_free(layouts);
   }
@@ -2450,6 +2570,8 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   }
   VkCopyDescriptorSet* copies = nv_malloc(sizeof(VkCopyDescriptorSet) * ncopies);
 
+  nv_assert(pool->sets != NULL);
+
   ncopies = 0;
   for (int i = 0; i < pool->nsets; i++)
   {
@@ -2457,6 +2579,8 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
     for (int writei = 0; writei < old_set->nwrites; writei++)
     {
+      nv_assert(new_sets[i] != NULL);
+
       VkWriteDescriptorSet* write = &old_set->writes[writei];
       copies[ncopies]             = (VkCopyDescriptorSet){
                     .sType           = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET,
@@ -2479,9 +2603,10 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
   nv_free(new_sets);
   nv_free(copies);
+  return 0;
 }
 
-void
+int
 nv_descriptor_pool_init(nv_descriptor_pool_t* dst)
 {
   *dst                                 = (nv_descriptor_pool_t){};
@@ -2502,10 +2627,11 @@ nv_descriptor_pool_init(nv_descriptor_pool_t* dst)
   dst->sets           = nv_malloc(sizeof(nv_descriptor_set_t*));
   dst->max_child_sets = 1;
   dst->nsets          = 0;
-  _nv_descriptor_pool_allocate(dst);
+  if (_nv_descriptor_pool_allocate(dst) != 0) { return -1; }
+  return 0;
 }
 
-void
+int
 nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst)
 {
   bool need_realloc = 0;
@@ -2528,12 +2654,14 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
     {
       pool->max_child_sets = NVM_MAX(pool->max_child_sets * 2, 1);
       pool->sets           = nv_realloc(pool->sets, pool->max_child_sets * sizeof(nv_descriptor_set_t));
+      nv_assert(pool->sets != NULL);
     }
 
     _nv_descriptor_pool_allocate(pool);
   }
 
   nv_descriptor_set_t* set = nv_calloc(sizeof(nv_descriptor_set_t));
+  nv_assert(set != NULL);
 
   pool->sets[pool->nsets] = set;
   pool->nsets++;
@@ -2544,18 +2672,22 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
   set->writes = nv_malloc(sizeof(VkWriteDescriptorSet));
   nv_assert(set->writes != NULL);
 
-  VkDescriptorSetLayoutCreateInfo layoutinfo = {};
+  VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zero_init(VkDescriptorSetLayoutCreateInfo);
   layoutinfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutinfo.pBindings                       = bindings;
   layoutinfo.bindingCount                    = nbindings;
   nvvk_result_check(vkCreateDescriptorSetLayout(device, &layoutinfo, NOVA_VK_ALLOCATOR, &set->layout));
+  if (set->layout == NULL) return -1;
 
-  VkDescriptorSetAllocateInfo setAllocInfo = {};
+  VkDescriptorSetAllocateInfo setAllocInfo = nv_zero_init(VkDescriptorSetAllocateInfo);
   setAllocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   setAllocInfo.descriptorPool              = pool->pool;
   setAllocInfo.descriptorSetCount          = 1;
   setAllocInfo.pSetLayouts                 = &set->layout;
   nvvk_result_check(vkAllocateDescriptorSets(device, &setAllocInfo, &set->set));
+  if (set->set == NULL) return -1;
+
+  return 0;
 }
 // nv_descriptors ^^
 
@@ -2568,7 +2700,7 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
     { 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, NULL },
   };
 
-  VkDescriptorSetLayoutCreateInfo layoutinfo = {};
+  VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zero_init(VkDescriptorSetLayoutCreateInfo);
   layoutinfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutinfo.pBindings                       = bindings;
   layoutinfo.bindingCount                    = 1;
@@ -2858,7 +2990,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
     .alphaToOneEnable      = VK_FALSE,
   };
 
-  VkPipelineColorBlendAttachmentState colorblendAttachmentState = {};
+  VkPipelineColorBlendAttachmentState colorblendAttachmentState = nv_zero_init(VkPipelineColorBlendAttachmentState);
 
   if (pCreateInfo->blend_state != NULL)
   {
@@ -2921,7 +3053,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
     .basePipelineIndex   = 0, // ?
   };
 
-  VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
+  VkPipelineDynamicStateCreateInfo dynamicStateInfo = nv_zero_init(VkPipelineDynamicStateCreateInfo);
   const VkDynamicState             dynamicStates[]  = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT)) {}
   else
@@ -2985,7 +3117,7 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
     .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
   };
 
-  VkAttachmentReference colorAttachmentReference = {};
+  VkAttachmentReference colorAttachmentReference = nv_zero_init(VkAttachmentReference);
   colorAttachmentReference.attachment            = 0;
   colorAttachmentReference.layout                = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -3006,8 +3138,8 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
   nv_dynarray_init(sizeof(VkAttachmentDescription), 5, &nv_allocator_default, &attachments);
   nv_dynarray_push_back(&attachments, &colorAttachmentDescription);
 
-  VkAttachmentDescription depthAttachment    = {};
-  VkAttachmentReference   depthAttachmentRef = {};
+  VkAttachmentDescription depthAttachment    = nv_zero_init(VkAttachmentDescription);
+  VkAttachmentReference   depthAttachmentRef = nv_zero_init(VkAttachmentReference);
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
   {
     depthAttachment = (VkAttachmentDescription){
@@ -3035,8 +3167,8 @@ nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkR
     nv_dynarray_push_back(&attachments, &depthAttachment);
   }
 
-  VkAttachmentReference   colorAttachmentResolveRef = {};
-  VkAttachmentDescription colorAttachmentResolve    = {};
+  VkAttachmentReference   colorAttachmentResolveRef = nv_zero_init(VkAttachmentReference);
+  VkAttachmentDescription colorAttachmentResolve    = nv_zero_init(VkAttachmentDescription);
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
   {
     colorAttachmentResolve = (VkAttachmentDescription){
@@ -3145,7 +3277,7 @@ nv_gpu_create_swapchain(nv_gpu_swapchain_create_info const* pCreateInfo, VkSwapc
 nv_gpu_pipeline_blend_state
 nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset)
 {
-  nv_gpu_pipeline_blend_state ret = {};
+  nv_gpu_pipeline_blend_state ret = nv_zero_init(nv_gpu_pipeline_blend_state);
   ret.colorWriteMask              = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
   switch (preset)
@@ -3218,7 +3350,7 @@ nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryProperty
   VkBuffer       newBuffer;
   VkDeviceMemory newMemory;
 
-  VkBufferCreateInfo bufferCreateInfo = {};
+  VkBufferCreateInfo bufferCreateInfo = nv_zero_init(VkBufferCreateInfo);
   bufferCreateInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferCreateInfo.size               = size;
   bufferCreateInfo.usage              = usageFlags;
@@ -3230,7 +3362,7 @@ nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryProperty
 
   if (!externallyAllocated)
   {
-    VkMemoryAllocateInfo allocInfo = {};
+    VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
     allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize       = bufferMemoryRequirements.size;
     allocInfo.memoryTypeIndex      = nv_vk_get_mem_type(bufferMemoryRequirements.memoryTypeBits, propertyFlags);
@@ -3249,7 +3381,7 @@ nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size)
   VkBuffer       stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
 
-  VkBufferCreateInfo stagingBufferInfo = {};
+  VkBufferCreateInfo stagingBufferInfo = nv_zero_init(VkBufferCreateInfo);
   stagingBufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   stagingBufferInfo.size               = size;
   stagingBufferInfo.usage              = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
@@ -3259,7 +3391,7 @@ nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size)
   VkMemoryRequirements stagingBufferMemoryRequirements;
   vkGetBufferMemoryRequirements(device, stagingBuffer, &stagingBufferMemoryRequirements);
 
-  VkMemoryAllocateInfo stagingBufferAlloc = {};
+  VkMemoryAllocateInfo stagingBufferAlloc = nv_zero_init(VkMemoryAllocateInfo);
   stagingBufferAlloc.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   stagingBufferAlloc.allocationSize       = stagingBufferMemoryRequirements.size;
   stagingBufferAlloc.memoryTypeIndex =
@@ -3300,7 +3432,7 @@ nv_vk_get_mem_type(const u32 memoryTypeBits, const VkMemoryPropertyFlags memoryP
 VkCommandBuffer
 nv_vk_begin_command_buffer_from(VkCommandBuffer src)
 {
-  VkCommandBufferBeginInfo beginInfo = {};
+  VkCommandBufferBeginInfo beginInfo = nv_zero_init(VkCommandBufferBeginInfo);
   beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
@@ -3314,14 +3446,14 @@ nv_vk_begin_command_buffer()
 {
   if (!cmd_pool)
   {
-    VkCommandPoolCreateInfo cmdPoolCreateInfo = {};
+    VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zero_init(VkCommandPoolCreateInfo);
     cmdPoolCreateInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     cmdPoolCreateInfo.queueFamilyIndex        = graphics_family_index;
     cmdPoolCreateInfo.flags                   = 0;
     nvvk_result_check(vkCreateCommandPool(device, &cmdPoolCreateInfo, NOVA_VK_ALLOCATOR, &cmd_pool));
   }
 
-  VkCommandBufferAllocateInfo cmdAllocInfo = {};
+  VkCommandBufferAllocateInfo cmdAllocInfo = nv_zero_init(VkCommandBufferAllocateInfo);
   cmdAllocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cmdAllocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   cmdAllocInfo.commandBufferCount          = 1;
@@ -3337,13 +3469,13 @@ nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecuti
   VkResult res = vkEndCommandBuffer(cmd);
   if (res != VK_SUCCESS) return res;
 
-  VkSubmitInfo submitInfo       = {};
+  VkSubmitInfo submitInfo       = nv_zero_init(VkSubmitInfo);
   submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers    = &cmd;
 
   VkFence           fence     = VK_NULL_HANDLE;
-  VkFenceCreateInfo fenceInfo = {};
+  VkFenceCreateInfo fenceInfo = nv_zero_init(VkFenceCreateInfo);
   fenceInfo.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.flags             = 0;
 
@@ -3387,24 +3519,45 @@ nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecuti
 void
 nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize)
 {
-  FILE* f = fopen(path, "rb");
-  nv_assert(f != NULL);
+  nv_assert(path != NULL);
+  nv_assert(dstSize != NULL);
 
-  fseek(f, 0, SEEK_END);
-  int file_size = ftell(f);
+  FILE* f         = NULL;
+  int   file_size = -1;
 
-  if (dst == NULL)
+  f = fopen(path, "rb");
+  if (!f)
   {
-    *dstSize = file_size;
-    fclose(f);
-    return;
+    nv_log_error("fopen error: %s", strerror(errno));
+    goto CLEANUP_AND_RETURN;
   }
 
+  if (fseek(f, 0, SEEK_END) != 0)
+  {
+    nv_log_error("fseek error: %s", strerror(errno));
+    goto CLEANUP_AND_RETURN;
+  }
+
+  file_size = ftell(f);
+
+  if (dst == NULL) { goto CLEANUP_AND_RETURN; }
+
   rewind(f);
+  if (errno != 0)
+  {
+    nv_log_error("error in rewind?? %s", strerror(errno));
+    goto CLEANUP_AND_RETURN;
+  }
 
-  fread(dst, 1, file_size, f);
+  if (fread(dst, file_size, 1, f) != 1)
+  {
+    nv_log_error("fread error %s", strerror(errno));
+    goto CLEANUP_AND_RETURN;
+  }
 
-  fclose(f);
+CLEANUP_AND_RETURN:
+  *dstSize = file_size;
+  if (f) nv_safecall_c_fn(fclose(f));
 }
 
 void
@@ -3517,7 +3670,7 @@ nv_vk_create_texture_empty(
 {
   if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) { format = nv_vk_get_supported_format_for_draw(format); }
 
-  VkImageCreateInfo imageCreateInfo = {};
+  VkImageCreateInfo imageCreateInfo = nv_zero_init(VkImageCreateInfo);
   imageCreateInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageCreateInfo.imageType         = VK_IMAGE_TYPE_2D;
   imageCreateInfo.extent.width      = width;
@@ -3543,7 +3696,7 @@ nv_vk_create_texture_empty(
   {
     const u32 localDeviceMemoryIndex = nv_vk_get_mem_type(imageMemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    VkMemoryAllocateInfo allocInfo = {};
+    VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
     allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize       = imageMemoryRequirements.size;
     allocInfo.memoryTypeIndex      = localDeviceMemoryIndex;
@@ -3581,7 +3734,7 @@ nv_vk_transition_texture_layout(
     VkPipelineStageFlags  sourceStage,
     VkPipelineStageFlags  destinationStage)
 {
-  VkImageMemoryBarrier barrier            = {};
+  VkImageMemoryBarrier barrier            = nv_zero_init(VkImageMemoryBarrier);
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout                       = oldLayout;
   barrier.newLayout                       = newLayout;
@@ -3681,7 +3834,7 @@ nv_gpu_allocate_memory(size_t size, nv_gpu_memory_usage usage, nv_gpu_memory_t**
   (*dst)->usage                          = usage;
   const VkMemoryPropertyFlags properties = (VkMemoryPropertyFlags)usage;
 
-  VkMemoryAllocateInfo alloc_info = {};
+  VkMemoryAllocateInfo alloc_info = nv_zero_init(VkMemoryAllocateInfo);
   alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize       = size;
 
@@ -3709,7 +3862,7 @@ nv_gpu_create_buffer(size_t size, int alignment, VkBufferUsageFlags usage, nv_gp
 
   const int aligned_sz = ALIGN_UP(size, alignment);
 
-  VkBufferCreateInfo buffer_info = {};
+  VkBufferCreateInfo buffer_info = nv_zero_init(VkBufferCreateInfo);
   buffer_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size               = aligned_sz;
   buffer_info.usage              = usage;
@@ -3747,8 +3900,13 @@ nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* d
 void
 nv_gpu_write_to_uniform_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, size_t offset)
 {
-  void* mapped;
+  void* mapped = NULL;
   nv_gpu_map_memory(buffer->memory, size, offset, &mapped);
+  if (mapped == NULL)
+  {
+    nv_log_error("error in mapping");
+    return;
+  }
   nv_memcpy(mapped, data, size);
   nv_gpu_unmap_memory(buffer->memory);
 }
@@ -3792,10 +3950,15 @@ nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* data, s
 void
 nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** out)
 {
+  nv_assert(memory != NULL);
+  nv_assert(out != NULL);
+  nv_assert(size != 0);
+
   if (!(memory->usage & NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE))
   {
     nv_log_error("Memory usage does not have NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE "
                  "Use nv_gpu_write_to_buffer() instead.");
+    *out = NULL;
     return;
   }
   if (memory->map_size != 0)
@@ -3806,6 +3969,7 @@ nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** ou
   if (vkMapMemory(device, memory->memory, offset, size, 0, &memory->mapped) != VK_SUCCESS)
   {
     nv_log_error("Memory could not be mapped for write");
+    *out = NULL;
     return;
   }
   memory->map_size   = size;
@@ -3951,8 +4115,9 @@ nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* dest)
 
   nv_vk_end_command_buffer(cmd, transfer_queue, 1);
 
-  void* mapped;
+  void* mapped = NULL;
   nv_gpu_map_memory(staging_mem, buffer->size, 0, &mapped);
+  nv_assert(mapped != NULL);
   nv_memcpy(dest, mapped, buffer->size);
   nv_gpu_unmap_memory(staging_mem);
 
@@ -3992,7 +4157,7 @@ nv_gpu_create_sampler(const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler** 
     .max_lod        = pInfo->max_lod,
   };
 
-  VkSamplerCreateInfo samplerInfo = {};
+  VkSamplerCreateInfo samplerInfo = nv_zero_init(VkSamplerCreateInfo);
   samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerInfo.magFilter           = pInfo->filter;
   samplerInfo.minFilter           = pInfo->filter;
@@ -4079,7 +4244,7 @@ nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** 
 
   if (pInfo->usage & NOVA_GPU_TEXTURE_USAGE_PRESENTATION) { return; }
 
-  VkImageCreateInfo imageCreateInfo = {};
+  VkImageCreateInfo imageCreateInfo = nv_zero_init(VkImageCreateInfo);
   imageCreateInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageCreateInfo.imageType         = pInfo->type;
   imageCreateInfo.extent            = (VkExtent3D){ pInfo->extent.width, pInfo->extent.height, pInfo->extent.depth };
@@ -4478,7 +4643,7 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd)
   const flt_t       aspect       = (flt_t)RenderExtent.width / (flt_t)RenderExtent.height;
   cam->perspective               = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
 
-  nv_camera_uniform_buffer ub = {};
+  nv_camera_uniform_buffer ub = nv_zero_init(nv_camera_uniform_buffer);
   NV_MATRIX_COPY(ub.perspective, cam->perspective);
   NV_MATRIX_COPY(ub.ortho, cam->ortho);
   NV_MATRIX_COPY(ub.view, cam->view);

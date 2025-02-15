@@ -73,6 +73,11 @@ extern void ctext_shutdown(struct nv_renderer_t* rd);
 
 extern void ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
 
+/*
+  Returns 0 if the font is ok and anything else if it is on life support (hasn't crashed your program yet)
+*/
+extern int ctext_validate_font(const cfont_t* fnt);
+
 extern void ctext_destroy_font(cfont_t* fnt);
 
 extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...);

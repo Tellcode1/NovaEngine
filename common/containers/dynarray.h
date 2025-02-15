@@ -6,6 +6,8 @@
 
 NOVA_HEADER_START;
 
+#define CONT_CANARY 0xFEEF
+
 typedef struct nv_dynarray_t
 {
   unsigned        m_canary;
@@ -23,6 +25,19 @@ typedef int (*nv_dynarray_compare_fn)(const void* obj1, const void* obj2);
 */
 extern void nv_dynarray_init(int typesize, size_t init_size, nv_allocator_t* allocator, nv_dynarray_t* vec);
 extern void nv_dynarray_destroy(nv_dynarray_t* vec);
+
+/*
+  Returns 0 if the dynamic array is not valid and anything else if it's not
+*/
+static inline int
+nv_dynarray_is_initialized(const nv_dynarray_t* arr)
+{
+  if (!arr) return -1;
+  if (arr->m_canary != CONT_CANARY) return -1;
+  if (arr->m_capacity > 0 && !arr->m_data) return -1;
+  if (arr->m_typesize <= 0) return -1;
+  return 0;
+}
 
 extern void nv_dynarray_resize(nv_dynarray_t* vec, size_t new_size);
 extern void nv_dynarray_clear(nv_dynarray_t* vec);

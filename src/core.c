@@ -267,6 +267,8 @@ nv_ftoa2(real_t n, char s[], int precision, size_t max, bool remove_zeros)
 intmax_t
 nv_atoi(const char s[])
 {
+  if (!s) { return __INTMAX_MAX__; }
+
   const char* i   = s;
   intmax_t    ret = 0;
 
@@ -298,6 +300,8 @@ nv_atoi(const char s[])
 real_t
 nv_atof(const char s[])
 {
+  if (!s) { return INFINITY; }
+
   real_t      result = 0.0, fraction = 0.0;
   int         divisor = 1;
   bool        neg     = 0;
@@ -647,7 +651,7 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
 
           if (*iter == 'd' || *iter == 'i') { written = nv_itoa2(va_arg(args, long int), g_writebuf, 10, max_chars - chars_written); }
           else if (*iter == 'u') { written = nv_itoa_u2(va_arg(args, long unsigned), g_writebuf, 10, max_chars - chars_written); }
-          else if (*iter == 'f' || *iter == 'F') { written = nv_ftoa2(va_arg(args, long real_t), g_writebuf, precision, max_chars - chars_written, 0); }
+          else if (*iter == 'f' || *iter == 'F') { written = nv_ftoa2(va_arg(args, real_t), g_writebuf, precision, max_chars - chars_written, 0); }
           break;
         case 'd':
         case 'i': written = nv_itoa2(va_arg(args, int), g_writebuf, 10, max_chars - chars_written); break;
@@ -703,7 +707,7 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
           nv_memset(pad_buf, pad_char, sizeof(pad_buf));
           while (padding)
           {
-            size_t chunk = (padding > (int)sizeof(pad_buf)) ? sizeof(pad_buf) : padding;
+            int chunk = (padding > (int)sizeof(pad_buf)) ? (int)sizeof(pad_buf) : padding;
             _nv_printf_write(_writeptr, file, &chars_written, max_chars, pad_buf, chunk);
             padding -= chunk;
           }
@@ -716,7 +720,7 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
           nv_memset(pad_buf, pad_char, sizeof(pad_buf));
           while (padding)
           {
-            size_t chunk = (padding > (int)sizeof(pad_buf)) ? sizeof(pad_buf) : padding;
+            int chunk = (padding > (int)sizeof(pad_buf)) ? (int)sizeof(pad_buf) : padding;
             _nv_printf_write(_writeptr, file, &chars_written, max_chars, pad_buf, chunk);
             padding -= chunk;
           }
@@ -928,17 +932,17 @@ nv_image_overlay(nv_image_t* dest, const nv_image_t* src, int dst_x_offset, int 
 
   const int src_channels = nv_format_get_num_channels(src->fmt);
 
-  for (int y = src_y_offset; y < (ssize_t)src->h; y++)
+  for (ssize_t y = src_y_offset; y < (ssize_t)src->h; y++)
   {
-    for (int x = src_x_offset; x < (ssize_t)src->w; x++)
+    for (ssize_t x = src_x_offset; x < (ssize_t)src->w; x++)
     {
-      size_t dst_x = dst_x_offset + (x - src_x_offset);
-      size_t dst_y = dst_y_offset + (y - src_y_offset);
+      ssize_t dst_x = dst_x_offset + (x - src_x_offset);
+      ssize_t dst_y = dst_y_offset + (y - src_y_offset);
 
-      if (dst_x >= 0 && dst_x < dest->w && dst_y >= 0 && dst_y < dest->h)
+      if (dst_x >= 0 && dst_x < (ssize_t)dest->w && dst_y >= 0 && dst_y < (ssize_t)dest->h)
       {
-        int src_i = (y * src->w + x) * src_channels;
-        int dst_i = (dst_y * dest->w + dst_x) * src_channels;
+        ssize_t src_i = (y * src->w + x) * src_channels;
+        ssize_t dst_i = (dst_y * dest->w + dst_x) * src_channels;
 
         for (int c = 0; c < src_channels; c++)
         {
@@ -1039,16 +1043,24 @@ nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, flt_t scale)
 nv_image_t
 nv_image_load_png(const char* path)
 {
-  nv_image_t texture = {};
+  nv_image_t texture = nv_zero_init(nv_image_t);
 
   FILE* f = fopen(path, "rb");
-  nv_assert(f != NULL);
+  if (f == NULL) { return texture; }
 
   png_struct* png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-  nv_assert(png != NULL);
+  if (png == NULL)
+  {
+    fclose(f);
+    return texture;
+  }
 
   png_info* info = png_create_info_struct(png);
-  nv_assert(info != NULL);
+  if (info == NULL)
+  {
+    fclose(f);
+    return texture;
+  }
 
   png_init_io(png, f);
   png_read_info(png, info);
@@ -1059,6 +1071,13 @@ nv_image_load_png(const char* path)
   texture.h           = png_get_image_height(png, info);
   png_byte color_type = png_get_color_type(png, info);
   png_byte bit_depth  = png_get_bit_depth(png, info);
+
+  if (texture.w == 0 || texture.h == 0)
+  {
+    nv_log_error("zero w/h");
+    fclose(f);
+    return texture;
+  }
 
   if (color_type == PNG_COLOR_TYPE_PALETTE) { png_set_palette_to_rgb(png); }
 
@@ -1079,8 +1098,9 @@ nv_image_load_png(const char* path)
     case 4: texture.fmt = NOVA_FORMAT_RGBA8; break;
     default:
       nv_log_error("unsupported file(png) format: channels = %d", channels);
-      nv_assert(0);
-      break;
+      fclose(f);
+      png_destroy_read_struct(&png, &info, NULL);
+      return nv_zero_init(nv_image_t);
       break;
   }
 
@@ -1108,12 +1128,18 @@ nv_image_load_jpeg(const char* path)
 {
   struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr         jerr;
-  FILE*                         f;
-  nv_image_t                    img = {};
+  FILE*                         f   = NULL;
+  nv_image_t                    img = nv_zero_init(nv_image_t);
+
+  if (!path)
+  {
+    nv_log_error("invalid input path (NULL)");
+    return img;
+  }
 
   if ((f = fopen(path, "rb")) == NULL)
   {
-    nv_log_error("cimageload :: couldn't open file \"%s\" Are you sure that it exists?", path);
+    nv_log_error("couldn't open file \"%s\". Are you sure that it exists?", path);
     return img;
   }
 
@@ -1121,36 +1147,60 @@ nv_image_load_jpeg(const char* path)
   jpeg_create_decompress(&cinfo);
 
   jpeg_stdio_src(&cinfo, f);
-  jpeg_read_header(&cinfo, 1);
+  if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK)
+  {
+    nv_log_error("failed to read JPEG header from \"%s\"", path);
+    jpeg_destroy_decompress(&cinfo);
+    fclose(f);
+    return img;
+  }
 
   jpeg_start_decompress(&cinfo);
 
   img.w = cinfo.output_width;
   img.h = cinfo.output_height;
 
-  int channels = cinfo.output_components;
-
-  switch (channels)
+  switch (cinfo.output_components)
   {
     case 1: img.fmt = NOVA_FORMAT_R8; break;
-    case 3:
-      img.fmt  = NOVA_FORMAT_RGB8;
-      channels = 4;
-      break;
+    case 3: img.fmt = NOVA_FORMAT_RGB8; break;
     default:
-      nv_log_error("invalid num channels: %d", channels);
-      nv_assert(0);
-      break;
-      break;
+      nv_log_error("invalid number of channels: %d", cinfo.output_components);
+      jpeg_destroy_decompress(&cinfo);
+      fclose(f);
+      return img;
   }
 
-  img.data = (unsigned char*)nv_malloc(img.w * img.h * nv_format_get_bytes_per_pixel(img.fmt));
+  const size_t bytes_per_pixel = nv_format_get_bytes_per_pixel(img.fmt);
+  if (bytes_per_pixel == 0)
+  {
+    nv_log_error("invalid bytes per pixel for format.");
+    jpeg_destroy_decompress(&cinfo);
+    fclose(f);
+    return img;
+  }
+
+  img.data = (unsigned char*)nv_malloc(img.w * img.h * bytes_per_pixel);
+  if (!img.data)
+  {
+    nv_log_error("malloc for imagedata failed");
+    jpeg_destroy_decompress(&cinfo);
+    fclose(f);
+    return img;
+  }
 
   unsigned char* bufarr[1];
   for (int i = 0; i < (int)cinfo.output_height; i++)
   {
-    bufarr[0] = img.data + i * img.w * nv_format_get_bytes_per_pixel(img.fmt);
-    jpeg_read_scanlines(&cinfo, bufarr, 1);
+    bufarr[0] = img.data + i * img.w * bytes_per_pixel;
+    if (jpeg_read_scanlines(&cinfo, bufarr, 1) != 1)
+    {
+      nv_log_error("failed to read scanline %d", i);
+      nv_free(img.data);
+      jpeg_destroy_decompress(&cinfo);
+      fclose(f);
+      return nv_zero_init(nv_image_t);
+    }
   }
 
   jpeg_finish_decompress(&cinfo);
@@ -1163,47 +1213,92 @@ nv_image_load_jpeg(const char* path)
 void
 nv_image_write_png(const nv_image_t* tex, const char* path)
 {
-  FILE* f = fopen(path, "wb");
-  nv_assert(f != NULL);
+  if (tex == NULL || path == NULL || tex->data == NULL) { return; }
 
-  png_struct* png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-  nv_assert(png != NULL);
+  FILE* f = fopen(path, "wb");
+  if (!f)
+  {
+    nv_log_error("Failed to open file: %s", path);
+    return;
+  }
+
+  png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+  if (!png)
+  {
+    nv_log_error("png error");
+    fclose(f);
+    return;
+  }
 
   png_infop info = png_create_info_struct(png);
-  nv_assert(info != NULL);
+  if (!info)
+  {
+    nv_log_error("png error");
+    png_destroy_write_struct(&png, NULL);
+    fclose(f);
+    return;
+  }
 
-  if (setjmp(png_jmpbuf(png))) { nv_assert(0); }
+  if (setjmp(png_jmpbuf(png)))
+  {
+    nv_log_error("setjmp error");
+    png_destroy_write_struct(&png, &info);
+    fclose(f);
+    return;
+  }
 
   png_init_io(png, f);
 
-  int       coltype = -1;
   const int numc    = nv_format_get_num_channels(tex->fmt);
+  int       coltype = -1;
   switch (numc)
   {
     case 1: coltype = PNG_COLOR_TYPE_GRAY; break;
-    case 2: coltype = PNG_COLOR_TYPE_RGB; break;
+    case 3: coltype = PNG_COLOR_TYPE_RGB; break;
     case 4: coltype = PNG_COLOR_TYPE_RGBA; break;
+    default:
+      nv_log_error("Unsupported number of channels: %i", numc);
+      png_destroy_write_struct(&png, &info);
+      fclose(f);
+      return;
   }
-  nv_assert(coltype != -1);
 
   const int bytesperpixel = nv_format_get_bytes_per_pixel(tex->fmt);
+  if (bytesperpixel <= 0)
+  {
+    nv_log_error("invalid bytes per pixel: %i", bytesperpixel);
+    png_destroy_write_struct(&png, &info);
+    fclose(f);
+    return;
+  }
+
   png_set_IHDR(png, info, tex->w, tex->h, bytesperpixel * 8, coltype, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
   png_write_info(png, info);
 
-  png_bytep* row_pointers = nv_malloc(sizeof(png_byte*) * tex->h);
+  png_bytep* row_pointers = (png_bytep*)nv_malloc(sizeof(png_bytep) * tex->h);
+  if (!row_pointers)
+  {
+    nv_log_error("malloc row_pointers failed");
+    png_destroy_write_struct(&png, &info);
+    fclose(f);
+    return;
+  }
+
   for (size_t y = 0; y < tex->h; y++)
   {
     row_pointers[y] = tex->data + y * tex->w * bytesperpixel;
   }
+
   png_write_image(png, row_pointers);
   nv_free(row_pointers);
 
   png_write_end(png, NULL);
 
-  fclose(f);
   png_destroy_write_struct(&png, &info);
+  fclose(f);
 }
+
 // nv_image_t
 
 void
@@ -1417,9 +1512,7 @@ nv_format_get_num_channels(nv_format fmt)
 void*
 nv_memcpy(void* NV_RESTRICT dst, const void* NV_RESTRICT src, size_t sz)
 {
-  nv_assert(dst != NULL);
-  nv_assert(src != NULL);
-  nv_assert(sz != 0);
+  if (dst == NULL || src == NULL || sz == 0) { return NULL; }
 
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_memcpy(dst, src, sz);
@@ -1571,6 +1664,7 @@ nv_realloc(void* prevblock, size_t new_sz)
 void
 nv_free(void* block)
 {
+  // fuck you
   nv_assert(block != NULL);
   free(block);
 }
@@ -1691,7 +1785,7 @@ char*
 nv_strcpy(char* dest, const char* src)
 {
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
-  return __builtin_strcpy(dest, src);
+  return __builtin_strcpy(dest, src); // NOLINT(clang-analyzer-security.insecureAPI.strcpy)
 #  endif
 
   if (!dest || !src) { return NULL; }
@@ -1708,6 +1802,9 @@ nv_strcpy(char* dest, const char* src)
 char*
 nv_strncpy(char* dest, const char* src, size_t max)
 {
+  if (!dest || !src) { return NULL; }
+  if (max == 0) { return dest; }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strncpy(dest, src, max);
 #  endif
@@ -1947,8 +2044,12 @@ nv_strstr(const char* s, const char* sub)
 size_t
 nv_strcpy2(char* dest, const char* src)
 {
+  if (!src) { return (size_t)-1; }
+  size_t slen = nv_strlen(src);
+  if (!dest) { return slen; }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
-  return __builtin_strlen(__builtin_strcpy(dest, src));
+  return __builtin_strlen(__builtin_strcpy(dest, src)); // NOLINT(clang-analyzer-security.insecureAPI.strcpy)
 #  endif
   const char* original_dest = dest;
   while (*src)
@@ -2105,13 +2206,21 @@ nv_allocator_stack_init(nv_allocator_stack* allocator, unsigned char* buf, size_
 void*
 sarealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size)
 {
-  if (!prevblock) { nv_log_and_abort("invalid pointer"); }
+  if (!prevblock)
+  {
+    nv_log_and_abort("invalid pointer");
+    return NULL;
+  }
   sablock* prevblockp = (sablock*)prevblock - 1;
   if (prevblockp->size >= size) { return prevblock; }
-  if (prevblockp->canary != NOVA_ALLOCATION_CANARY) { nv_log_and_abort("corrupt memory"); }
+  if (prevblockp->canary != NOVA_ALLOCATION_CANARY)
+  {
+    nv_log_and_abort("corrupt memory");
+    return NULL;
+  }
 
   void* new_data = saalloc(parent, alignment, size);
-  nv_assert(new_data != NULL);
+  if (new_data == NULL) { return NULL; }
   nv_memset(new_data, 0, size);
   nv_memcpy(new_data, prevblock, prevblockp->size);
   safree(parent, prevblock);
@@ -3141,7 +3250,16 @@ nv_hashmap_deserialize(nv_hashmap_t* map, FILE* f)
 void
 nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv_format fmt, int padding)
 {
-  nv_assert(width != 0 && height != 0);
+  if (!atlas)
+  {
+    nv_log_error("Passing null to atlas is not valid");
+    return;
+  }
+  if (width == 0 || height == 0 || nv_format_get_bytes_per_pixel(atlas->fmt) == 0)
+  {
+    nv_log_error("Invalid size/format for atlas");
+    return;
+  }
 
   atlas->w       = width;
   atlas->h       = height;
@@ -3150,8 +3268,10 @@ nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv
   atlas->data    = (unsigned char*)nv_calloc(width * height * nv_format_get_bytes_per_pixel(atlas->fmt));
   nv_assert(atlas->data != NULL);
 
-  pthread_mutexattr_t attrs = nv_zero_init(attrs);
-  pthread_mutex_init(&atlas->mutex, NULL);
+  pthread_mutexattr_t attrs = nv_zero_init(pthread_mutexattr_t);
+  pthread_mutexattr_init(&attrs);
+
+  pthread_mutex_init(&atlas->mutex, &attrs);
   nv_skyline_bin_init(width, height, &atlas->bin);
 }
 
@@ -3258,7 +3378,17 @@ nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
 
   if (atlas->w > optimal_w || atlas->h > optimal_h)
   {
-    size_t         channels = nv_format_get_bytes_per_pixel(atlas->fmt);
+    if (max_w == 0 || max_h == 0)
+    {
+      nv_log_error("0 optimal w/h??");
+      return -1;
+    }
+    size_t channels = nv_format_get_bytes_per_pixel(atlas->fmt);
+    if (channels == 0)
+    {
+      nv_log_error("invalid format?");
+      return -1;
+    }
     unsigned char* new_data = (unsigned char*)nv_calloc(max_w * max_h * channels);
     if (new_data)
     {
@@ -3274,7 +3404,7 @@ nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
   }
 
   pthread_mutex_unlock(&atlas->mutex);
-  return 1;
+  return -1;
 }
 
 void
@@ -3299,7 +3429,7 @@ nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin)
 {
   if (!bin) return;
 
-  *bin              = nv_zero_init(*bin);
+  *bin              = (nv_skyline_bin_t){};
   bin->w            = w;
   bin->h            = h;
   bin->skyline      = (size_t*)nv_calloc(w * sizeof(size_t));
@@ -3540,13 +3670,14 @@ nv_bitset_access_bit(nv_bitset_t* set, int bitindex)
 void
 nv_bitset_copy_from(nv_bitset_t* dst, const nv_bitset_t* src)
 {
+  if (!src->data) { return; }
   if (src->size != dst->size && dst->data)
   {
     dst->allocator->free(dst->allocator, dst->data);
     dst->data = src->allocator->alloc(src->allocator, 1, src->size);
     dst->size = src->size;
   }
-  nv_memcpy(dst->data, src->data, src->size);
+  if (dst->data && src->data) { nv_memcpy(dst->data, src->data, src->size); }
 }
 
 void
@@ -3845,7 +3976,7 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
   {
     bool flag_value = true;
     if (is_long && value) { flag_value = nv_atobool(value); }
-    *(bool*)opt->value = flag_value;
+    if (opt->value) *(bool*)opt->value = flag_value;
     (*i)++;
     return 0;
   }
@@ -3874,12 +4005,21 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
   switch (opt->type)
   {
     case NV_OP_TYPE_STRING:
-      nv_strncpy((char*)opt->value, value, opt->buffer_size);
-      ((char*)opt->value)[opt->buffer_size - 1] = '\0';
+      if (opt->value)
+      {
+        nv_strncpy((char*)opt->value, value, opt->buffer_size);
+        ((char*)opt->value)[opt->buffer_size - 1] = '\0';
+      }
       break;
-    case NV_OP_TYPE_INT: *(int*)opt->value = nv_atoi(value); break;
-    case NV_OP_TYPE_FLOAT: *(flt_t*)opt->value = (flt_t)nv_atof(value); break;
-    case NV_OP_TYPE_DOUBLE: *(real_t*)opt->value = nv_atof(value); break;
+    case NV_OP_TYPE_INT:
+      if (opt->value) *(int*)opt->value = nv_atoi(value);
+      break;
+    case NV_OP_TYPE_FLOAT:
+      if (opt->value) *(flt_t*)opt->value = (flt_t)nv_atof(value);
+      break;
+    case NV_OP_TYPE_DOUBLE:
+      if (opt->value) *(real_t*)opt->value = nv_atof(value);
+      break;
     default: break;
   }
 

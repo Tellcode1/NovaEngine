@@ -347,8 +347,8 @@ typedef struct ray_cast_context
   bool                 has_hit;
 } ray_cast_context;
 
-flt_t
-cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, flt_t fraction, void* context)
+float
+cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
 {
   (void)point;
   (void)normal;
@@ -364,10 +364,10 @@ cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, flt_t fraction, v
 nv_collider_ray_hit
 nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask)
 {
-  nv_collider_ray_hit hit = {};
+  nv_collider_ray_hit hit = nv_zero_init(nv_collider_ray_hit);
   hit.host                = col;
 
-  ray_cast_context ctx = {};
+  ray_cast_context ctx = nv_zero_init(ray_cast_context);
   ctx.raycaster        = col->shape;
   ctx.hit              = &hit;
 
@@ -861,7 +861,7 @@ nv_input_bind_key_to_action(SDL_Scancode key, const char* action)
 void
 nv_input_bind_mouse_to_action(int bton, const char* action)
 {
-  nv_input_action_t ia = {};
+  nv_input_action_t ia = nv_zero_init(nv_input_action_t);
   ia.mouse             = bton;
   nv_hashmap_insert(&g_nv_input_action_mapping, action, &ia);
 }

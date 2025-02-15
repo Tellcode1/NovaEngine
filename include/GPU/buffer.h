@@ -10,7 +10,7 @@ NOVA_HEADER_START;
 typedef struct nv_gpu_memory_t nv_gpu_memory_t;
 
 // This is mainly here to bar the user from using unsupported buffer types
-typedef enum nv_gpu_buffer_type
+typedef enum nv_gpu_buffer_type_bits
 {
   NOVA_GPU_BUFFER_TYPE_VERTEX_BUFFER        = 128,
   NOVA_GPU_BUFFER_TYPE_INDEX_BUFFER         = 64,
@@ -19,7 +19,8 @@ typedef enum nv_gpu_buffer_type
   NOVA_GPU_BUFFER_TYPE_TRANSFER_SOURCE      = 1,
   NOVA_GPU_BUFFER_TYPE_TRANSFER_DESTINATION = 2,
   NOVA_GPU_BUFFER_TYPE_INDIRECT_BUFFER      = 256,
-} nv_gpu_buffer_type;
+} nv_gpu_buffer_type_bits;
+typedef uint32_t nv_gpu_buffer_type;
 
 typedef struct nv_gpu_buffer_t
 {

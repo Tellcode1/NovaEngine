@@ -52,7 +52,7 @@ nv_gpu_create_command_pool(nv_command_pool_t* pool)
 {
   pool->queue_family_index = graphics_family_index;
 
-  VkCommandPoolCreateInfo cmdPoolCreateInfo = {};
+  VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zero_init(VkCommandPoolCreateInfo);
   cmdPoolCreateInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cmdPoolCreateInfo.queueFamilyIndex        = pool->queue_family_index;
   cmdPoolCreateInfo.flags                   = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;

@@ -16,7 +16,7 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline NAME FUNC##init(TYPE diag)                                                                                                                                    \
   {                                                                                                                                                                           \
-    NAME result = {};                                                                                                                                                         \
+    NAME result = nv_zero_init(NAME);                                                                                                                                         \
     for (int i = 0; i < SIZE; i++)                                                                                                                                            \
     {                                                                                                                                                                         \
       result.data[i]              = (vec##SIZE##TYPE_PREFIX){ 0 };                                                                                                            \
@@ -47,7 +47,7 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline NAME FUNC##mul(const NAME m1, const NAME m2)                                                                                                                  \
   {                                                                                                                                                                           \
-    NAME result = {};                                                                                                                                                         \
+    NAME result = nv_zero_init(NAME);                                                                                                                                         \
     for (int i = 0; i < SIZE; i++)                                                                                                                                            \
     {                                                                                                                                                                         \
       result.data[i] = (vec##SIZE##TYPE_PREFIX){ 0 };                                                                                                                         \
@@ -61,7 +61,7 @@ NOVA_HEADER_START;
                                                                                                                                                                               \
   static inline vec##SIZE##TYPE_PREFIX FUNC##mulv(const NAME m, const vec##SIZE##TYPE_PREFIX v)                                                                               \
   {                                                                                                                                                                           \
-    vec##SIZE##TYPE_PREFIX result = {};                                                                                                                                       \
+    vec##SIZE##TYPE_PREFIX result = nv_zero_init(vec##SIZE##TYPE_PREFIX);                                                                                                     \
     for (int i = 0; i < SIZE; i++)                                                                                                                                            \
     {                                                                                                                                                                         \
       ((TYPE*)&result)[i] = v##SIZE##TYPE_PREFIX##dot(m.data[i], v);                                                                                                          \
@@ -166,7 +166,7 @@ NOVA_HEADER_START;
   {                                                                                                                                                                           \
     const TYPE halftan = tan(fovradians * 0.5f);                                                                                                                              \
                                                                                                                                                                               \
-    NAME result      = {};                                                                                                                                                    \
+    NAME result      = nv_zero_init(NAME);                                                                                                                                    \
     result.data[0].x = 1.0f / (aspect_ratio * halftan);                                                                                                                       \
     result.data[1].y = -(1.0f / (halftan)); /* y flip */                                                                                                                      \
     result.data[2].z = -(far + near) / (far - near);                                                                                                                          \

@@ -141,7 +141,7 @@ nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** d
 struct nvsm_shader_t*
 find_shader(const char* name)
 {
-  struct nvsm_shader_t shader = {};
+  struct nvsm_shader_t shader = nv_zero_init(struct nvsm_shader_t);
 
   nv_strncpy(shader.name, name, sizeof(shader.name) - 1);
   shader.name[sizeof(shader.name) - 1] = '\0';
@@ -160,7 +160,7 @@ nvsm_load_shader(const char* name, struct nvsm_shader_t** out)
 {
   if (name == NULL || nv_strlen(name) == 0) { return -1; }
 
-  struct nvsm_shader_t shader = {};
+  struct nvsm_shader_t shader = nv_zero_init(struct nvsm_shader_t);
 
   nv_strncpy(shader.name, name, sizeof(shader.name) - 1);
   shader.name[sizeof(shader.name) - 1] = '\0';
@@ -221,7 +221,7 @@ read_shader_spirv(const char* output, unsigned** spirv, int* spirvsize)
   unsigned* buffer = nv_malloc(fsize);
   if (!buffer) { goto err; }
 
-  nv_safecall_c_fn(fread(buffer, 1, fsize, f));
+  nv_assert(fread(buffer, 1, fsize, f) != 0);
 
   nv_safecall_c_fn(fclose(f));
 
@@ -291,11 +291,11 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
     nv_strncpy(shader_map[nshaders + index].name, entries[i].name, 127);
     shader_map[nshaders + index].name[127] = '\0';
 
-    unsigned* spirv;
+    unsigned* spirv     = NULL;
     int       spirvsize = 0;
     if (read_shader_spirv((const char*)entries[i].output_path, &spirv, &spirvsize) != 0)
     {
-      nv_free(spirv);
+      if (spirv) nv_free(spirv);
       continue;
     }
     _nvsm_create_shader(vkdevice, spirv, spirvsize, &shader_map[nshaders + index]);
@@ -340,12 +340,25 @@ load_cache(int* count)
   if (f == NULL)
   {
     *count = 0;
+    nv_log_error("io error %s", strerror(errno));
     return NULL; // safe to return. nvsm will gracefully handle this.
   }
 
-  nv_assert(fread(count, sizeof(int), 1, f) == 1);
+  if (fread(count, sizeof(int), 1, f) != 1)
+  {
+    *count = 0;
+    nv_log_error("io error %s", strerror(errno));
+    nv_safecall_c_fn(fclose(f));
+    return NULL;
+  }
   nvsm_shader_disk_t* write = (nvsm_shader_disk_t*)nv_calloc(*count * sizeof(nvsm_shader_disk_t));
-  nv_assert(fread(write, sizeof(nvsm_shader_disk_t), *count, f) == (size_t)(*count));
+  if (fread(write, sizeof(nvsm_shader_disk_t), *count, f) != (size_t)(*count))
+  {
+    *count = 0;
+    nv_log_error("io error %s", strerror(errno));
+    nv_safecall_c_fn(fclose(f));
+    return NULL;
+  }
 
   nvsm_shader_cache_entry_t* entries = nv_calloc(*count * sizeof(nvsm_shader_cache_entry_t));
   for (int i = 0; i < (*count); i++)
@@ -392,9 +405,14 @@ void
 write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
 {
   FILE* f = fopen("shaders.cache", "wb");
-  nv_assert(f != NULL); // writing
+  if (!f) { return; }
 
   nvsm_shader_disk_t* write = nv_malloc(sizeof(nvsm_shader_disk_t) * count);
+  if (!write)
+  {
+    nv_safecall_c_fn(fclose(f));
+    return;
+  }
 
   for (int i = 0; i < count; i++)
   {
@@ -403,8 +421,16 @@ write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
     write[i].last_modified = entries[i].last_modified;
   }
 
-  nv_assert(fwrite(&count, sizeof(int), 1, f) == 1);
-  nv_assert(fwrite(write, sizeof(nvsm_shader_disk_t), count, f) == (size_t)count);
+  if (fwrite(&count, sizeof(int), 1, f) != 1)
+  {
+    nv_safecall_c_fn(fclose(f));
+    return;
+  }
+  if (fwrite(write, sizeof(nvsm_shader_disk_t), count, f) != (size_t)count)
+  {
+    nv_safecall_c_fn(fclose(f));
+    return;
+  }
 
   nv_safecall_c_fn(fclose(f));
 

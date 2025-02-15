@@ -90,11 +90,7 @@ NOVA_HEADER_START;
 #endif
 
 #ifndef nv_zero_init
-#  ifndef __cplusplus
-#    define nv_zero_init(OBJ) (OBJ = ((NV_TYPEOF(OBJ)){ 0 }))
-#  else
-#    define nv_zero_init(OBJ) (OBJ = ((NV_TYPEOF(OBJ)){}))
-#  endif
+#  define nv_zero_init(TYPE) (TYPE){ 0 }
 #endif
 
 #ifndef NDEBUG

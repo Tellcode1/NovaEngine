@@ -68,7 +68,7 @@ nv_mesh_render(nv_renderer_t* rd, nv_camera_t* cam, nv_sprite* spr, nv_mesh_t* m
 {
   VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
 
-  VkDeviceSize offsets[1] = {};
+  VkDeviceSize offsets[1] = { 0 };
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.Lit.pipeline);
 
   struct lit_push_constants
