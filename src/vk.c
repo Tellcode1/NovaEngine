@@ -1779,15 +1779,15 @@ _ctext_load_font_update_descriptors(nv_ctext_module* ctext, cfont_t* dst)
 // }
 
 void
-ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst)
+ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* dst)
 {
-  if (!rd || !dst)
+  if (!rdr || !dst)
   {
-    nv_log_error("pInfo or dst is NULL!");
+    nv_log_error("rdr or dst is NULL!");
     return;
   }
 
-  if (scale <= 0.0f)
+  if (scale <= 0)
   {
     nv_log_error("attempting to load a font with 0 fontscale.");
     return;
@@ -1796,16 +1796,16 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
   *dst = (cfont_t){};
 
   fontc_file_t f_file;
-  if (fontc_read_font(font_path, &f_file) != 0)
+  if (fontc_load_font(font_path, &f_file) != 0)
   {
     nv_log_error("There was an error loading the font file. Skipping");
     return;
   }
 
   // Store a pointer to the font for future reference
-  *(cfont_t**)nv_dynarray_push_empty(&rd->ctext->fonts) = dst;
+  *(cfont_t**)nv_dynarray_push_empty(&rdr->ctext->fonts) = dst;
 
-  dst->rd = rd;
+  dst->rd = rdr;
 
   nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
   nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
@@ -1836,7 +1836,7 @@ ctext_load_font(nv_renderer_t* rd, const char* font_path, int scale, cfont_t* ds
   }
 
   _ctext_load_font_upload_glyph_atlas(&atlas, dst);
-  _ctext_load_font_update_descriptors(rd->ctext, dst);
+  _ctext_load_font_update_descriptors(rdr->ctext, dst);
 
   fontc_clean_font_file(&f_file);
 

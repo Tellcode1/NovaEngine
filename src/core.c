@@ -840,7 +840,7 @@ get_file_extension(const char* path)
 int
 nv_bufcompress(const void* NV_RESTRICT input, size_t input_size, void* NV_RESTRICT output, size_t* NV_RESTRICT output_size)
 {
-  z_stream stream = (z_stream){};
+  z_stream stream = nv_zero_init(z_stream);
 
   if (deflateInit(&stream, Z_BEST_COMPRESSION) != Z_OK) { return -1; }
 
@@ -3255,7 +3255,7 @@ nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv
     nv_log_error("Passing null to atlas is not valid");
     return;
   }
-  if (width == 0 || height == 0 || nv_format_get_bytes_per_pixel(atlas->fmt) == 0)
+  if (width == 0 || height == 0 || nv_format_get_bytes_per_pixel(fmt) == 0)
   {
     nv_log_error("Invalid size/format for atlas");
     return;
@@ -3410,10 +3410,10 @@ nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
 void
 nv_texture_atlas_destroy(nv_texture_atlas_t* atlas)
 {
-  if (!atlas) return;
+  if (!atlas) { return; }
 
   pthread_mutex_lock(&atlas->mutex);
-  nv_free(atlas->data);
+  if (atlas->data) { nv_free(atlas->data); }
   nv_skyline_bin_destroy(&atlas->bin);
   pthread_mutex_unlock(&atlas->mutex);
 
@@ -3441,9 +3441,9 @@ nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin)
 void
 nv_skyline_bin_destroy(nv_skyline_bin_t* bin)
 {
-  if (!bin) return;
-  if (bin->rects) nv_free(bin->rects);
-  nv_free(bin->skyline);
+  if (!bin) { return; }
+  if (bin->rects) { nv_free(bin->rects); }
+  if (bin->skyline) { nv_free(bin->skyline); }
 }
 
 size_t
@@ -3452,7 +3452,7 @@ nv_skyline_bin_max_height(const nv_skyline_bin_t* bin, size_t x, size_t w)
   size_t max_h = 0;
   for (size_t i = x; i < x + w && i < bin->w; i++)
   {
-    if (bin->skyline[i] > max_h) max_h = bin->skyline[i];
+    if (bin->skyline[i] > max_h) {max_h = bin->skyline[i];}
   }
   return max_h;
 }

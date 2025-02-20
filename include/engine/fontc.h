@@ -64,8 +64,16 @@ struct fontc_file_t
 };
 
 extern fontc_err_t fontc_read_font(const char* path, fontc_file_t* file);
-extern fontc_err_t fontc_bake_font(const char* font_path, const char* out, int pixel_size, int atlas_w, int atlas_h, int num_threads);
+extern fontc_err_t fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w, int init_atlas_h, int num_threads, fontc_file_t* out_file);
+extern fontc_err_t fontc_write_font_file(const char* out, const fontc_file_t* file);
 extern void        fontc_clean_font_file(fontc_file_t* file);
+
+/**
+ * An abstraction to fontc_read_font and bake_font().
+ * Will bake the file if needed. Load the cache if available.
+ * Pass in the path to the font TTF or OTF FILE!!
+ */
+extern fontc_err_t fontc_load_font(const char* font_source_path, fontc_file_t* file);
 
 NOVA_HEADER_END;
 

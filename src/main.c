@@ -183,7 +183,7 @@ main(int argc, char* argv[])
   u32         numFrames  = 0;
 
   cfont_t OpenSans;
-  ctext_load_font(rd, "./bakedfont", 1.0f, &OpenSans);
+  ctext_load_font(rd, "Assets/roboto.ttf", 1.0f, &OpenSans);
 
   int curr_showing_fps = 0;
 

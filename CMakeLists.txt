@@ -72,6 +72,8 @@ target_compile_options(Nova PRIVATE -g -Wall -Wextra)
 target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 
+file(COPY ${CMAKE_CURRENT_LIST_DIR}/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
+
 if (NOVA_BUILD_EXAMPLE)
     target_link_libraries(nova_example Nova)
 endif()
