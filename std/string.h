@@ -29,7 +29,7 @@ extern void* nv_memcpy(void* NV_RESTRICT dst, const void* NV_RESTRICT src, size_
 extern void* nv_memset(void* dst, char to, size_t sz);
 
 /*
- *  copy memory from src to dst and clear the copied memory in src
+ *  copy memory from src to dst
  */
 extern void* nv_memmove(void* dst, const void* src, size_t sz);
 

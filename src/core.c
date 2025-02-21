@@ -1787,10 +1787,13 @@ nv_memmove(void* dst, const void* src, size_t sz)
     return NULL;
   }
 
-  if (dst > src && (unsigned char*)dst < ((unsigned char*)src + sz))
+  unsigned char*       d = (unsigned char*)dst;
+  const unsigned char* s = (const unsigned char*)src;
+
+  if (d > s && d < s + sz)
   {
-    unsigned char*       d = (unsigned char*)dst + sz;
-    const unsigned char* s = (const unsigned char*)src + sz;
+    d += sz;
+    s += sz;
     while (sz--)
     {
       *(--d) = *(--s);
@@ -1798,8 +1801,6 @@ nv_memmove(void* dst, const void* src, size_t sz)
   }
   else
   {
-    unsigned char*       d = (unsigned char*)dst;
-    const unsigned char* s = (const unsigned char*)src;
     while (sz--)
     {
       *(d++) = *(s++);
@@ -2030,6 +2031,7 @@ nv_strncpy(char* dest, const char* src, size_t max)
 char*
 nv_strcat(char* dest, const char* src)
 {
+  char* original_dest = dest;
   while (*dest)
   {
     dest++; // move to end of dest
@@ -2042,12 +2044,13 @@ nv_strcat(char* dest, const char* src)
     dest++;
   }
   *dest = 0;
-  return dest;
+  return original_dest;
 }
 
 char*
 nv_strncat(char* dest, const char* src, size_t max)
 {
+  char* original_dest = dest;
   while (*dest)
   {
     dest++; // move to end of dest
@@ -2062,12 +2065,13 @@ nv_strncat(char* dest, const char* src, size_t max)
     dest++;
   }
   *dest = 0;
-  return dest;
+  return original_dest;
 }
 
 char*
 nv_strcat_max(char* dest, const char* src, size_t dest_size)
 {
+  char* original_dest = dest;
   while (*dest)
   {
     dest++;
@@ -2087,12 +2091,17 @@ nv_strcat_max(char* dest, const char* src, size_t dest_size)
   }
 
   *dest = 0;
-  return dest;
+  return original_dest;
 }
 
 int
 nv_strcmp(const char* s1, const char* s2)
 {
+  if (!s1 || !s2)
+  {
+    return -1;
+  }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strcmp(s1, s2);
 #  endif
@@ -2108,6 +2117,11 @@ nv_strcmp(const char* s1, const char* s2)
 char*
 nv_strchr(const char* s, int chr)
 {
+  if (!s)
+  {
+    return NULL;
+  }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strchr(s, chr);
 #  endif
@@ -2128,12 +2142,14 @@ nv_strchr(const char* s, int chr)
 char*
 nv_strrchr(const char* s, int chr)
 {
+  if (!s)
+  {
+    return NULL;
+  }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strrchr(s, chr);
 #  endif
-
-  if (!s)
-    return NULL;
 
   const char* beg = s;
   s += nv_strlen(s) - 1;
@@ -2151,14 +2167,14 @@ nv_strrchr(const char* s, int chr)
 int
 nv_strncmp(const char* s1, const char* s2, size_t max)
 {
-#  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
-  return __builtin_strncmp(s1, s2, max);
-#  endif
-
   if (!s1 || !s2 || max == 0)
   {
     return -1;
   }
+
+#  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
+  return __builtin_strncmp(s1, s2, max);
+#  endif
   size_t i = 0;
   while (*s1 && *s2 && (*s1 == *s2) && i < max)
   {
@@ -2172,6 +2188,11 @@ nv_strncmp(const char* s1, const char* s2, size_t max)
 int
 nv_strcasencmp(const char* s1, const char* s2, size_t max)
 {
+  if (!s1 || !s2)
+  {
+    return -1;
+  }
+
   size_t i = 0;
   while (*s1 && *s2 && i < max)
   {
@@ -2191,6 +2212,11 @@ nv_strcasencmp(const char* s1, const char* s2, size_t max)
 int
 nv_strcasecmp(const char* s1, const char* s2)
 {
+  if (!s1 || !s2)
+  {
+    return -1;
+  }
+
   while ((uintptr_t)*s1 & (sizeof(size_t) - 1))
   {
     unsigned char c1 = tolower(*(unsigned char*)s1);
@@ -2204,26 +2230,40 @@ nv_strcasecmp(const char* s1, const char* s2)
   }
 
   // FIXME: Implement
-  while (1) {}
+  while (*s1 && *s2)
+  {
+    unsigned char c1 = tolower(*(unsigned char*)s1);
+    unsigned char c2 = tolower(*(unsigned char*)s2);
+    if (c1 != c2)
+    {
+      return c1 - c2;
+    }
+    s1++;
+    s2++;
+  }
   return tolower(*(unsigned char*)s1) - tolower(*(unsigned char*)s2);
 }
 
 size_t
 nv_strlen(const char* s)
 {
+  if (!s)
+  {
+    return 0;
+  }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strlen(s);
 #  endif
-
-  if (!s)
-    return 0;
 
   const char* start = s;
 
   while ((uintptr_t)s & (sizeof(size_t) - 1)) // align s to 8 byte boundary so we can check sizeof(size_t) bytes at once
   {
     if (!*s)
+    {
       return s - start;
+    }
     s++;
   }
 
@@ -2232,12 +2272,16 @@ nv_strlen(const char* s)
   {
     uint64_t word = *(uint64_t*)s;
     if (((word - mask) & ~word) & (mask << 7))
+    {
       break;
+    }
     s += 8;
   }
 
   while (*s)
+  {
     s++;
+  }
 
   return s - start;
 }
@@ -2250,7 +2294,9 @@ nv_strstr(const char* s, const char* sub)
 #  endif
 
   if (!s || !sub)
+  {
     return NULL;
+  }
 
   for (; *s; s++)
   {
@@ -2277,8 +2323,9 @@ nv_strcpy2(char* dest, const char* src)
 {
   if (!src)
   {
-    return (size_t)-1;
+    return 0;
   }
+
   size_t slen = nv_strlen(src);
   if (!dest)
   {
@@ -2302,14 +2349,14 @@ nv_strcpy2(char* dest, const char* src)
 size_t
 nv_strspn(const char* s, const char* accept)
 {
-#  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
-  return __builtin_strspn(s, accept);
-#  endif
-
   if (!s || !accept)
   {
     return 0;
   }
+
+#  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
+  return __builtin_strspn(s, accept);
+#  endif
   size_t i = 0;
   while (*s && *accept && *s == *accept)
   {

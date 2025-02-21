@@ -8,7 +8,7 @@
 
 NOVA_HEADER_START
 
-// Only one key OR mouse button may be bound to an action currently!
+// Only TWO keys OR ONE mouse button may be bound to an action currently!
 
 typedef struct nv_input_action_t nv_input_action_t;
 
@@ -77,10 +77,11 @@ extern bool nv_input_is_action_just_unsignalled(const char* action);
 extern int nv_input_signal_action(const char* action);
 
 extern nv_input_key_state nv_input_get_key_state(const SDL_Scancode sc);
-extern bool               nv_input_is_key_signalled(const SDL_Scancode sc);
-extern bool               nv_input_is_key_unsignalled(const SDL_Scancode sc);
-extern bool               nv_input_is_key_just_signalled(const SDL_Scancode sc);
-extern bool               nv_input_is_key_just_unsignalled(const SDL_Scancode sc);
+
+extern bool nv_input_is_key_signalled(const SDL_Scancode sc);
+extern bool nv_input_is_key_unsignalled(const SDL_Scancode sc);
+extern bool nv_input_is_key_just_signalled(const SDL_Scancode sc);
+extern bool nv_input_is_key_just_unsignalled(const SDL_Scancode sc);
 
 extern vec2 nv_input_get_mouse_position(void);
 extern vec2 nv_input_get_last_frame_mouse_position(void);

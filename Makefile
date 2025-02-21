@@ -28,17 +28,25 @@ VOLK_LIB = $(VOLK_BUILD_DIR)/libvolk.a
 SOURCES = src/engine.c src/main.c src/fontc.c src/nvsm.c src/vk.c
 OBJECTS = $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 
+BUILD_TEST ?= false
+
 CORE_SOURCE = src/core.c
 
 .PHONY: clean clean-all all
 
 all: $(BUILD_DIR)/nova_example $(NVSM_BINARY) $(FONTC_BINARY)
-	cp -r Assets/ 
+	cp -r Assets/ $(BUILD_DIR)
+
+test: $(BUILD_DIR)/nova_string_test
+	$(BUILD_DIR)/nova_string_test
 
 run: $(BUILD_DIR)/nova_example
 	
 $(BUILD_DIR)/nova_example: $(BOX2D_LIB) $(VOLK_LIB) $(PCH) $(CORE) $(OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) -o $@ $(CORE) $(OBJECTS) $(LIBS) $(LIB_FREETYPE) $(LIB_SDL) $(LIB_VULKAN) $(LIBS_MODULE) -DNVSM=1 -DFONTC=1
+
+$(BUILD_DIR)/nova_string_test: $(PCH) $(CORE) src/test.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) src/test.c -o $@ $(CORE) $(LIBS)
 
 $(BUILD_DIR)/%.o: src/%.c $(PCH)
 	$(CC) $(CFLAGS) $(INCL) -c $< -o $@
@@ -72,3 +80,6 @@ clean:
 
 clean-all: clean
 	rm -rf $(BUILD_DIR)/volk $(BUILD_DIR)/box2d
+
+format:
+	./format.sh
