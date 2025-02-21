@@ -98,18 +98,21 @@ fontc_read_font(const char* path, fontc_file_t* file)
   if (fread(&file->header, sizeof(fontc_file_header_t), 1, f) != 1)
   {
     retcode = FONTC_FONT_FILE_NOT_VALID;
+    nv_push_error("invalid file");
     goto CLEANUP;
   }
 
   if (file->header.magic != FONTC_MAGIC || file->header.magic2 != FONTC_MAGIC)
   {
     retcode = FONTC_INVALID_CANARY;
+    nv_push_error("invalid magic number");
     goto CLEANUP;
   }
 
   if (file->header.float_size != sizeof(flt_t))
   {
     retcode = FONTC_FONT_FILE_NOT_VALID;
+    nv_push_error("this font file was baked with a different flt_t size");
     goto CLEANUP;
   }
 
@@ -117,6 +120,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
   if (total_glyph_size > __INT32_MAX__)
   {
     retcode = FONTC_SOMETHING_HAS_GONE_HORRIBLY_WRONG;
+    nv_push_error("total glyph size greater than __INT32_MAX__");
     goto CLEANUP;
   }
 
@@ -124,6 +128,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
   if (!file->glyphs)
   {
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
+    nv_push_error("malloc %zu fail", total_glyph_size);
     goto CLEANUP;
   }
 
@@ -139,6 +144,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
   if (!file->bitmap)
   {
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
+    nv_push_error("malloc %zu fail", bitmap_size);
     goto CLEANUP;
   }
 
@@ -146,6 +152,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
   if (!compressed_glyphs)
   {
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
+    nv_push_error("malloc %zu fail", file->header.glyphs_compressed_sz);
     goto CLEANUP;
   }
 
@@ -153,49 +160,57 @@ fontc_read_font(const char* path, fontc_file_t* file)
   if (!compressed_glyphs)
   {
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
+    nv_push_error("malloc %zu fail", file->header.img_compressed_sz);
     goto CLEANUP;
   }
 
   if ((int)fread(compressed_glyphs, 1, file->header.glyphs_compressed_sz, f) != file->header.glyphs_compressed_sz)
   {
     retcode = FONTC_OTHER_IO_ERROR;
+    nv_push_error("fread error: %s", strerror(errno));
     goto CLEANUP;
   }
 
   if ((int)fread(compressed_bitmap, 1, file->header.img_compressed_sz, f) != file->header.img_compressed_sz)
   {
     retcode = FONTC_OTHER_IO_ERROR;
+    nv_push_error("fread error: %s", strerror(errno));
     goto CLEANUP;
   }
 
   if (nv_bufdecompress(compressed_glyphs, file->header.glyphs_compressed_sz, file->glyphs, total_glyph_size) < 0)
   {
     retcode = FONTC_DECOMPRESSION_FAILED;
+    nv_push_error("decompression_failed");
     goto CLEANUP;
   }
 
   if (nv_bufdecompress(compressed_bitmap, file->header.img_compressed_sz, file->bitmap, bitmap_size) < 0)
   {
     retcode = FONTC_DECOMPRESSION_FAILED;
+    nv_push_error("decompression_failed");
     goto CLEANUP;
   }
 
 CLEANUP:
-  if (f) nv_safecall_c_fn(fclose(f));
-  if (compressed_glyphs) nv_free(compressed_glyphs);
-  if (compressed_bitmap) nv_free(compressed_bitmap);
+  if (f)
+    nv_safecall_c_fn(fclose(f));
+  if (compressed_glyphs)
+    nv_free(compressed_glyphs);
+  if (compressed_bitmap)
+    nv_free(compressed_bitmap);
   return retcode;
 }
 
 fontc_err_t
 fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w, int init_atlas_h, int num_threads, fontc_file_t* out_file)
 {
-  nv_assert(font_path != NULL);
-  nv_assert(out_file != NULL);
-  nv_assert(pixel_size > 0);
-  nv_assert(init_atlas_w > 0);
-  nv_assert(init_atlas_h > 0);
-  nv_assert(num_threads > 0);
+  nv_assert_and_ret(font_path != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(out_file != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(pixel_size > 0, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(init_atlas_w > 0, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(init_atlas_h > 0, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(num_threads > 0, FONTC_INVALID_ARGUMENT);
 
   fontc_err_t    retcode                  = FONTC_SUCCESS;
   FT_Face*       faces                    = NULL;
@@ -227,8 +242,6 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   nv_texture_atlas_t atlas;
   nv_texture_atlas_init(&atlas, init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4);
 
-  out_file->header.magic       = FONTC_MAGIC;
-  out_file->header.magic2      = FONTC_MAGIC;
   out_file->header.line_height = -face->size->metrics.height / (flt_t)face->height;
 
   int glyph_alloc_size = 256;
@@ -273,9 +286,15 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
     for (int i = 0; i < 256; i++)
     {
       FT_UInt glyph_index = FT_Get_Char_Index(thread_face, i);
-      if (glyph_index == 0) { continue; }
+      if (glyph_index == 0)
+      {
+        continue;
+      }
 
-      if (FT_Load_Glyph(thread_face, glyph_index, FT_LOAD_DEFAULT)) { continue; }
+      if (FT_Load_Glyph(thread_face, glyph_index, FT_LOAD_DEFAULT))
+      {
+        continue;
+      }
 
       if (i == ' ')
       {
@@ -325,7 +344,8 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
 
 #pragma omp critical
     {
-      if (local_count > 0) nv_memcpy(&glyphs[glyph_count], local_glyphs, local_count * sizeof(fontc_glyph_t));
+      if (local_count > 0)
+        nv_memcpy(&glyphs[glyph_count], local_glyphs, local_count * sizeof(fontc_glyph_t));
       glyph_count += local_count;
     }
   }
@@ -386,6 +406,9 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   nv_memcpy(atlas_image, atlas.data, image_size);
   out_file->bitmap = atlas_image;
 
+  out_file->header.magic  = FONTC_MAGIC;
+  out_file->header.magic2 = FONTC_MAGIC;
+
 CLEANUP_AND_RETURN:
   if (freetype_library_is_open)
   {
@@ -393,19 +416,22 @@ CLEANUP_AND_RETURN:
     FT_Done_FreeType(lib);
     nv_texture_atlas_destroy(&atlas);
   }
-  if (faces) { nv_free(faces); }
+  if (faces)
+  {
+    nv_free(faces);
+  }
   return retcode;
 }
 
 fontc_err_t
-fontc_write_font_file(const char* out, const fontc_file_t* file)
+fontc_write_font_file(const char* out, fontc_file_t* file)
 {
   nv_assert_and_ret(out != NULL, FONTC_INVALID_ARGUMENT);
   nv_assert_and_ret(file != NULL, FONTC_INVALID_ARGUMENT);
   nv_assert_and_ret(file->bitmap != NULL, FONTC_INVALID_ARGUMENT);
   nv_assert_and_ret(file->glyphs != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file->header.magic != FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file->header.magic2 != FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file->header.magic == FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file->header.magic2 == FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
 
   fontc_err_t retcode = FONTC_SUCCESS;
 
@@ -472,22 +498,45 @@ fontc_write_font_file(const char* out, const fontc_file_t* file)
   nv_log_info("wrotebaked font to %s", out);
 
 CLEANUP_AND_RETURN:
-  if (f) { nv_free(f); }
-  if (compressed_image) { nv_free(compressed_image); }
-  if (compressed_glyphs) { nv_free(compressed_glyphs); }
+  if (f)
+  {
+    nv_safecall_c_fn(fclose(f));
+  }
+  if (compressed_image)
+  {
+    nv_free(compressed_image);
+  }
+  if (compressed_glyphs)
+  {
+    nv_free(compressed_glyphs);
+  }
   return retcode;
 }
 
 void
 fontc_clean_font_file(fontc_file_t* file)
 {
-  if (file->glyphs) { nv_free(file->glyphs); }
-  if (file->bitmap) { nv_free(file->bitmap); }
+  if (!file)
+  {
+    return;
+  }
+
+  if (file->glyphs)
+  {
+    nv_free(file->glyphs);
+  }
+  if (file->bitmap)
+  {
+    nv_free(file->bitmap);
+  }
 }
 
 fontc_err_t
 fontc_load_font(const char* font_source_path, fontc_file_t* font_file)
 {
+  nv_assert_and_ret(font_source_path != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(font_file != NULL, FONTC_INVALID_ARGUMENT);
+
   char buf[256] = { 0 };
   nv_strcat_max(buf, font_source_path, 256);
   nv_strcat_max(buf, ".bkd", 256);
@@ -496,6 +545,7 @@ fontc_load_font(const char* font_source_path, fontc_file_t* font_file)
 
   if (fontc_read_font(buf, font_file) != FONTC_SUCCESS)
   {
+    nv_log_info("font file %s read failed. baking...", buf);
     fontc_err_t retcode = fontc_bake_font_to_cache(font_source_path, 256, 1024, 1024, 4, font_file);
     fontc_write_font_file(buf, font_file);
     return retcode;

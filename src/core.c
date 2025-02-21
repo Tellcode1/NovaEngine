@@ -1,11 +1,11 @@
 #include <SDL2/SDL.h>
 #include <bits/pthreadtypes.h>
-#include <stdarg.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -34,14 +34,17 @@
 static nv_error_queue_t g_error_queue = { .front = -1, .back = -1 };
 
 void
-nv_push_error(const char* fmt, ...)
+_nv_push_error(const char* func, struct tm* time, const char* fmt, ...)
 {
   char* write = nv_error_queue_push(&g_error_queue);
 
   va_list args;
   va_start(args, fmt);
 
-  nv_vsnprintf(write, NV_ERROR_LENGTH - 1, fmt, args);
+  size_t written = nv_snprintf(write, NV_ERROR_LENGTH - 1, "[%d:%d:%d]%s%s(): ", time->tm_hour % 12, time->tm_min, time->tm_sec, " err: ", func);
+  write += written;
+
+  nv_vsnprintf(write, NV_ERROR_LENGTH - 1 - written, fmt, args);
 
   va_end(args);
 }
@@ -88,7 +91,10 @@ void
 nv_setwbuf(char* buf, size_t size)
 {
   nv_assert(size > 0);
-  if (g_writebuf) { nv_free(g_writebuf); }
+  if (g_writebuf)
+  {
+    nv_free(g_writebuf);
+  }
 
   g_writebufsiz = size == 0 ? NOVA_WBUF_SIZE : size;
   g_writebuf    = buf ? buf : nv_malloc(size);
@@ -167,7 +173,8 @@ nv_itoa_u2(uintmax_t x, char out[], int base, size_t max)
   nv_assert(base >= 2 && base <= 36);
   nv_assert(out != NULL);
 
-  if (max == 0) return 0;
+  if (max == 0)
+    return 0;
   if (max == 1)
   {
     out[0] = 0;
@@ -215,7 +222,8 @@ nv_itoa_u2(uintmax_t x, char out[], int base, size_t max)
 size_t
 nv_ftoa2(real_t n, char s[], int precision, size_t max, bool remove_zeros)
 {
-  if (max == 0) return 0;
+  if (max == 0)
+    return 0;
   if (max == 1)
   {
     s[0] = 0;
@@ -236,7 +244,10 @@ nv_ftoa2(real_t n, char s[], int precision, size_t max, bool remove_zeros)
 
   int exp    = (n == 0.0) ? 0 : (int)log10(n);
   int useExp = (exp >= 14 || (neg && exp >= 9) || exp <= -9);
-  if (useExp) { n /= pow(10.0, exp); }
+  if (useExp)
+  {
+    n /= pow(10.0, exp);
+  }
 
   real_t rounding = pow(10.0, -precision) * 0.5;
   n += rounding;
@@ -275,7 +286,8 @@ nv_ftoa2(real_t n, char s[], int precision, size_t max, bool remove_zeros)
   {
     while (*(c - 1) == '0')
       c--;
-    if (*(c - 1) == '.') c--;
+    if (*(c - 1) == '.')
+      c--;
   }
 
   if (useExp && (size_t)(c - s) < max - 4)
@@ -284,8 +296,10 @@ nv_ftoa2(real_t n, char s[], int precision, size_t max, bool remove_zeros)
     *(c++) = (exp >= 0) ? '+' : '-';
     exp    = (exp >= 0) ? exp : -exp;
 
-    if (exp >= 100) *(c++) = '0' + (exp / 100);
-    if (exp >= 10) *(c++) = '0' + ((exp / 10) % 10);
+    if (exp >= 100)
+      *(c++) = '0' + (exp / 100);
+    if (exp >= 10)
+      *(c++) = '0' + ((exp / 10) % 10);
     *(c++) = '0' + (exp % 10);
   }
 
@@ -300,7 +314,10 @@ nv_ftoa2(real_t n, char s[], int precision, size_t max, bool remove_zeros)
 intmax_t
 nv_atoi(const char s[])
 {
-  if (!s) { return __INTMAX_MAX__; }
+  if (!s)
+  {
+    return __INTMAX_MAX__;
+  }
 
   const char* i   = s;
   intmax_t    ret = 0;
@@ -313,11 +330,17 @@ nv_atoi(const char s[])
     neg = 1;
     i++;
   }
-  else if (*i == '+') { i++; }
+  else if (*i == '+')
+  {
+    i++;
+  }
 
   while (*i)
   {
-    if (!isdigit(*i)) { break; }
+    if (!isdigit(*i))
+    {
+      break;
+    }
 
     int digit = *i - '0';
     ret       = ret * 10 + digit;
@@ -325,7 +348,10 @@ nv_atoi(const char s[])
     i++;
   }
 
-  if (neg) { ret *= -1; }
+  if (neg)
+  {
+    ret *= -1;
+  }
 
   return ret;
 }
@@ -333,7 +359,10 @@ nv_atoi(const char s[])
 real_t
 nv_atof(const char s[])
 {
-  if (!s) { return INFINITY; }
+  if (!s)
+  {
+    return INFINITY;
+  }
 
   real_t      result = 0.0, fraction = 0.0;
   int         divisor = 1;
@@ -347,7 +376,10 @@ nv_atof(const char s[])
     neg = 1;
     i++;
   }
-  else if (*i == '+') { i++; }
+  else if (*i == '+')
+  {
+    i++;
+  }
 
   while (isdigit(*i))
   {
@@ -378,7 +410,10 @@ nv_atof(const char s[])
       exp_sign = -1;
       i++;
     }
-    else if (*s == '+') { i++; }
+    else if (*s == '+')
+    {
+      i++;
+    }
 
     while (isdigit(*i))
     {
@@ -389,7 +424,10 @@ nv_atof(const char s[])
     result = ldexp(result, exp_sign * exponent);
   }
 
-  if (neg) { result *= -1.0; }
+  if (neg)
+  {
+    result *= -1.0;
+  }
 
   return result;
 }
@@ -398,14 +436,20 @@ bool
 nv_atobool(const char s[])
 {
   NV_SKIP_WHITSPACE(s);
-  if (nv_strcasecmp(s, "false") == 0 || nv_strcmp(s, "0") == 0) { return false; }
+  if (nv_strcasecmp(s, "false") == 0 || nv_strcmp(s, "0") == 0)
+  {
+    return false;
+  }
   return true;
 }
 
 size_t
 nv_ptoa2(void* p, char* buf, size_t max)
 {
-  if (p == NULL) { return nv_strncpy2(buf, "NULL", max); }
+  if (p == NULL)
+  {
+    return nv_strncpy2(buf, "NULL", max);
+  }
 
   unsigned long addr   = (unsigned long)p;
   const char    digs[] = "0123456789abcdef";
@@ -447,7 +491,10 @@ nv_btoa2(size_t x, bool upgrade, char* buf, size_t max)
     written += nv_strlen(stages[stagei]);
     written = NV_MIN(written, max);
   }
-  else { written = nv_itoa2(x, buf, 10, max); }
+  else
+  {
+    written = nv_itoa2(x, buf, 10, max);
+  }
   return written;
 }
 
@@ -541,7 +588,10 @@ nv_vnprintf(size_t max_chars, va_list args, const char* fmt)
 void
 _nv_free_write_buffer()
 {
-  if (g_writebuf) { free(g_writebuf); }
+  if (g_writebuf)
+  {
+    free(g_writebuf);
+  }
 }
 
 size_t
@@ -553,12 +603,14 @@ nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_list src)
 static inline void
 _nv_printf_write(void* _write, bool file, size_t* chars_written, size_t max_chars, const char* write_buffer, size_t written)
 {
-  if (*chars_written >= max_chars) return;
+  if (*chars_written >= max_chars)
+    return;
 
   size_t remaining = max_chars - *chars_written;
   size_t to_write  = (written > remaining) ? remaining : written;
   *chars_written += to_write;
-  if (!write_buffer) return;
+  if (!write_buffer)
+    return;
 
   if (file)
   {
@@ -585,8 +637,14 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
     nv_assert(g_writebuf != NULL);
     atexit(_nv_free_write_buffer);
   }
-  if (!g_stdstream) { g_stdstream = stdout; }
-  if (file && !vdest) { vdest = g_stdstream; }
+  if (!g_stdstream)
+  {
+    g_stdstream = stdout;
+  }
+  if (file && !vdest)
+  {
+    vdest = g_stdstream;
+  }
 
   nv_assert(fmt != NULL);
 
@@ -661,7 +719,8 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
         if (*iter == '*')
         {
           precision = va_arg(args, int);
-          if (precision < 0) precision = 6;
+          if (precision < 0)
+            precision = 6;
           iter++;
         }
         else
@@ -680,18 +739,39 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
         case 'F':
         case 'f': written = nv_ftoa2(va_arg(args, real_t), g_writebuf, precision, max_chars - chars_written, 0); break;
         case 'l':
-          if ((iter + 1) < fmt_end) { iter++; }
+          if ((iter + 1) < fmt_end)
+          {
+            iter++;
+          }
 
-          if (*iter == 'd' || *iter == 'i') { written = nv_itoa2(va_arg(args, long int), g_writebuf, 10, max_chars - chars_written); }
-          else if (*iter == 'u') { written = nv_itoa_u2(va_arg(args, long unsigned), g_writebuf, 10, max_chars - chars_written); }
-          else if (*iter == 'f' || *iter == 'F') { written = nv_ftoa2(va_arg(args, real_t), g_writebuf, precision, max_chars - chars_written, 0); }
+          if (*iter == 'd' || *iter == 'i')
+          {
+            written = nv_itoa2(va_arg(args, long int), g_writebuf, 10, max_chars - chars_written);
+          }
+          else if (*iter == 'u')
+          {
+            written = nv_itoa_u2(va_arg(args, long unsigned), g_writebuf, 10, max_chars - chars_written);
+          }
+          else if (*iter == 'f' || *iter == 'F')
+          {
+            written = nv_ftoa2(va_arg(args, real_t), g_writebuf, precision, max_chars - chars_written, 0);
+          }
           break;
         case 'd':
         case 'i': written = nv_itoa2(va_arg(args, int), g_writebuf, 10, max_chars - chars_written); break;
         case 'z':
-          if ((iter + 1) < fmt_end) { iter++; }
-          if (*iter == 'i') { written = nv_itoa2(va_arg(args, ssize_t), g_writebuf, 10, max_chars - chars_written); }
-          else { written = nv_itoa_u2(va_arg(args, size_t), g_writebuf, 10, max_chars - chars_written); }
+          if ((iter + 1) < fmt_end)
+          {
+            iter++;
+          }
+          if (*iter == 'i')
+          {
+            written = nv_itoa2(va_arg(args, ssize_t), g_writebuf, 10, max_chars - chars_written);
+          }
+          else
+          {
+            written = nv_itoa_u2(va_arg(args, size_t), g_writebuf, 10, max_chars - chars_written);
+          }
           break;
         case 'u': written = nv_itoa_u2(va_arg(args, unsigned), g_writebuf, 10, max_chars - chars_written); break;
         case '#':
@@ -708,8 +788,8 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
         /* bytes, custom */
         case 'b': written = nv_btoa2(va_arg(args, size_t), 1, g_writebuf, max_chars - chars_written); break;
         case 's':
-          s = va_arg(args, const char*) ?: "(null)"; // this operator cool!!
-          _nv_printf_write(_writeptr, file, &chars_written, max_chars, s, nv_strlen(s));
+          s = va_arg(args, const char*); // this operator cool!!
+          _nv_printf_write(_writeptr, file, &chars_written, max_chars, s == NULL ? "(null)" : s, s ? nv_strlen(s) : nv_strlen("(null)"));
           wbuffer_used = false;
           break;
         case 'c':
@@ -733,7 +813,8 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
       {
         padding       = padding_w - (int)written;
         char pad_char = pad_zero ? '0' : ' ';
-        if (padding < 0) padding = 0;
+        if (padding < 0)
+          padding = 0;
 
         if (!left_align && padding > 0)
         {
@@ -764,7 +845,10 @@ _nv_vsfnprintf(void* vdest, bool file, size_t max_chars, const char* fmt, va_lis
     {
       if (chars_written < max_chars - 1)
       {
-        if (file) { fputc(*iter, (FILE*)_writeptr); }
+        if (file)
+        {
+          fputc(*iter, (FILE*)_writeptr);
+        }
         else if (writep)
         {
           *writep = *iter;
@@ -866,7 +950,10 @@ get_file_extension(const char* path)
   const char* dot = strrchr(path, '.');
   // Imagine someone actually uses this project.
   // And then they see this.
-  if (!dot || dot == path) { return "piss"; }
+  if (!dot || dot == path)
+  {
+    return "piss";
+  }
   return dot + 1;
 }
 
@@ -875,7 +962,10 @@ nv_bufcompress(const void* NV_RESTRICT input, size_t input_size, void* NV_RESTRI
 {
   z_stream stream = nv_zero_init(z_stream);
 
-  if (deflateInit(&stream, Z_BEST_COMPRESSION) != Z_OK) { return -1; }
+  if (deflateInit(&stream, Z_BEST_COMPRESSION) != Z_OK)
+  {
+    return -1;
+  }
 
   stream.next_in  = (unsigned char*)input;
   stream.avail_in = input_size;
@@ -904,7 +994,10 @@ nv_bufdecompress(const void* NV_RESTRICT compressed_data, size_t compressed_size
   strm.next_out  = o_buf;
   strm.avail_out = o_buf_sz;
 
-  if (inflateInit(&strm) != Z_OK) { return -1; }
+  if (inflateInit(&strm) != Z_OK)
+  {
+    return -1;
+  }
 
   int ret = inflate(&strm, Z_FINISH);
   if (ret != Z_STREAM_END)
@@ -921,8 +1014,14 @@ nv_image_t
 nv_image_load(const char* path)
 {
   const char* ext = get_file_extension(path);
-  if (nv_strcmp(ext, "jpeg") == 0 || nv_strcmp(ext, "jpg") == 0) { return nv_image_load_jpeg(path); }
-  else if (nv_strcmp(ext, "png") == 0) { return nv_image_load_png(path); }
+  if (nv_strcmp(ext, "jpeg") == 0 || nv_strcmp(ext, "jpg") == 0)
+  {
+    return nv_image_load_jpeg(path);
+  }
+  else if (nv_strcmp(ext, "png") == 0)
+  {
+    return nv_image_load_png(path);
+  }
   nv_assert(0);
   return nv_zero_init(nv_image_t);
 }
@@ -941,14 +1040,20 @@ nv_image_pad_channels(const nv_image_t* src, int dst_channels)
     {
       for (int c = 0; c < dst_channels; c++)
       {
-        if (c < src_channels) { dst[(y * src->w + x) * dst_channels + c] = src->data[(y * src->w + x) * src_channels + c]; }
+        if (c < src_channels)
+        {
+          dst[(y * src->w + x) * dst_channels + c] = src->data[(y * src->w + x) * src_channels + c];
+        }
         else
         {
           if (c == 3)
           { // alpha channel
             dst[(y * src->w + x) * dst_channels + c] = 255;
           }
-          else { dst[(y * src->w + x) * dst_channels + c] = 0; }
+          else
+          {
+            dst[(y * src->w + x) * dst_channels + c] = 0;
+          }
         }
       }
     }
@@ -1031,11 +1136,23 @@ nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, flt_t scale)
 
   // Calculate the ratios for x and y coordinates
   flt_t x_ratio, y_ratio;
-  if (dst->w > 1) { x_ratio = ((flt_t)src->w - 1.0) / ((flt_t)dst->w - 1.0); }
-  else { x_ratio = 0; }
+  if (dst->w > 1)
+  {
+    x_ratio = ((flt_t)src->w - 1.0) / ((flt_t)dst->w - 1.0);
+  }
+  else
+  {
+    x_ratio = 0;
+  }
 
-  if (dst->h > 1) { y_ratio = ((flt_t)src->h - 1.0) / ((flt_t)dst->h - 1.0); }
-  else { y_ratio = 0; }
+  if (dst->h > 1)
+  {
+    y_ratio = ((flt_t)src->h - 1.0) / ((flt_t)dst->h - 1.0);
+  }
+  else
+  {
+    y_ratio = 0;
+  }
 
   for (size_t y = 0; y < dst->h; y++)
   {
@@ -1079,26 +1196,32 @@ nv_image_load_png(const char* path)
   nv_image_t texture = nv_zero_init(nv_image_t);
 
   FILE* f = fopen(path, "rb");
-  if (f == NULL) { return texture; }
+  if (f == NULL)
+  {
+    return texture;
+  }
 
   png_struct* png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   if (png == NULL)
   {
-    fclose(f);
+    nv_safecall_c_fn(fclose(f));
     return texture;
   }
 
   png_info* info = png_create_info_struct(png);
   if (info == NULL)
   {
-    fclose(f);
+    nv_safecall_c_fn(fclose(f));
     return texture;
   }
 
   png_init_io(png, f);
   png_read_info(png, info);
 
-  if (setjmp(png_jmpbuf(png))) { nv_assert(0); }
+  if (setjmp(png_jmpbuf(png)))
+  {
+    nv_assert(0);
+  }
 
   texture.w           = png_get_image_width(png, info);
   texture.h           = png_get_image_height(png, info);
@@ -1108,16 +1231,25 @@ nv_image_load_png(const char* path)
   if (texture.w == 0 || texture.h == 0)
   {
     nv_push_error("zero w/h");
-    fclose(f);
+    nv_safecall_c_fn(fclose(f));
     return texture;
   }
 
-  if (color_type == PNG_COLOR_TYPE_PALETTE) { png_set_palette_to_rgb(png); }
+  if (color_type == PNG_COLOR_TYPE_PALETTE)
+  {
+    png_set_palette_to_rgb(png);
+  }
 
   // if image has less than 8 bits per pixel, increase it to 8 bpp
-  if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) { png_set_expand_gray_1_2_4_to_8(png); }
+  if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+  {
+    png_set_expand_gray_1_2_4_to_8(png);
+  }
 
-  if (png_get_valid(png, info, PNG_INFO_tRNS)) { png_set_tRNS_to_alpha(png); }
+  if (png_get_valid(png, info, PNG_INFO_tRNS))
+  {
+    png_set_tRNS_to_alpha(png);
+  }
 
   png_read_update_info(png, info);
 
@@ -1246,7 +1378,10 @@ nv_image_load_jpeg(const char* path)
 void
 nv_image_write_png(const nv_image_t* tex, const char* path)
 {
-  if (tex == NULL || path == NULL || tex->data == NULL) { return; }
+  if (tex == NULL || path == NULL || tex->data == NULL)
+  {
+    return;
+  }
 
   FILE* f = fopen(path, "wb");
   if (!f)
@@ -1531,12 +1666,10 @@ nv_format_get_num_channels(nv_format fmt)
     case NOVA_FORMAT_RGBA8_SRGB:
     case NOVA_FORMAT_BGRA8_SRGB: return 4;
 
+    // FIXME: Implement
     case NOVA_FORMAT_BC1:
     case NOVA_FORMAT_BC3:
     case NOVA_FORMAT_BC7:
-      // FIXME: Implement
-      return 0;
-
     case NOVA_FORMAT_UNDEFINED:
     default: return 0;
   }
@@ -1545,7 +1678,10 @@ nv_format_get_num_channels(nv_format fmt)
 void*
 nv_memcpy(void* NV_RESTRICT dst, const void* NV_RESTRICT src, size_t sz)
 {
-  if (dst == NULL || src == NULL || sz == 0) { return NULL; }
+  if (dst == NULL || src == NULL || sz == 0)
+  {
+    return NULL;
+  }
 
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_memcpy(dst, src, sz);
@@ -1646,7 +1782,10 @@ nv_memmove(void* dst, const void* src, size_t sz)
   return __builtin_memmove(dst, src, sz);
 #  endif
 
-  if (!dst || !src || sz == 0) { return NULL; }
+  if (!dst || !src || sz == 0)
+  {
+    return NULL;
+  }
 
   if (dst > src && (unsigned char*)dst < ((unsigned char*)src + sz))
   {
@@ -1709,12 +1848,16 @@ nv_memchr(const void* p, int chr, size_t psize)
   return __builtin_memchr(p, chr, psize);
 #  endif
 
-  if (!p || !psize) { return NULL; }
+  if (!p || !psize)
+  {
+    return NULL;
+  }
   const unsigned char* read = (const unsigned char*)p;
   const unsigned char  chk  = chr;
   for (size_t i = 0; i < psize; i++)
   {
-    if (read[i] == chk) return (void*)(read + i);
+    if (read[i] == chk)
+      return (void*)(read + i);
   }
   return NULL;
 }
@@ -1726,7 +1869,10 @@ nv_memcmp(const void* _p1, const void* _p2, size_t max)
   return __builtin_memcmp(_p1, _p2, max);
 #  endif
 
-  if (!_p1 || !_p2 || max == 0) { return -1; }
+  if (!_p1 || !_p2 || max == 0)
+  {
+    return -1;
+  }
 
   const uchar* p1 = (const uchar*)_p1;
   const uchar* p2 = (const uchar*)_p2;
@@ -1734,7 +1880,10 @@ nv_memcmp(const void* _p1, const void* _p2, size_t max)
   // move && compare the pointer p1 until we reach alignment
   while (max > 0 && ((uintptr_t)p1 & (sizeof(size_t) - 1)) != 0)
   {
-    if (*p1 != *p2) { return *p1 - *p2; }
+    if (*p1 != *p2)
+    {
+      return *p1 - *p2;
+    }
     p1++;
     p2++;
     max--;
@@ -1760,7 +1909,10 @@ nv_memcmp(const void* _p1, const void* _p2, size_t max)
 
   while (max--)
   {
-    if (*p1 != *p2) { return *p1 - *p2; }
+    if (*p1 != *p2)
+    {
+      return *p1 - *p2;
+    }
     p1++;
     p2++;
   }
@@ -1773,9 +1925,18 @@ nv_strncpy2(char* dest, const char* src, size_t max)
 {
   size_t slen = nv_strlen(src);
 
-  if (!dest) { return NV_MIN(slen, max); }
-  if (!src) { return (size_t)-1; }
-  if (max == 0) { return 0; } // we have to have this condition because max is subtracted just after which may cause it to underflow
+  if (!dest)
+  {
+    return NV_MIN(slen, max);
+  }
+  if (!src)
+  {
+    return (size_t)-1;
+  }
+  if (max == 0)
+  {
+    return 0;
+  } // we have to have this condition because max is subtracted just after which may cause it to underflow
 
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   __builtin_strncpy(dest, src, max);
@@ -1821,7 +1982,10 @@ nv_strcpy(char* dest, const char* src)
   return __builtin_strcpy(dest, src); // NOLINT(clang-analyzer-security.insecureAPI.strcpy)
 #  endif
 
-  if (!dest || !src) { return NULL; }
+  if (!dest || !src)
+  {
+    return NULL;
+  }
   size_t i = 0;
   // clang-format off
   while (src[i])
@@ -1835,14 +1999,23 @@ nv_strcpy(char* dest, const char* src)
 char*
 nv_strncpy(char* dest, const char* src, size_t max)
 {
-  if (!dest || !src) { return NULL; }
-  if (max == 0) { return dest; }
+  if (!dest || !src)
+  {
+    return NULL;
+  }
+  if (max == 0)
+  {
+    return dest;
+  }
 
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strncpy(dest, src, max);
 #  endif
 
-  if (max == 0 || !dest || !src) { return NULL; }
+  if (max == 0 || !dest || !src)
+  {
+    return NULL;
+  }
   max--; // -1 so we can fit the NULL terminator
   size_t i = 0;
   // clang-format off
@@ -1939,10 +2112,14 @@ nv_strchr(const char* s, int chr)
   return __builtin_strchr(s, chr);
 #  endif
 
-  if (!s) { return NULL; }
+  if (!s)
+  {
+    return NULL;
+  }
   while (*s)
   {
-    if (*s == chr) return (char*)s;
+    if (*s == chr)
+      return (char*)s;
     s++;
   }
   return NULL;
@@ -1955,13 +2132,17 @@ nv_strrchr(const char* s, int chr)
   return __builtin_strrchr(s, chr);
 #  endif
 
-  if (!s) return NULL;
+  if (!s)
+    return NULL;
 
   const char* beg = s;
   s += nv_strlen(s) - 1;
   while (s >= beg)
   {
-    if (*s == chr) { return (char*)s; }
+    if (*s == chr)
+    {
+      return (char*)s;
+    }
     s--;
   }
   return NULL;
@@ -1974,7 +2155,10 @@ nv_strncmp(const char* s1, const char* s2, size_t max)
   return __builtin_strncmp(s1, s2, max);
 #  endif
 
-  if (!s1 || !s2 || max == 0) { return -1; }
+  if (!s1 || !s2 || max == 0)
+  {
+    return -1;
+  }
   size_t i = 0;
   while (*s1 && *s2 && (*s1 == *s2) && i < max)
   {
@@ -1993,7 +2177,10 @@ nv_strcasencmp(const char* s1, const char* s2, size_t max)
   {
     unsigned char c1 = tolower(*(unsigned char*)s1);
     unsigned char c2 = tolower(*(unsigned char*)s2);
-    if (c1 != c2) { return c1 - c2; }
+    if (c1 != c2)
+    {
+      return c1 - c2;
+    }
     s1++;
     s2++;
     i++;
@@ -2008,11 +2195,15 @@ nv_strcasecmp(const char* s1, const char* s2)
   {
     unsigned char c1 = tolower(*(unsigned char*)s1);
     unsigned char c2 = tolower(*(unsigned char*)s2);
-    if (c1 != c2) { return c1 - c2; }
+    if (c1 != c2)
+    {
+      return c1 - c2;
+    }
     s1++;
     s2++;
   }
 
+  // FIXME: Implement
   while (1) {}
   return tolower(*(unsigned char*)s1) - tolower(*(unsigned char*)s2);
 }
@@ -2024,13 +2215,15 @@ nv_strlen(const char* s)
   return __builtin_strlen(s);
 #  endif
 
-  if (!s) return 0;
+  if (!s)
+    return 0;
 
   const char* start = s;
 
   while ((uintptr_t)s & (sizeof(size_t) - 1)) // align s to 8 byte boundary so we can check sizeof(size_t) bytes at once
   {
-    if (!*s) return s - start;
+    if (!*s)
+      return s - start;
     s++;
   }
 
@@ -2038,7 +2231,8 @@ nv_strlen(const char* s)
   while (1)
   {
     uint64_t word = *(uint64_t*)s;
-    if (((word - mask) & ~word) & (mask << 7)) break;
+    if (((word - mask) & ~word) & (mask << 7))
+      break;
     s += 8;
   }
 
@@ -2055,7 +2249,8 @@ nv_strstr(const char* s, const char* sub)
   return __builtin_strstr(s, sub);
 #  endif
 
-  if (!s || !sub) return NULL;
+  if (!s || !sub)
+    return NULL;
 
   for (; *s; s++)
   {
@@ -2068,7 +2263,10 @@ nv_strstr(const char* s, const char* sub)
       p++;
     }
 
-    if (!*p) { return (char*)s; }
+    if (!*p)
+    {
+      return (char*)s;
+    }
   }
 
   return NULL;
@@ -2077,9 +2275,15 @@ nv_strstr(const char* s, const char* sub)
 size_t
 nv_strcpy2(char* dest, const char* src)
 {
-  if (!src) { return (size_t)-1; }
+  if (!src)
+  {
+    return (size_t)-1;
+  }
   size_t slen = nv_strlen(src);
-  if (!dest) { return slen; }
+  if (!dest)
+  {
+    return slen;
+  }
 
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strlen(__builtin_strcpy(dest, src)); // NOLINT(clang-analyzer-security.insecureAPI.strcpy)
@@ -2102,7 +2306,10 @@ nv_strspn(const char* s, const char* accept)
   return __builtin_strspn(s, accept);
 #  endif
 
-  if (!s || !accept) { return 0; }
+  if (!s || !accept)
+  {
+    return 0;
+  }
   size_t i = 0;
   while (*s && *accept && *s == *accept)
   {
@@ -2118,7 +2325,10 @@ nv_strcspn(const char* s, const char* reject)
   return __builtin_strcspn(s, reject);
 #  endif
 
-  if (!s || !reject) { return 0; }
+  if (!s || !reject)
+  {
+    return 0;
+  }
 
   const char* base = reject;
   size_t      i    = 0;
@@ -2130,7 +2340,10 @@ nv_strcspn(const char* s, const char* reject)
     {
       j++;
     }
-    if (*j) { break; }
+    if (*j)
+    {
+      break;
+    }
     i++;
     s++;
   }
@@ -2144,14 +2357,18 @@ nv_strpbrk(const char* s1, const char* s2)
   return __builtin_strpbrk(s1, s2);
 #  endif
 
-  if (!s1 || !s2) return NULL;
+  if (!s1 || !s2)
+    return NULL;
 
   while (*s1)
   {
     const char* j = s2;
     while (*j)
     {
-      if (*j == *s1) { return (char*)s1; }
+      if (*j == *s1)
+      {
+        return (char*)s1;
+      }
       j++;
     }
     s1++;
@@ -2163,7 +2380,8 @@ char* strtoks = NULL;
 char*
 nv_strtok(char* s, const char* delim)
 {
-  if (!s) s = strtoks;
+  if (!s)
+    s = strtoks;
   char* p;
 
   s += nv_strspn(s, delim);
@@ -2191,7 +2409,10 @@ nv_basename(const char* path)
 {
   char* p         = (char*)path; // shut up C compiler
   char* backslash = nv_strrchr(path, '/');
-  if (backslash != NULL) { return backslash + 1; }
+  if (backslash != NULL)
+  {
+    return backslash + 1;
+  }
   return p;
 }
 
@@ -2213,7 +2434,10 @@ char*
 nv_substr(const char* s, size_t start, size_t len)
 {
   size_t slen = nv_strlen(s);
-  if (start + len > slen) { return NULL; }
+  if (start + len > slen)
+  {
+    return NULL;
+  }
 
   char* sub = nv_malloc(len + 1);
   nv_strncpy(sub, s + start, len);
@@ -2245,7 +2469,10 @@ sarealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size
     return NULL;
   }
   sablock* prevblockp = (sablock*)prevblock - 1;
-  if (prevblockp->size >= size) { return prevblock; }
+  if (prevblockp->size >= size)
+  {
+    return prevblock;
+  }
   if (prevblockp->canary != NOVA_ALLOCATION_CANARY)
   {
     nv_log_and_abort("corrupt memory");
@@ -2253,7 +2480,10 @@ sarealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size
   }
 
   void* new_data = saalloc(parent, alignment, size);
-  if (new_data == NULL) { return NULL; }
+  if (new_data == NULL)
+  {
+    return NULL;
+  }
   nv_memset(new_data, 0, size);
   nv_memcpy(new_data, prevblock, prevblockp->size);
   safree(parent, prevblock);
@@ -2296,11 +2526,21 @@ safree(nv_allocator_t* parent, void* block)
   p--;
   nv_assert(p->canary == NOVA_ALLOCATION_CANARY);
   void* allocator_last_block = (allocator->buf + allocator->bufoffset - p->size - sizeof(sablock));
-  if (block != allocator_last_block) { return; }
+  if (block != allocator_last_block)
+  {
+    return;
+  }
   allocator->bufoffset -= p->size + sizeof(sablock);
 }
 
-nv_allocator_t nv_allocator_default = (nv_allocator_t){ .alloc = heapalloc, .calloc = heapcalloc, .realloc = heaprealloc, .free = heapfree, .context = NULL };
+nv_allocator_t nv_allocator_default = (nv_allocator_t){
+  .alloc     = (const nv_allocator_alloc_fn)heapalloc,
+  .calloc    = (const nv_allocator_calloc_fn)heapcalloc,
+  .realloc   = (const nv_allocator_realloc_fn)heaprealloc,
+  .free      = (const nv_allocator_free_fn)heapfree,
+  .context   = NULL,
+  .user_data = NULL,
+};
 
 void*
 heapalloc(nv_allocator_t* parent, size_t alignment, size_t size)
@@ -2357,7 +2597,10 @@ void
 heapfree(nv_allocator_t* parent, void* block)
 {
   (void)parent;
-  if (block) { free(((void**)block)[-1]); }
+  if (block)
+  {
+    free(((void**)block)[-1]);
+  }
 }
 
 // A pool is moade of many chunks
@@ -2468,7 +2711,10 @@ nv_dynarray_init(size_t typesize, size_t init_size, nv_allocator_t* allocator, n
     vec->m_capacity = init_size;
     pthread_mutex_unlock(&vec->m_mutex);
   }
-  else { vec->m_data = NULL; }
+  else
+  {
+    vec->m_data = NULL;
+  }
 }
 
 void
@@ -2577,7 +2823,10 @@ nv_dynarray_copy_from(const nv_dynarray_t* RESTRICT src, nv_dynarray_t* RESTRICT
   nv_assert(CONT_IS_VALID(dst));
 
   nv_assert(src->m_typesize == dst->m_typesize);
-  if (src->m_size >= dst->m_capacity) { nv_dynarray_resize(dst, src->m_size); }
+  if (src->m_size >= dst->m_capacity)
+  {
+    nv_dynarray_resize(dst, src->m_size);
+  }
   dst->m_size = src->m_size;
   nv_memcpy(dst->m_data, src->m_data, src->m_size * src->m_typesize);
 
@@ -2623,7 +2872,10 @@ nv_dynarray_equal(const nv_dynarray_t* vec1, const nv_dynarray_t* vec2)
   pthread_mutex_lock((pthread_mutex_t*)&vec2->m_mutex);
 
   bool equal = 1;
-  if ((vec1->m_size != vec2->m_size || vec1->m_typesize != vec2->m_typesize) || (nv_memcmp(vec1->m_data, vec2->m_data, vec1->m_size * vec1->m_typesize) != 0)) { equal = 0; }
+  if ((vec1->m_size != vec2->m_size || vec1->m_typesize != vec2->m_typesize) || (nv_memcmp(vec1->m_data, vec2->m_data, vec1->m_size * vec1->m_typesize) != 0))
+  {
+    equal = 0;
+  }
 
   pthread_mutex_unlock((pthread_mutex_t*)&vec1->m_mutex);
   pthread_mutex_unlock((pthread_mutex_t*)&vec2->m_mutex);
@@ -2636,8 +2888,14 @@ nv_dynarray_resize(nv_dynarray_t* vec, size_t new_size)
 {
   nv_assert(CONT_IS_VALID(vec));
 
-  if (vec->m_data) { vec->m_data = vec->allocator.realloc(&vec->allocator, vec->m_data, 1, vec->m_typesize * new_size); }
-  else { vec->m_data = vec->allocator.calloc(&vec->allocator, 1, vec->m_typesize * new_size); }
+  if (vec->m_data)
+  {
+    vec->m_data = vec->allocator.realloc(&vec->allocator, vec->m_data, 1, vec->m_typesize * new_size);
+  }
+  else
+  {
+    vec->m_data = vec->allocator.calloc(&vec->allocator, 1, vec->m_typesize * new_size);
+  }
   nv_assert(vec->m_data != NULL);
 
   vec->m_capacity = new_size;
@@ -2650,7 +2908,10 @@ nv_dynarray_push_back(nv_dynarray_t* RESTRICT vec, const void* RESTRICT elem)
 
   pthread_mutex_lock(&vec->m_mutex);
 
-  if (vec->m_size >= vec->m_capacity) { nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2)); }
+  if (vec->m_size >= vec->m_capacity)
+  {
+    nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2));
+  }
 
   nv_assert(vec->m_data != NULL);
   nv_assert(!(elem >= vec->m_data && (unsigned char*)elem <= ((unsigned char*)vec->m_data + vec->m_size))); // breaks restriction rules
@@ -2667,7 +2928,10 @@ nv_dynarray_push_empty(nv_dynarray_t* __restrict vec)
 
   pthread_mutex_lock(&vec->m_mutex);
 
-  if (vec->m_size >= vec->m_capacity) { nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2)); }
+  if (vec->m_size >= vec->m_capacity)
+  {
+    nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2));
+  }
 
   nv_assert(vec->m_data != NULL);
   void* p = (uchar*)vec->m_data + (vec->m_size * vec->m_typesize);
@@ -2687,7 +2951,10 @@ nv_dynarray_push_set(nv_dynarray_t* RESTRICT vec, const void* RESTRICT arr, size
   pthread_mutex_lock(&vec->m_mutex);
 
   size_t required_capacity = vec->m_size + count;
-  if (required_capacity >= vec->m_capacity) { nv_dynarray_resize(vec, required_capacity); }
+  if (required_capacity >= vec->m_capacity)
+  {
+    nv_dynarray_resize(vec, required_capacity);
+  }
   nv_memcpy((uchar*)vec->m_data + (vec->m_size * vec->m_typesize), arr, count * vec->m_typesize);
   vec->m_size += count;
 
@@ -2701,7 +2968,10 @@ nv_dynarray_pop_back(nv_dynarray_t* vec)
 
   pthread_mutex_lock(&vec->m_mutex);
 
-  if (vec->m_size > 0) { vec->m_size--; }
+  if (vec->m_size > 0)
+  {
+    vec->m_size--;
+  }
 
   pthread_mutex_unlock(&vec->m_mutex);
 }
@@ -2729,8 +2999,14 @@ nv_dynarray_insert(nv_dynarray_t* RESTRICT vec, size_t index, const void* RESTRI
 
   pthread_mutex_lock(&vec->m_mutex);
 
-  if (index >= vec->m_capacity) { nv_dynarray_resize(vec, NV_MAX(1, index * 2)); }
-  if (index >= vec->m_size) { vec->m_size = index + 1; }
+  if (index >= vec->m_capacity)
+  {
+    nv_dynarray_resize(vec, NV_MAX(1, index * 2));
+  }
+  if (index >= vec->m_size)
+  {
+    vec->m_size = index + 1;
+  }
   nv_memcpy((uchar*)vec->m_data + (vec->m_typesize * index), elem, vec->m_typesize);
 
   pthread_mutex_unlock(&vec->m_mutex);
@@ -2743,7 +3019,10 @@ nv_dynarray_remove(nv_dynarray_t* vec, size_t index)
 
   pthread_mutex_lock(&vec->m_mutex);
 
-  if (index >= vec->m_size) { return; }
+  if (index >= vec->m_size)
+  {
+    return;
+  }
 
   if (vec->m_size - index - 1)
   {
@@ -2856,7 +3135,10 @@ void
 nv_string_destroy(nv_string_t* str)
 {
   nv_assert(CONT_IS_VALID(str));
-  if (str) { _nv_string_free(str->m_data); }
+  if (str)
+  {
+    _nv_string_free(str->m_data);
+  }
 }
 
 void
@@ -2898,7 +3180,10 @@ nv_string_append(nv_string_t* str, const char* suffix)
   nv_assert(suffix != NULL);
 
   size_t suffix_length = nv_strlen(suffix);
-  if (str->m_size + suffix_length + 1 > str->m_capacity) { nv_string_resize(str, str->m_size + suffix_length + 1); }
+  if (str->m_size + suffix_length + 1 > str->m_capacity)
+  {
+    nv_string_resize(str, str->m_size + suffix_length + 1);
+  }
 
   nv_strcpy(str->m_data + str->m_size, suffix);
   str->m_size += suffix_length;
@@ -2909,7 +3194,10 @@ nv_string_append_char(nv_string_t* str, char suffix)
 {
   nv_assert(CONT_IS_VALID(str));
 
-  if (str->m_size + 2 > str->m_capacity) { nv_string_resize(str, str->m_size + 2); }
+  if (str->m_size + 2 > str->m_capacity)
+  {
+    nv_string_resize(str, str->m_size + 2);
+  }
 
   str->m_data[str->m_size] = suffix;
   str->m_size++;
@@ -2923,7 +3211,10 @@ nv_string_prepend(nv_string_t* str, const char* prefix)
   nv_assert(prefix != NULL);
 
   size_t prefix_length = nv_strlen(prefix);
-  if (str->m_size + prefix_length + 1 > str->m_capacity) { nv_string_resize(str, str->m_size + prefix_length + 1); }
+  if (str->m_size + prefix_length + 1 > str->m_capacity)
+  {
+    nv_string_resize(str, str->m_size + prefix_length + 1);
+  }
 
   nv_memmove(str->m_data + prefix_length, str->m_data, str->m_size + 1);
   nv_memcpy(str->m_data, prefix, prefix_length);
@@ -2937,7 +3228,10 @@ nv_string_set(nv_string_t* str, const char* new_str)
   nv_assert(new_str != NULL);
 
   size_t new_length = nv_strlen(new_str);
-  if (new_length + 1 > str->m_capacity) { nv_string_resize(str, new_length + 1); }
+  if (new_length + 1 > str->m_capacity)
+  {
+    nv_string_resize(str, new_length + 1);
+  }
 
   nv_strcpy(str->m_data, new_str);
   str->m_size = new_length;
@@ -2959,7 +3253,10 @@ nv_string_remove(nv_string_t* str, size_t index, size_t length)
   nv_assert(CONT_IS_VALID(str));
   nv_assert(index < str->m_size);
 
-  if (index + length > str->m_size) { length = str->m_size - index; }
+  if (index + length > str->m_size)
+  {
+    length = str->m_size - index;
+  }
 
   nv_memmove(str->m_data + index, str->m_data + index + length, str->m_size - index - length + 1);
   str->m_size -= length;
@@ -2995,7 +3292,10 @@ nv_string_move_from(nv_string_t* src, nv_string_t* dst)
 unsigned
 closest_power_of_two(unsigned i)
 {
-  if (i == 0) { return 1; }
+  if (i == 0)
+  {
+    return 1;
+  }
   i--;
   i |= i >> 1;
   i |= i >> 2;
@@ -3047,10 +3347,16 @@ void
 nv_hashmap_destroy(nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
-  if (!map->m_nodes) { return; }
+  if (!map->m_nodes)
+  {
+    return;
+  }
   for (size_t i = 0; i < map->m_entries; i++)
   {
-    if (map->m_nodes[i]) { _nv_hashmap_free(map->m_nodes[i]); }
+    if (map->m_nodes[i])
+    {
+      _nv_hashmap_free(map->m_nodes[i]);
+    }
   }
   _nv_hashmap_free(map->m_nodes);
 }
@@ -3062,7 +3368,10 @@ nv_hashmap_resize(nv_hashmap_t* map, int new_size)
   nv_hashmap_node_t** old_nodes     = map->m_nodes;
   const size_t        old_m_entries = map->m_entries;
 
-  if (new_size <= 0) { new_size = 1; }
+  if (new_size <= 0)
+  {
+    new_size = 1;
+  }
 
   map->m_entries = closest_power_of_two(new_size);
   map->m_size    = 0;
@@ -3089,10 +3398,16 @@ void
 nv_hashmap_clear(nv_hashmap_t* map)
 {
   nv_assert(CONT_IS_VALID(map));
-  if (!map->m_nodes) { return; }
+  if (!map->m_nodes)
+  {
+    return;
+  }
   for (size_t i = 0; i < map->m_entries; i++)
   {
-    if (map->m_nodes[i]) { _nv_hashmap_free(map->m_nodes[i]); }
+    if (map->m_nodes[i])
+    {
+      _nv_hashmap_free(map->m_nodes[i]);
+    }
   }
   _nv_hashmap_free(map->m_nodes);
   map->m_nodes   = NULL;
@@ -3155,15 +3470,24 @@ void*
 nv_hashmap_find(const nv_hashmap_t* NV_RESTRICT map, const void* NV_RESTRICT key)
 {
   nv_assert(CONT_IS_VALID(map));
-  if (!map->m_nodes) { return NULL; }
+  if (!map->m_nodes)
+  {
+    return NULL;
+  }
 
   const unsigned begin = (map->m_hash_fn(key, map->m_key_size) % map->m_entries);
   unsigned       i     = begin;
   while (map->m_nodes[i] != NULL && map->m_nodes[i]->is_occupied)
   {
-    if (map->m_equal_fn(map->m_nodes[i]->key, key, map->m_key_size)) { return map->m_nodes[i]->value; }
+    if (map->m_equal_fn(map->m_nodes[i]->key, key, map->m_key_size))
+    {
+      return map->m_nodes[i]->value;
+    }
     i = power_of_two_mod((i + 1), map->m_entries);
-    if (i == begin) { break; }
+    if (i == begin)
+    {
+      break;
+    }
   }
   return NULL;
 }
@@ -3185,7 +3509,10 @@ nv_hashmap_insert(nv_hashmap_t* map, const void* NV_RESTRICT key, const void* NV
   while (map->m_nodes[i] && map->m_nodes[i]->is_occupied)
   {
     i = power_of_two_mod((i + 1), map->m_entries);
-    if (i == begin) { break; }
+    if (i == begin)
+    {
+      break;
+    }
   }
 
   if (!map->m_nodes[i])
@@ -3219,8 +3546,14 @@ nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NV_RESTRICT key, voi
   while (map->m_nodes[i] && map->m_nodes[i]->is_occupied)
   {
     i = power_of_two_mod((i + 1), map->m_entries);
-    if (map->m_equal_fn(map->m_nodes[i]->key, key, map->m_key_size)) { nv_memcpy(map->m_nodes[i]->value, value, map->m_value_size); }
-    else if (i == begin) { break; }
+    if (map->m_equal_fn(map->m_nodes[i]->key, key, map->m_key_size))
+    {
+      nv_memcpy(map->m_nodes[i]->value, value, map->m_value_size);
+    }
+    else if (i == begin)
+    {
+      break;
+    }
   }
 
   if (!map->m_nodes[i])
@@ -3309,7 +3642,10 @@ nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv
 int
 nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image_t* img, size_t* out_x, size_t* out_y)
 {
-  if (!atlas || !img || img->w <= 0 || img->h <= 0) { return 0; }
+  if (!atlas || !img || img->w <= 0 || img->h <= 0)
+  {
+    return 0;
+  }
 
   pthread_mutex_lock(&atlas->mutex);
 
@@ -3382,7 +3718,8 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
 int
 nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
 {
-  if (!atlas) return 0;
+  if (!atlas)
+    return 0;
 
   pthread_mutex_lock(&atlas->mutex);
 
@@ -3441,10 +3778,16 @@ nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
 void
 nv_texture_atlas_destroy(nv_texture_atlas_t* atlas)
 {
-  if (!atlas) { return; }
+  if (!atlas)
+  {
+    return;
+  }
 
   pthread_mutex_lock(&atlas->mutex);
-  if (atlas->data) { nv_free(atlas->data); }
+  if (atlas->data)
+  {
+    nv_free(atlas->data);
+  }
   nv_skyline_bin_destroy(&atlas->bin);
   pthread_mutex_unlock(&atlas->mutex);
 
@@ -3458,7 +3801,10 @@ nv_texture_atlas_destroy(nv_texture_atlas_t* atlas)
 void
 nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin)
 {
-  if (!bin) { return; }
+  if (!bin)
+  {
+    return;
+  }
 
   *bin              = nv_zero_init(nv_skyline_bin_t);
   bin->w            = w;
@@ -3472,9 +3818,18 @@ nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin)
 void
 nv_skyline_bin_destroy(nv_skyline_bin_t* bin)
 {
-  if (!bin) { return; }
-  if (bin->rects) { nv_free(bin->rects); }
-  if (bin->skyline) { nv_free(bin->skyline); }
+  if (!bin)
+  {
+    return;
+  }
+  if (bin->rects)
+  {
+    nv_free(bin->rects);
+  }
+  if (bin->skyline)
+  {
+    nv_free(bin->skyline);
+  }
 }
 
 size_t
@@ -3483,7 +3838,10 @@ nv_skyline_bin_max_height(const nv_skyline_bin_t* bin, size_t x, size_t w)
   size_t max_h = 0;
   for (size_t i = x; i < x + w && i < bin->w; i++)
   {
-    if (bin->skyline[i] > max_h) { max_h = bin->skyline[i]; }
+    if (bin->skyline[i] > max_h)
+    {
+      max_h = bin->skyline[i];
+    }
   }
   return max_h;
 }
@@ -3495,7 +3853,10 @@ nv_skyline_bin_find_best_placement(const nv_skyline_bin_t* bin, const nv_skyline
   *best_x      = SIZE_MAX;
   *best_y      = SIZE_MAX;
 
-  if (rect->w > bin->w) { return -1; }
+  if (rect->w > bin->w)
+  {
+    return -1;
+  }
 
   size_t max_x = bin->w - rect->w;
   for (size_t x = 0; x <= max_x; x++)
@@ -3518,8 +3879,14 @@ nv_skyline_bin_place_rect(nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, 
   {
     size_t new_alloc = (bin->allocd_rects == 0) ? 2 : bin->allocd_rects * 2;
 
-    if (bin->rects) { bin->rects = nv_realloc(bin->rects, new_alloc * sizeof(nv_skyline_rect_t)); }
-    else { bin->rects = nv_calloc(new_alloc * sizeof(nv_skyline_rect_t)); }
+    if (bin->rects)
+    {
+      bin->rects = nv_realloc(bin->rects, new_alloc * sizeof(nv_skyline_rect_t));
+    }
+    else
+    {
+      bin->rects = nv_calloc(new_alloc * sizeof(nv_skyline_rect_t));
+    }
     bin->allocd_rects = new_alloc;
   }
 
@@ -3550,7 +3917,10 @@ nv_skyline_bin_pack_rects(nv_skyline_bin_t* bin, nv_skyline_rect_t* rects, size_
       rects[i].x = x;
       rects[i].y = y;
     }
-    else { nv_push_error("failed to pack rect %d", (int)i); }
+    else
+    {
+      nv_push_error("failed to pack rect %d", (int)i);
+    }
   }
 }
 
@@ -3560,7 +3930,8 @@ nv_skyline_bin_pack_rects(nv_skyline_bin_t* bin, nv_skyline_rect_t* rects, size_
 void
 nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
 {
-  if (!bin) return;
+  if (!bin)
+    return;
 
   nv_skyline_rect_t* valid_rects   = NULL;
   size_t             num_valid     = 0;
@@ -3573,8 +3944,14 @@ nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
     if (rect.x + rect.w > new_w || rect.y + rect.h > new_h)
     {
       nv_skyline_rect_t* tmp = NULL;
-      if (!invalid_rects) { tmp = (nv_skyline_rect_t*)nv_calloc(sizeof(nv_skyline_rect_t)); }
-      else { tmp = (nv_skyline_rect_t*)nv_realloc(invalid_rects, (num_invalid + 1) * sizeof(nv_skyline_rect_t)); }
+      if (!invalid_rects)
+      {
+        tmp = (nv_skyline_rect_t*)nv_calloc(sizeof(nv_skyline_rect_t));
+      }
+      else
+      {
+        tmp = (nv_skyline_rect_t*)nv_realloc(invalid_rects, (num_invalid + 1) * sizeof(nv_skyline_rect_t));
+      }
       if (!tmp)
       {
         nv_free(valid_rects);
@@ -3621,7 +3998,8 @@ nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
 
   for (size_t i = 0; i < new_w; i++)
   {
-    if (bin->skyline[i] > new_h) bin->skyline[i] = new_h;
+    if (bin->skyline[i] > new_h)
+      bin->skyline[i] = new_h;
   }
 
   for (size_t i = 0; i < num_valid; i++)
@@ -3629,11 +4007,13 @@ nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
     nv_skyline_rect_t rect = valid_rects[i];
     for (size_t x = rect.x; x < rect.x + rect.w && x < new_w; x++)
     {
-      if (bin->skyline[x] < rect.y + rect.h) bin->skyline[x] = rect.y + rect.h;
+      if (bin->skyline[x] < rect.y + rect.h)
+        bin->skyline[x] = rect.y + rect.h;
     }
   }
 
-  if (bin->rects) nv_free(bin->rects);
+  if (bin->rects)
+    nv_free(bin->rects);
   bin->rects        = valid_rects;
   bin->nrects       = num_valid;
   bin->allocd_rects = num_valid;
@@ -3641,11 +4021,18 @@ nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
   for (size_t i = 0; i < num_invalid; i++)
   {
     size_t x, y;
-    if (nv_skyline_bin_find_best_placement(bin, &invalid_rects[i], &x, &y)) { nv_skyline_bin_place_rect(bin, &invalid_rects[i], x, y); }
-    else { nv_push_error("failed to repack rect %lu after resize", i); }
+    if (nv_skyline_bin_find_best_placement(bin, &invalid_rects[i], &x, &y))
+    {
+      nv_skyline_bin_place_rect(bin, &invalid_rects[i], x, y);
+    }
+    else
+    {
+      nv_push_error("failed to repack rect %lu after resize", i);
+    }
   }
 
-  if (invalid_rects) nv_free(invalid_rects);
+  if (invalid_rects)
+    nv_free(invalid_rects);
 
   bin->w = new_w;
   bin->h = new_h;
@@ -3665,7 +4052,10 @@ nv_bitset_init(int init_capacity, nv_allocator_t* allocator, nv_bitset_t* set)
     set->allocator = allocator;
     set->data      = set->allocator->calloc(set->allocator, 1, init_capacity * sizeof(uint8_t));
   }
-  else { set->size = 0; }
+  else
+  {
+    set->size = 0;
+  }
 }
 
 void
@@ -3701,14 +4091,20 @@ nv_bitset_access_bit(nv_bitset_t* set, int bitindex)
 void
 nv_bitset_copy_from(nv_bitset_t* dst, const nv_bitset_t* src)
 {
-  if (!src->data) { return; }
+  if (!src->data)
+  {
+    return;
+  }
   if (src->size != dst->size && dst->data)
   {
     dst->allocator->free(dst->allocator, dst->data);
     dst->data = src->allocator->alloc(src->allocator, 1, src->size);
     dst->size = src->size;
   }
-  if (dst->data && src->data) { nv_memcpy(dst->data, src->data, src->size); }
+  if (dst->data && src->data)
+  {
+    nv_memcpy(dst->data, src->data, src->size);
+  }
 }
 
 void
@@ -3728,8 +4124,10 @@ nv_freelist_check_circle(const nv_freelist_t* list)
   {
     slow = slow->next;
     fast = fast->next->next;
-    if (fast) nv_assert(fast->canary == NOVA_ALLOCATION_CANARY);
-    if (slow) nv_assert(slow->canary == NOVA_ALLOCATION_CANARY);
+    if (fast)
+      nv_assert(fast->canary == NOVA_ALLOCATION_CANARY);
+    if (slow)
+      nv_assert(slow->canary == NOVA_ALLOCATION_CANARY);
 
     if (slow == fast)
     {
@@ -3761,7 +4159,10 @@ nv_freelist_init(size_t init_size, nv_freelist_alloc_fn alloc_fn, nv_freelist_fr
     list->m_root       = nv_freelist_mknode(list, 1, init_size);
     list->m_root->size = init_size;
   }
-  else { list->m_root = NULL; }
+  else
+  {
+    list->m_root = NULL;
+  }
 
   list->m_canary = CONT_CANARY;
   (void)allocator;
@@ -3773,13 +4174,17 @@ nv_freelist_destroy(nv_freelist_t* list)
 {
   nv_assert(CONT_IS_VALID(list));
   nv_freelist_check_circle(list);
-  if (!list || !list->m_root) return;
+  if (!list || !list->m_root)
+    return;
 
   nv_node_t* node = list->m_root;
   while (node)
   {
     nv_node_t* next = node->next;
-    if (node->in_use) { nv_freelist_free(list, node->payload); }
+    if (node->in_use)
+    {
+      nv_freelist_free(list, node->payload);
+    }
     node = next;
   }
   nv_freelist_check_circle(list);
@@ -3882,8 +4287,14 @@ nv_freelist_free(nv_freelist_t* list, void* block)
 
   node->in_use = 0;
 
-  if (prev) { prev->next = node->next; }
-  else { list->m_root = node->next; }
+  if (prev)
+  {
+    prev->next = node->next;
+  }
+  else
+  {
+    list->m_root = node->next;
+  }
 
   list->m_free_fn(node);
 
@@ -3899,7 +4310,10 @@ nv_freelist_find(nv_freelist_t* list, void* alloc)
   nv_node_t* node = list->m_root;
   while (node)
   {
-    if (node->payload == alloc) { return node; }
+    if (node->payload == alloc)
+    {
+      return node;
+    }
     node = node->next;
   }
   nv_freelist_check_circle(list);
@@ -3914,8 +4328,14 @@ nv_option_find(const nv_option_t* options, int noptions, const char* short_name,
   size_t i = 0;
   for (const nv_option_t* opt = options; i < (size_t)noptions; opt++, i++)
   {
-    if (short_name && opt->short_name && nv_strcmp(opt->short_name, short_name) == 0) { return opt; }
-    if (long_name && opt->long_name && nv_strcmp(opt->long_name, long_name) == 0) { return opt; }
+    if (short_name && opt->short_name && nv_strcmp(opt->short_name, short_name) == 0)
+    {
+      return opt;
+    }
+    if (long_name && opt->long_name && nv_strcmp(opt->long_name, long_name) == 0)
+    {
+      return opt;
+    }
   }
   return NULL;
 }
@@ -3958,7 +4378,10 @@ nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t bu
 
     written = nv_snprintf(buf, available, "\t-%s, --%s <%s>\n", short_name, long_name, nv_props_get_tp_name(opt->type));
     buf += written;
-    if (written > available) { break; }
+    if (written > available)
+    {
+      break;
+    }
     available -= written;
   }
 }
@@ -3980,7 +4403,10 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
   char* value   = NULL;
 
   // not option?
-  if (arg[0] != '-') { return 0; }
+  if (arg[0] != '-')
+  {
+    return 0;
+  }
 
   if (arg[1] == '-')
   {
@@ -3993,7 +4419,10 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
       value = eq + 1;
     }
   }
-  else { name = arg + 1; }
+  else
+  {
+    name = arg + 1;
+  }
 
   const nv_option_t* opt = is_long ? nv_option_find(options, noptions, NULL, name) : nv_option_find(options, noptions, name, NULL);
   if (!opt)
@@ -4006,8 +4435,12 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
   if (opt->type == NV_OP_TYPE_BOOL)
   {
     bool flag_value = true;
-    if (is_long && value) { flag_value = nv_atobool(value); }
-    if (opt->value) *(bool*)opt->value = flag_value;
+    if (is_long && value)
+    {
+      flag_value = nv_atobool(value);
+    }
+    if (opt->value)
+      *(bool*)opt->value = flag_value;
     (*i)++;
     return 0;
   }
@@ -4018,8 +4451,14 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
     {
       size_t opt_name_len = nv_strlen(opt->short_name);
       size_t arg_name_len = nv_strlen(name);
-      if (arg_name_len > opt_name_len) { value = name + opt_name_len; }
-      else if ((*i) + 1 < argc && argv[*i + 1][0] != '-') { value = argv[++(*i)]; }
+      if (arg_name_len > opt_name_len)
+      {
+        value = name + opt_name_len;
+      }
+      else if ((*i) + 1 < argc && argv[*i + 1][0] != '-')
+      {
+        value = argv[++(*i)];
+      }
     }
     else
     {
@@ -4043,13 +4482,16 @@ _nv_props_parse_arg(int argc, char* argv[], const nv_option_t* options, int nopt
       }
       break;
     case NV_OP_TYPE_INT:
-      if (opt->value) *(int*)opt->value = nv_atoi(value);
+      if (opt->value)
+        *(int*)opt->value = nv_atoi(value);
       break;
     case NV_OP_TYPE_FLOAT:
-      if (opt->value) *(flt_t*)opt->value = (flt_t)nv_atof(value);
+      if (opt->value)
+        *(flt_t*)opt->value = (flt_t)nv_atof(value);
       break;
     case NV_OP_TYPE_DOUBLE:
-      if (opt->value) *(real_t*)opt->value = nv_atof(value);
+      if (opt->value)
+        *(real_t*)opt->value = nv_atof(value);
       break;
     default: break;
   }
@@ -4077,9 +4519,15 @@ nv_props_parse(int argc, char* argv[], const nv_option_t* options, int noptions,
     if (arg[0] == '-')
     {
       int result = _nv_props_parse_arg(argc, argv, options, noptions, error, error_size, &i);
-      if (result != 0) { success = false; }
+      if (result != 0)
+      {
+        success = false;
+      }
     }
-    else { break; }
+    else
+    {
+      break;
+    }
   }
   return success ? 0 : -1;
 }
@@ -4123,7 +4571,8 @@ nv_async_task_launch(nv_async_task_t* NV_RESTRICT task, nv_async_task_fn func, v
 void
 nv_async_task_destroy(nv_async_task_t* task)
 {
-  if (!task) return;
+  if (!task)
+    return;
   pthread_mutex_destroy(&task->lock);
   pthread_join(task->thread, NULL);
   nv_memset(task, 0, sizeof(nv_async_task_t));

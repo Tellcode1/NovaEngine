@@ -22,7 +22,6 @@ NOVA_HEADER_START
 #  define LMALLOC_DEFAULT_PAGE_SIZE 4096
 #endif
 
-typedef struct nv_allocator_t     nv_allocator_t;
 typedef struct nv_allocator_stack nv_allocator_stack;
 typedef struct nv_allocator_heap  nv_allocator_heap;
 

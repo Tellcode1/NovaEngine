@@ -105,7 +105,10 @@ NOVA_HEADER_START
       return retval;                                                                                                                                                          \
     }
 #  define nv_assert(expr)                                                                                                                                                     \
-    if (!((bool)(expr))) { nv_log_and_abort("Assertion failed -> %s", #expr); }
+    if (!((bool)(expr)))                                                                                                                                                      \
+    {                                                                                                                                                                         \
+      nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
+    }
 #else
 // These are typecasted to void because they give warnings because result (its
 // like expr != NULL) is not used
@@ -143,7 +146,9 @@ extern void _nv_log_custom(const char* func, const char* preceder, const char* f
 
 extern void _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* str, unsigned char err);
 
-extern void        nv_push_error(const char* fmt, ...);
+extern void _nv_push_error(const char* func, struct tm* time, const char* fmt, ...);
+#define nv_push_error(fmt, ...) _nv_push_error(__func__, (_nv_get_time()), (fmt), ##__VA_ARGS__)
+
 extern const char* nv_pop_error();
 
 #define _nv_time_wrapper1(x, y) NV_CONCAT(x, y)
@@ -172,7 +177,10 @@ _nv_get_time()
 }
 
 #define nv_safecall_c_fn(fn)                                                                                                                                                  \
-  if ((fn) != 0) { nv_push_error("%s() => %i", #fn, errno); }
+  if ((fn) != 0)                                                                                                                                                              \
+  {                                                                                                                                                                           \
+    nv_push_error("%s() => %i", #fn, errno);                                                                                                                                  \
+  }
 
 typedef uint64_t u64;
 typedef uint32_t u32;

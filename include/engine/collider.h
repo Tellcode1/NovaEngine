@@ -4,11 +4,11 @@
 // implementation: engine.c
 
 #include "../../std/math/vec2.h"
+#include "scene.h"
 
 NOVA_HEADER_START
 
 typedef struct nv_collider_t nv_collider_t;
-typedef struct nv_scene_t    nv_scene_t;
 
 typedef enum nv_collider_type
 {

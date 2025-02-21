@@ -109,8 +109,14 @@ test_allocator(void)
     }
   }
 
-  if (!pass) { nv_log_and_abort("Test Failed"); }
-  else { nv_log_info("Test Passed"); }
+  if (!pass)
+  {
+    nv_log_and_abort("Test Failed");
+  }
+  else
+  {
+    nv_log_info("Test Passed");
+  }
 }
 
 static inline const char*
@@ -157,8 +163,14 @@ main(int argc, char* argv[])
 
   nv_initialize_context(windowname, window_size.width, window_size.height);
 
-  if (recompile_shaders) { nvsm_compile_all(); }
-  else { nvsm_compile_updated(); }
+  if (recompile_shaders)
+  {
+    nvsm_compile_all();
+  }
+  else
+  {
+    nvsm_compile_updated();
+  }
 
   nv_renderer_config rdconf   = nv_renderer_config_init();
   rdconf.vsync_enabled        = 1;

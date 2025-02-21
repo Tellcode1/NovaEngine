@@ -5,7 +5,7 @@
 
 NOVA_HEADER_START
 
-typedef struct nv_scene_t    nv_scene_t;
+typedef struct nv_scene_t nv_scene_t;
 
 typedef void (*nv_scene_load_fn)(nv_scene_t* scn);
 

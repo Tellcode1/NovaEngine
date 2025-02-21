@@ -32,10 +32,22 @@ extern void nv_dynarray_destroy(nv_dynarray_t* vec);
 static inline int
 nv_dynarray_is_initialized(const nv_dynarray_t* arr)
 {
-  if (!arr) { return -1; }
-  if (arr->m_canary != CONT_CANARY) { return -1; }
-  if (arr->m_capacity > 0 && !arr->m_data) { return -1; }
-  if (arr->m_typesize <= 0) { return -1; }
+  if (!arr)
+  {
+    return -1;
+  }
+  if (arr->m_canary != CONT_CANARY)
+  {
+    return -1;
+  }
+  if (arr->m_capacity > 0 && !arr->m_data)
+  {
+    return -1;
+  }
+  if (arr->m_typesize <= 0)
+  {
+    return -1;
+  }
   return 0;
 }
 

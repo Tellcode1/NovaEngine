@@ -57,7 +57,10 @@ cvarinit(const cvar* src)
   cvar var = { .write_fn = src->write_fn, .tp = src->tp, .val = src->val };
   nv_strncpy(var.name, src->name, 64);
 
-  if (!g_nvars || !g_vars) { g_vars = (cvar*)nv_malloc(sizeof(cvar)); }
+  if (!g_nvars || !g_vars)
+  {
+    g_vars = (cvar*)nv_malloc(sizeof(cvar));
+  }
   else
   {
     nv_assert(g_nvars > 0);
@@ -72,7 +75,10 @@ cvarread(const char* name)
 {
   for (int i = 0; i < g_nvars; i++)
   {
-    if (nv_strncmp(name, g_vars[i].name, 63) == 0) { return g_vars[i].val; }
+    if (nv_strncmp(name, g_vars[i].name, 63) == 0)
+    {
+      return g_vars[i].val;
+    }
   }
   nv_assert(0);
   return (cvar_value){ -1 };
@@ -87,7 +93,10 @@ cvarset(const char* name, const cvar_value value)
     {
       cvar* var = &g_vars[i];
       var->val  = value;
-      if (var->write_fn) { var->write_fn(var); }
+      if (var->write_fn)
+      {
+        var->write_fn(var);
+      }
       break;
     }
   }

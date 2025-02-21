@@ -9,6 +9,8 @@
 
 // I strive for a world where I do not have to call vulkan functions myself again
 
+#include "sprite_renderer.h"
+
 #include "../GPU/descriptors.h"
 #include "../GPU/vkstdafx.h"
 
@@ -26,7 +28,6 @@ typedef struct nv_gpu_texture nv_gpu_texture;
 
 extern nv_descriptor_pool_t g_pool;
 extern struct nv_camera_t   camera;
-typedef struct nv_sprite    nv_sprite;
 
 typedef enum nv_window_flag_bits
 {
@@ -121,8 +122,7 @@ nv_renderer_config_init()
   };
 }
 
-typedef struct nv_sprite_renderer nv_sprite_renderer;
-typedef struct nv_renderer_t      nv_renderer_t;
+typedef struct nv_renderer_t nv_renderer_t;
 
 extern nv_renderer_t* nv_renderer_init(const nv_renderer_config* conf);
 extern void           nv_renderer_destroy(struct nv_renderer_t* rd);

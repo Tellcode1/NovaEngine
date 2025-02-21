@@ -18,9 +18,11 @@ NOVA_HEADER_START
 typedef void (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((ptr) == NULL) nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
+  if ((ptr) == NULL)                                                                                                                                                          \
+  nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
-  if ((val) == (to)) nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __func__)
+  if ((val) == (to))                                                                                                                                                          \
+  nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __func__)
 
 #define _NVVK_TO_BIT(n) (1 << n)
 
@@ -42,12 +44,16 @@ typedef u32 nvvk_pipeline_flags;
 static void
 _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
 {
-  if (result == VK_SUCCESS) return;
+  if (result == VK_SUCCESS)
+    return;
 
   struct tm* time = _nv_get_time();
 
   const char* errstr = "err";
-  if (result >= 0) { errstr = "warn"; }
+  if (result >= 0)
+  {
+    errstr = "warn";
+  }
 
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors

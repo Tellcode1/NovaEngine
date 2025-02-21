@@ -66,7 +66,7 @@ struct fontc_file_t
 
 extern fontc_err_t fontc_read_font(const char* path, fontc_file_t* file);
 extern fontc_err_t fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w, int init_atlas_h, int num_threads, fontc_file_t* out_file);
-extern fontc_err_t fontc_write_font_file(const char* out, const fontc_file_t* file);
+extern fontc_err_t fontc_write_font_file(const char* out, fontc_file_t* file);
 extern void        fontc_clean_font_file(fontc_file_t* file);
 
 /**

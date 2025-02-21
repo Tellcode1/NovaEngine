@@ -12,7 +12,7 @@ NOVA_HEADER_START
 #endif
 
 #ifndef NV_ERROR_LENGTH
-#  define NV_ERROR_LENGTH 128
+#  define NV_ERROR_LENGTH 256
 #endif
 
 typedef char nv_error_t[NV_ERROR_LENGTH];
@@ -40,6 +40,7 @@ nv_error_queue_init(nv_error_queue_t* dst)
 inline void
 nv_error_queue_destroy(nv_error_queue_t* dst)
 {
+  (void)dst;
 }
 
 inline char*
@@ -48,10 +49,16 @@ nv_error_queue_push(nv_error_queue_t* queue)
   if ((queue->back + 1) % NV_MAX_ERRORS == queue->front)
   {
     const char* overwritten_error = nv_error_queue_pop(queue);
-    if (overwritten_error) { nv_log_error("queue full: poppd '%s'\n", overwritten_error); }
+    if (overwritten_error)
+    {
+      nv_log_error("queue full: poppd '%s'\n", overwritten_error);
+    }
   }
 
-  if (queue->front == -1) { queue->front = 0; }
+  if (queue->front == -1)
+  {
+    queue->front = 0;
+  }
   queue->back = (queue->back + 1) % NV_MAX_ERRORS;
 
   nv_memset(queue->errors[queue->back], 0, NV_ERROR_LENGTH);
@@ -61,12 +68,21 @@ nv_error_queue_push(nv_error_queue_t* queue)
 inline const char*
 nv_error_queue_pop(nv_error_queue_t* queue)
 {
-  if (queue->front == -1) { return NULL; }
+  if (queue->front == -1)
+  {
+    return NULL;
+  }
 
   const char* value = queue->errors[queue->front];
 
-  if (queue->front == queue->back) { queue->front = queue->back = -1; }
-  else { queue->front = (queue->front + 1) % NV_MAX_ERRORS; }
+  if (queue->front == queue->back)
+  {
+    queue->front = queue->back = -1;
+  }
+  else
+  {
+    queue->front = (queue->front + 1) % NV_MAX_ERRORS;
+  }
 
   return value; // Return the popped value
 }

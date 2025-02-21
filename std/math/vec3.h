@@ -25,7 +25,8 @@ NOVA_HEADER_START
   static inline NAME FUNC##normalize(const NAME v)                                                                                                                            \
   {                                                                                                                                                                           \
     TYPE magnitude = FUNC##mag(v);                                                                                                                                            \
-    if (magnitude == 0) return nv_zero_init(NAME);                                                                                                                                      \
+    if (magnitude == 0)                                                                                                                                                       \
+      return nv_zero_init(NAME);                                                                                                                                              \
     return FUNC##divs(v, magnitude);                                                                                                                                          \
   }
 

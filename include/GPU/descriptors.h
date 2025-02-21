@@ -6,8 +6,8 @@
 #include "../../external/volk/volk.h"
 #include "../../std/math/math.h"
 #include "../../std/stdafx.h"
-#include "vkstdafx.h"
 #include "fwdefs.h"
+#include "vkstdafx.h"
 
 NOVA_HEADER_START
 

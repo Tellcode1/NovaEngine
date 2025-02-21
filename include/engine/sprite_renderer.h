@@ -21,7 +21,9 @@ typedef struct nv_sprite_renderer
 static inline nv_sprite_renderer
 nv_sprite_renderer_init()
 {
-  return (nv_sprite_renderer){ nv_sprite_empty, 0, 0, (vec2f){ 1.0f, 1.0f }, (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f } };
+  return (nv_sprite_renderer){
+    nv_sprite_empty, 0, 0, (vec2f){ 1.0f, 1.0f }, (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
+  };
 }
 
 NOVA_HEADER_END

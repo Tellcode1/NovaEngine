@@ -53,7 +53,7 @@ struct nvsm_shader_disk_t
 };
 
 extern void _nvsm_create_shader(VkDevice_T* __restrict vkdevice, const unsigned* __restrict bytes, int nbytes, struct nvsm_shader_t* __restrict out);
-extern void        nvsm_register_all_shaders(VkDevice device, nvsm_shader_entry_t* entries, int nentries);
+extern void nvsm_register_all_shaders(VkDevice device, nvsm_shader_entry_t* entries, int nentries);
 
 NOVA_HEADER_END
 

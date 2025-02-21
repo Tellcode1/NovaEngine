@@ -21,7 +21,7 @@ SpaceBeforeAssignmentOperators: true
 IndentPPDirectives: AfterHash
 PPIndentWidth: 2
 AllowShortBlocksOnASingleLine: Always
-AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true
 BreakBeforeTernaryOperators: true

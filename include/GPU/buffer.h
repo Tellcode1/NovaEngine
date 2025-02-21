@@ -4,10 +4,9 @@
 // implementation: vk.c
 
 #include "../../std/stdafx.h"
+#include "memory.h"
 
 NOVA_HEADER_START
-
-typedef struct nv_gpu_memory_t nv_gpu_memory_t;
 
 // This is mainly here to bar the user from using unsupported buffer types
 typedef enum nv_gpu_buffer_type_bits

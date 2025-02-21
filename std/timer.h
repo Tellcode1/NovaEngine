@@ -17,7 +17,8 @@ static inline real_t
 __timer_get_currtime()
 {
   struct timeval tv;
-  if (gettimeofday(&tv, 0)) return __FLT_MAX__;
+  if (gettimeofday(&tv, 0))
+    return __FLT_MAX__;
   return tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
@@ -29,7 +30,7 @@ timer_begin(real_t duration)
   if (duration <= 0.0f)
   {
     nv_push_error("Timer duration passed as negative or zero. What do you even want the "
-                 "timer to do????");
+                  "timer to do????");
     return (timer){ -1, -1 };
   }
   timer tm;
