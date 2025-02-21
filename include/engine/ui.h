@@ -7,7 +7,7 @@
 #include "object.h"
 #include "sprite.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nvui_button nvui_button;
 typedef struct nvui_slider nvui_slider;
@@ -53,6 +53,6 @@ extern void nvui_render(nv_renderer_t* rd);
 
 extern void nvui_update();
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_UI_H__

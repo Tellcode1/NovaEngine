@@ -4,14 +4,13 @@
 // implementation: preprocessors.c
 
 #include "../../std/stdafx.h"
+#include "../GPU/fwdefs.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct VkShaderModule_T          VkShaderModule_T;
-typedef struct VkDevice_T                VkDevice_T;
 typedef struct nvsm_shader_entry_t       nvsm_shader_entry_t;
 typedef struct nvsm_shader_disk_t        nvsm_shader_disk_t;
-typedef struct nvsm_shader_t             nvsm_shader_t;
 typedef struct nvsm_shader_cache_entry_t nvsm_shader_cache_entry_t;
 
 extern const char* shader_compiler;
@@ -54,8 +53,8 @@ struct nvsm_shader_disk_t
 };
 
 extern void _nvsm_create_shader(VkDevice_T* __restrict vkdevice, const unsigned* __restrict bytes, int nbytes, struct nvsm_shader_t* __restrict out);
-void        _nvsm_vk_register_shaders(nvsm_shader_entry_t* entries, int nentries);
+extern void        nvsm_register_all_shaders(VkDevice device, nvsm_shader_entry_t* entries, int nentries);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_SM_DEV_H

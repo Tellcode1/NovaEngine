@@ -130,7 +130,7 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
   obj->transform.size     = size;
   obj->transform.rotation = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
 
-  obj->spr_renderer                      = (nv_sprite_renderer){};
+  obj->spr_renderer                      = nv_zero_init(nv_sprite_renderer);
   obj->spr_renderer.spr                  = nv_sprite_empty;
   obj->spr_renderer.tex_coord_multiplier = (vec2f){ 1.0f, 1.0f };
   obj->spr_renderer.color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -239,7 +239,7 @@ _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_sha
   else if (type == NOVA_COLLIDER_TYPE_DYNAMIC) { body_def.type = b2_dynamicBody; }
   else if (type == NOVA_COLLIDER_TYPE_KINEMATIC) { body_def.type = b2_kinematicBody; }
 
-  if (!start_enabled) { return (b2BodyId){}; }
+  if (!start_enabled) { return nv_zero_init(b2BodyId); }
 
   body_def.position = VEC2_TO_BVEC2(pos);
   b2BodyId body_id  = b2CreateBody(scene->world, &body_def);
@@ -308,7 +308,7 @@ nv_collider_get_position(const nv_collider_t* col)
 {
   if (col)
     return col->position;
-  else { return (vec2){}; }
+  else { return nv_zero_init(vec2); }
 }
 
 void
@@ -512,11 +512,11 @@ nvui_create_button(nv_sprite* spr)
 {
   if (!nvui_ctx.active)
   {
-    nv_log_error("nvui not initialized");
+    nv_push_error("nvui not initialized");
     return NULL;
   }
-  nvui_button bton        = (nvui_button){};
-  bton.transform.position = (vec2){};
+  nvui_button bton        = nv_zero_init(nvui_button);
+  bton.transform.position = nv_zero_init(vec2);
   bton.transform.size     = (vec2){ 0.5f, 0.5f };
   bton.color              = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
   bton.spr                = spr;
@@ -529,11 +529,11 @@ nvui_create_slider()
 {
   if (!nvui_ctx.active)
   {
-    nv_log_error("nvui not initialized");
+    nv_push_error("nvui not initialized");
     return NULL;
   }
-  nvui_slider slider        = (nvui_slider){};
-  slider.transform.position = (vec2){};
+  nvui_slider slider        = nv_zero_init(nvui_slider);
+  slider.transform.position = nv_zero_init(vec2);
   slider.transform.size     = (vec2){ 0.5f, 1.5f };
   slider.min                = 0.0f;
   slider.max                = 1.0f;
@@ -581,7 +581,7 @@ nvui_render(nv_renderer_t* rd)
 
     if (slider->max == slider->min)
     {
-      nv_log_error("Slider %i has equal min and max", i);
+      nv_push_error("Slider %i has equal min and max", i);
       continue;
     }
 
@@ -773,8 +773,8 @@ nv_input_init()
 
   nv_bitset_init(SDL_NUM_SCANCODES, &nv_allocator_default, &g_nv_input_kb_state);
   nv_bitset_init(SDL_NUM_SCANCODES, &nv_allocator_default, &g_nv_input_last_frame_kb_state);
-  g_nv_input_mouse_position            = (vec2){};
-  g_nv_input_last_frame_mouse_position = (vec2){};
+  g_nv_input_mouse_position            = nv_zero_init(vec2);
+  g_nv_input_last_frame_mouse_position = nv_zero_init(vec2);
 }
 
 void

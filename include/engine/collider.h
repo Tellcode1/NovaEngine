@@ -5,7 +5,7 @@
 
 #include "../../std/math/vec2.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_collider_t nv_collider_t;
 typedef struct nv_scene_t    nv_scene_t;
@@ -48,6 +48,6 @@ extern nv_collider_ray_hit nv_collider_cast_ray(const nv_collider_t* col, vec2 o
 
 // You need to update the colliders through luneScene_Update();
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_COLLIDER_H__

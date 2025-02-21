@@ -4,7 +4,7 @@
 #include "../std/stdafx.h"
 #include "../std/string.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // do I wanna go the cvar way?
 // Personally, that's more suited to C++ so... no
@@ -93,6 +93,6 @@ cvarset(const char* name, const cvar_value value)
   }
 }
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__CVARS_H__

@@ -44,18 +44,18 @@ add_library(Nova STATIC ${SOURCES})
 
 # core is the common library that every library should link with
 add_library(core STATIC src/core.c)
-target_compile_options(core PRIVATE -g)
+target_compile_options(core PRIVATE -g -Wall -Wextra -pedantic)
 target_link_libraries(core jpeg png z OpenMP::OpenMP_C)
 
 add_executable(shadermanager src/nvsm.c)
 target_compile_definitions(shadermanager PRIVATE NVSM_EXECUTABLE=1)
 target_link_libraries(shadermanager m core)
-target_compile_options(shadermanager PRIVATE --fast-math)
+target_compile_options(shadermanager PRIVATE --fast-math -Wall -Wextra -pedantic)
 
 add_executable(fontc src/fontc.c)
 target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
 target_link_libraries(fontc freetype m core)
-target_compile_options(fontc PRIVATE -g)
+target_compile_options(fontc PRIVATE -g -Wall -Wextra -pedantic)
 
 set(LIBS
     core
@@ -68,7 +68,7 @@ set(LIBS
 
 target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/std/stdafx.h)
 target_link_options(Nova PRIVATE -g -Wall -Wextra)
-target_compile_options(Nova PRIVATE -g -Wall -Wextra)
+target_compile_options(Nova PRIVATE -g -Wall -Wextra -Wall -Wextra -pedantic)
 target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 

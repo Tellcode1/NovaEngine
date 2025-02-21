@@ -15,12 +15,16 @@
     extern "C"                                                                                                                                                                \
     {
 #  define NOVA_HEADER_END }
+/*
+  extern "C" {
+  }
+*/
 #else
 #  define NOVA_HEADER_START
 #  define NOVA_HEADER_END
 #endif
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #if !defined(NV_RESTRICT)
 #  if defined(_MSC_VER)
@@ -45,7 +49,7 @@ NOVA_HEADER_START;
 #ifndef NV_ALIGN_TO
 #  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L // C11+
 #    define NV_ALIGN_TO(N) _Alignas(N)
-#  elif defined(__GNUC__) || defined(__clang__) // GCC, Clang
+#  elif defined(__GNUC__) || defined(__clang__)
 #    define NV_ALIGN_TO(N) __attribute__((aligned(N)))
 #  elif defined(_MSC_VER) // MSVC
 #    define NV_ALIGN_TO(N) __declspec(align(N))
@@ -81,12 +85,12 @@ NOVA_HEADER_START;
 /*
  * GNUC and builtin have protection from accidentally passing in pointers instead of stack arrays
  */
-#if defined(__GNUC__) && (__STDC_VERSION__ >= 199901L)
+#if defined(__GNUC__) && (__STDC_VERSION__ >= 201112L)
 #  define nv_arrlen(arr) _Generic(&(arr), NV_TYPEOF(*(arr))(*): 0, default: (sizeof(arr) / sizeof((arr)[0])))
 #elif defined(__has_builtin) && __has_builtin(__builtin_choose_expr) && __has_builtin(__builtin_types_compatible_p)
 #  define nv_arrlen(arr) __builtin_choose_expr(__builtin_types_compatible_p(NV_TYPEOF(arr), NV_TYPEOF(&(arr)[0])), 0, (sizeof(arr) / sizeof((arr)[0])))
 #else
-#  define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof(arr[0])))
+#  define nv_arrlen(arr) ((size_t)(sizeof(arr) / sizeof((arr)[0])))
 #endif
 
 #ifndef nv_zero_init
@@ -97,7 +101,7 @@ NOVA_HEADER_START;
 #  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
     if (!((bool)(expr)))                                                                                                                                                      \
     {                                                                                                                                                                         \
-      nv_log_and_abort("Assertion failed -> %s", #expr);                                                                                                                      \
+      nv_push_error("Assertion failed -> %s", #expr);                                                                                                                         \
       return retval;                                                                                                                                                          \
     }
 #  define nv_assert(expr)                                                                                                                                                     \
@@ -112,23 +116,23 @@ NOVA_HEADER_START;
 
 // puts but with formatting and with the preceder "error". does not stop
 // execution of program if you want that, use nv_log_and_abort instead.
-#define nv_log_error(err, ...) _nv_log_error(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_error(err, ...) _nv_log_error(__func__, err, ##__VA_ARGS__)
 
 // formats the string, puts() it with the preceder "fatal error" and then aborts
 // the program
-#define nv_log_and_abort(err, ...) _nv_log_and_abort(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_and_abort(err, ...) _nv_log_and_abort(__func__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with the preceder "warning"
-#define nv_log_warning(err, ...) _nv_log_warning(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_warning(err, ...) _nv_log_warning(__func__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with the preceder "info"
-#define nv_log_info(err, ...) _nv_log_info(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_info(err, ...) _nv_log_info(__func__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with the preceder "debug"
-#define nv_log_debug(err, ...) _nv_log_debug(__PRETTY_FUNCTION__, err, ##__VA_ARGS__)
+#define nv_log_debug(err, ...) _nv_log_debug(__func__, err, ##__VA_ARGS__)
 
 // puts but with formatting and with a custom preceder
-#define nv_log_custom(preceder, err, ...) _nv_log_custom(__PRETTY_FUNCTION__, preceder, err, ##__VA_ARGS__)
+#define nv_log_custom(preceder, err, ...) _nv_log_custom(__func__, preceder, err, ##__VA_ARGS__)
 
 extern void _nv_log_error(const char* func, const char* fmt, ...);
 extern void _nv_log_and_abort(const char* func, const char* fmt, ...);
@@ -138,6 +142,9 @@ extern void _nv_log_debug(const char* func, const char* fmt, ...);
 extern void _nv_log_custom(const char* func, const char* preceder, const char* fmt, ...);
 
 extern void _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* str, unsigned char err);
+
+extern void        nv_push_error(const char* fmt, ...);
+extern const char* nv_pop_error();
 
 #define _nv_time_wrapper1(x, y) NV_CONCAT(x, y)
 
@@ -157,7 +164,7 @@ _nv_get_time()
   now = time(0);
   if ((tm = localtime(&now)) == NULL)
   {
-    nv_log_error("Error extracting time stuff");
+    nv_push_error("Error extracting time stuff");
     return NULL;
   }
 
@@ -165,7 +172,7 @@ _nv_get_time()
 }
 
 #define nv_safecall_c_fn(fn)                                                                                                                                                  \
-  if ((fn) != 0) { nv_log_error("%s() => %i", #fn, errno); }
+  if ((fn) != 0) { nv_push_error("%s() => %i", #fn, errno); }
 
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -185,6 +192,6 @@ typedef int8_t  i8;
 typedef float  f32;
 typedef real_t f64;
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif

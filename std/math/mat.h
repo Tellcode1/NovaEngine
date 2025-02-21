@@ -6,7 +6,7 @@
 #include "vec3.h"
 #include "vec4.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define _NV_DECL_MAT4(NAME, FUNC, SIZE, TYPE, TYPE_PREFIX)                                                                                                                    \
   typedef struct NAME                                                                                                                                                         \
@@ -183,9 +183,9 @@ NOVA_HEADER_START;
                    (vec4##TYPE_PREFIX){ -(right + left) / (right - left), -(bottom + top) / (bottom - top), near / (near - far), 1.0f } };                                    \
   }
 
-_NV_DECL_MAT4(mat4f, m4f, 4, float, f);
-_NV_DECL_MAT4(mat4d, m4d, 4, double, d);
-_NV_DECL_MAT4(mat4, m4, 4, flt_t, );
+_NV_DECL_MAT4(mat4f, m4f, 4, float, f)
+_NV_DECL_MAT4(mat4d, m4d, 4, double, d)
+_NV_DECL_MAT4(mat4, m4, 4, flt_t, )
 
 #define NV_MATRIX_COPY(m1, m2)                                                                                                                                                \
   do                                                                                                                                                                          \
@@ -196,6 +196,6 @@ _NV_DECL_MAT4(mat4, m4, 4, flt_t, );
         ((&(m1).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j] = (&(m2).data[__nv_matrix_copy_i].x)[__nv_matrix_copy_j]);                                                    \
   } while (0)
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif

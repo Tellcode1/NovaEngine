@@ -5,7 +5,7 @@
 
 #include <math.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define _NV_DECL_VEC3(TYPE, NAME, FUNC, SQRT_FUNC)                                                                                                                            \
   typedef struct NAME                                                                                                                                                         \
@@ -25,15 +25,15 @@ NOVA_HEADER_START;
   static inline NAME FUNC##normalize(const NAME v)                                                                                                                            \
   {                                                                                                                                                                           \
     TYPE magnitude = FUNC##mag(v);                                                                                                                                            \
-    if (magnitude == 0) return (NAME){};                                                                                                                                      \
+    if (magnitude == 0) return nv_zero_init(NAME);                                                                                                                                      \
     return FUNC##divs(v, magnitude);                                                                                                                                          \
   }
 
-_NV_DECL_VEC3(int, vec3i, v3i, sqrt);
-_NV_DECL_VEC3(float, vec3f, v3f, sqrtf);
-_NV_DECL_VEC3(double, vec3d, v3d, sqrt);
-_NV_DECL_VEC3(flt_t, vec3, v3, sqrt);
+_NV_DECL_VEC3(int, vec3i, v3i, sqrt)
+_NV_DECL_VEC3(float, vec3f, v3f, sqrtf)
+_NV_DECL_VEC3(double, vec3d, v3d, sqrt)
+_NV_DECL_VEC3(flt_t, vec3, v3, sqrt)
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif // __CMATH_VEC3_H

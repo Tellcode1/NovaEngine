@@ -4,7 +4,7 @@
 #include "../mem.h"
 #include <pthread.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define CONT_CANARY 0xFEEF
 
@@ -13,7 +13,7 @@ typedef struct nv_dynarray_t
   unsigned        m_canary;
   size_t          m_size;
   size_t          m_capacity;
-  int             m_typesize;
+  size_t          m_typesize;
   void*           m_data;
   pthread_mutex_t m_mutex;
   nv_allocator_t  allocator;
@@ -23,7 +23,7 @@ typedef int (*nv_dynarray_compare_fn)(const void* obj1, const void* obj2);
 /*
     initial_size may be 0
 */
-extern void nv_dynarray_init(int typesize, size_t init_size, nv_allocator_t* allocator, nv_dynarray_t* vec);
+extern void nv_dynarray_init(size_t typesize, size_t init_size, nv_allocator_t* allocator, nv_dynarray_t* vec);
 extern void nv_dynarray_destroy(nv_dynarray_t* vec);
 
 /*
@@ -32,10 +32,10 @@ extern void nv_dynarray_destroy(nv_dynarray_t* vec);
 static inline int
 nv_dynarray_is_initialized(const nv_dynarray_t* arr)
 {
-  if (!arr) return -1;
-  if (arr->m_canary != CONT_CANARY) return -1;
-  if (arr->m_capacity > 0 && !arr->m_data) return -1;
-  if (arr->m_typesize <= 0) return -1;
+  if (!arr) { return -1; }
+  if (arr->m_canary != CONT_CANARY) { return -1; }
+  if (arr->m_capacity > 0 && !arr->m_data) { return -1; }
+  if (arr->m_typesize <= 0) { return -1; }
   return 0;
 }
 
@@ -44,7 +44,7 @@ extern void nv_dynarray_clear(nv_dynarray_t* vec);
 
 extern size_t nv_dynarray_size(const nv_dynarray_t* vec);
 extern size_t nv_dynarray_capacity(const nv_dynarray_t* vec);
-extern int    nv_dynarray_typesize(const nv_dynarray_t* vec);
+extern size_t nv_dynarray_typesize(const nv_dynarray_t* vec);
 extern void*  nv_dynarray_data(const nv_dynarray_t* vec);
 
 extern void* nv_dynarray_back(nv_dynarray_t* vec);
@@ -82,6 +82,6 @@ extern int nv_dynarray_find(const nv_dynarray_t* __restrict vec, const void* __r
 
 extern void nv_dynarray_sort(nv_dynarray_t* vec, nv_dynarray_compare_fn compare);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_VECTOR_H__

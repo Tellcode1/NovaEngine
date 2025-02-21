@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 /**
  * @brief Converts an integer to ASCII.
@@ -92,6 +92,6 @@ nv_btoa(size_t x, bool upgrade, char* buf, size_t max)
   return buf;
 }
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_STRING_CONV_H__

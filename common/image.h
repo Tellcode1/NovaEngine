@@ -4,7 +4,7 @@
 #include "../std/stdafx.h"
 #include "format.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_image_t nv_image_t;
 
@@ -40,6 +40,6 @@ extern void nv_image_enlarge(nv_image_t* dst, const nv_image_t* src, int scale);
 // You can allocate the image with size {.w = src->w / scale, .h = src->h / scale}
 extern void nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, flt_t scale);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_IMAGE_H__

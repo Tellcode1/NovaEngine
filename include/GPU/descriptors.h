@@ -7,15 +7,15 @@
 #include "../../std/math/math.h"
 #include "../../std/stdafx.h"
 #include "vkstdafx.h"
+#include "fwdefs.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // WARNING: Currently only supports the first 11 descriptor types.
 
 typedef struct nv_descriptor_set_t     nv_descriptor_set_t;
 typedef struct nv_descriptor_pool_size nv_descriptor_pool_size;
 typedef struct nv_descriptor_pool_t    nv_descriptor_pool_t;
-typedef struct nv_descriptor_set_t     nv_descriptor_set_t;
 
 struct nv_descriptor_pool_size
 {
@@ -50,6 +50,6 @@ extern int  _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool);
 extern int  nv_descriptor_pool_init(nv_descriptor_pool_t* dst);
 extern int  nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_DESCRIPTORS_H__

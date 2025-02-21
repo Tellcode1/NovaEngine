@@ -11,7 +11,7 @@
 #include "../engine/input.h"
 #include "renderer.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_camera_uniform_buffer nv_camera_uniform_buffer;
 typedef struct nv_camera_t              nv_camera_t;
@@ -19,7 +19,7 @@ typedef struct nv_descriptor_set_t      nv_descriptor_set_t;
 
 #define CAMERA_FAKE_BUFFER_COUNT 3
 
-#define ALIGN_UP(sz, align) ((sz + align - 1) & ~(align - 1))
+#define ALIGN_UP(sz, align) (((unsigned long)(sz) + (align) - 1) & ~((align) - 1))
 
 struct nv_camera_uniform_buffer
 {
@@ -80,6 +80,6 @@ extern void nv_camera_set_position(nv_camera_t* cam, const vec3 pos);
 extern void nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd);
 extern vec2 nv_camera_get_global_mouse_position(const nv_camera_t* cam);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_CAMERA_H__

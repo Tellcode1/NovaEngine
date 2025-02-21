@@ -97,15 +97,15 @@ struct nv_line_draw_call_t
 
 typedef enum nv_draw_call_type
 {
-  NOVA_DRAWCALL_QUAD = 0,
-  NOVA_DRAWCALL_LINE = 1,
+  NOVA_DRAWCALL_QUAD    = 0,
+  NOVA_DRAWCALL_LINE    = 1,
   NOVA_DRAWCALL_INVALID = 0x7fffffff
 } nv_draw_call_type;
 
 struct nv_draw_call_t
 {
   nv_draw_call_type type;
-  int             layer;
+  int               layer;
   union nv_DrawCallData
   {
     nv_line_draw_call_t line;
@@ -783,7 +783,7 @@ nv_renderer_init(const nv_renderer_config* conf)
 {
   if (conf->multisampling_enable == 1)
   {
-    nv_log_error("config samples must not be 1 if multisampling is enabled.");
+    nv_push_error("config samples must not be 1 if multisampling is enabled.");
     nv_assert(conf->samples != NOVA_SAMPLE_COUNT_1_SAMPLES);
   }
   struct nv_renderer_t* rd = (nv_renderer_t*)nv_calloc(sizeof(struct nv_renderer_t));
@@ -963,7 +963,7 @@ nv_renderer_begin(nv_renderer_t* rd)
   }
   else if (imageAcquireResult != VK_SUCCESS && imageAcquireResult != VK_SUBOPTIMAL_KHR)
   {
-    nv_log_error("Failed to acquire image from swapchain");
+    nv_push_error("Failed to acquire image from swapchain");
     return false;
   }
 
@@ -978,7 +978,7 @@ nv_renderer_begin(nv_renderer_t* rd)
     .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
     .renderPass      = rd->render_pass,
     .framebuffer     = fb,
-    .renderArea      = (VkRect2D){ .extent = (VkExtent2D){ rd->render_extent.width, rd->render_extent.height }, .offset = {} },
+    .renderArea      = (VkRect2D){ .extent = (VkExtent2D){ rd->render_extent.width, rd->render_extent.height }, .offset = nv_zero_init(VkOffset2D) },
     .clearValueCount = 2,
     .pClearValues =
         (VkClearValue[2]){
@@ -1095,21 +1095,25 @@ static SDL_UNUSED const char* ValidationLayers[] = {
   "VK_LAYER_KHRONOS_validation",
 };
 
-static SDL_UNUSED const char* RequiredInstanceExtensions[] = {
+static SDL_UNUSED const char* REQUIRED_INSTANCE_EXTENSIONS[] = {
   VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
   VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
+  NULL
 };
 
-static SDL_UNUSED const char* WantedInstanceExtensions[] = {
+static SDL_UNUSED const char* WANTED_INSTANCE_EXTENSIONS[] = {
   // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+  NULL
 };
 
-static SDL_UNUSED const char* WantedDeviceExtensions[] = {
+static SDL_UNUSED const char* WANTED_DEVICE_EXTENSIONS[] = {
   // VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
+  NULL
 };
 
-static SDL_UNUSED const char* RequiredDeviceExtensions[] = {
+static SDL_UNUSED const char* REQUIRED_DEVICE_EXTENSIONS[] = {
   VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+  NULL
 };
 
 // we'll just request them as needed
@@ -1205,11 +1209,11 @@ nvvk_create_instance(const char* title)
 
   int          enabled_exts_count = 0;
   const char** enabled_exts =
-      ac.alloc(&ac, 1, sizeof(const char*) * (nv_arrlen(RequiredInstanceExtensions) + SDLExtensionCount + extensionCount + nv_arrlen(WantedInstanceExtensions)));
+      ac.alloc(&ac, 1, sizeof(const char*) * (nv_arrlen(REQUIRED_INSTANCE_EXTENSIONS) - 1 + SDLExtensionCount + extensionCount + nv_arrlen(WANTED_INSTANCE_EXTENSIONS) - 1));
 
-  for (int i = 0; i < (int)nv_arrlen(RequiredInstanceExtensions); i++)
+  for (int i = 0; i < (int)nv_arrlen(REQUIRED_INSTANCE_EXTENSIONS) - 1; i++)
   {
-    const char* ext                  = RequiredInstanceExtensions[i];
+    const char* ext                  = REQUIRED_INSTANCE_EXTENSIONS[i];
     enabled_exts[enabled_exts_count] = ext;
     enabled_exts_count++;
   }
@@ -1224,9 +1228,9 @@ nvvk_create_instance(const char* title)
   for (u32 i = 0; i < extensionCount; i++)
   {
     const char* name = ((VkExtensionProperties*)nv_dynarray_data(&extensions))[i].extensionName;
-    for (int j = 0; j < (int)nv_arrlen(WantedInstanceExtensions); j++)
+    for (int j = 0; j < (int)nv_arrlen(WANTED_INSTANCE_EXTENSIONS) - 1; j++)
     {
-      const char* want = WantedInstanceExtensions[j];
+      const char* want = WANTED_INSTANCE_EXTENSIONS[j];
       if (nv_strcmp(name, want) == 0)
       {
         enabled_exts[enabled_exts_count] = name;
@@ -1267,17 +1271,17 @@ nvvk_create_instance(const char* title)
 
     if (!validationLayersAvailable)
     {
-      nv_log_error("Failed to initialize validation layers\nRequested layers:");
+      nv_push_error("Failed to initialize validation layers\nRequested layers:");
       for (int i = 0; i < (int)nv_arrlen(ValidationLayers); i++)
       {
-        nv_log_error("\t%s", ValidationLayers[i]);
+        nv_push_error("\t%s", ValidationLayers[i]);
       }
 
-      nv_log_error("Available Layers::");
+      nv_push_error("Available Layers::");
       for (uint32_t i = 0; i < layerCount; i++)
-        nv_log_error("\t%s", ((VkLayerProperties*)nv_dynarray_data(&layerProperties))[i].layerName);
+        nv_push_error("\t%s", ((VkLayerProperties*)nv_dynarray_data(&layerProperties))[i].layerName);
 
-      nv_log_error("But instance asked for (i.e. are not available):");
+      nv_push_error("But instance asked for (i.e. are not available):");
 
       nv_dynarray_t missingLayers;
       nv_dynarray_init(sizeof(const char*), 16, &ac, &missingLayers);
@@ -1297,7 +1301,7 @@ nvvk_create_instance(const char* title)
         if (!layerAvailable) nv_dynarray_push_back(&missingLayers, &layer);
       }
       for (int i = 0; i < (int)nv_dynarray_size(&missingLayers); i++)
-        nv_log_error("\t%s", (const char*)nv_dynarray_get(&missingLayers, i));
+        nv_push_error("\t%s", (const char*)nv_dynarray_get(&missingLayers, i));
 
       nv_dynarray_destroy(&missingLayers);
 
@@ -1333,7 +1337,7 @@ nvvk_create_instance(const char* title)
     {
       VkResult r;
       if ((r = _CreateDebugUtilsMessenger(instance, &create_info, NOVA_VK_ALLOCATOR, &debugMessenger)) != VK_SUCCESS)
-        nv_log_error("Vulkan debug messenger could not start. err %i", r);
+        nv_push_error("Vulkan debug messenger could not start. err %i", r);
       else
       {
         const VkDebugUtilsMessengerCallbackDataEXT data = {
@@ -1348,7 +1352,7 @@ nvvk_create_instance(const char* title)
       }
     }
     else
-      nv_log_error("vkCreateDebugUtilsMessengerEXT proc address not found");
+      nv_push_error("vkCreateDebugUtilsMessengerEXT proc address not found");
   }
 
   nv_dynarray_destroy(&layerProperties);
@@ -1435,9 +1439,9 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
     nv_dynarray_init(sizeof(VkExtensionProperties), extension_count, &nv_allocator_default, &available_extensions);
     nvvk_result_check(vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, (VkExtensionProperties*)nv_dynarray_data(&available_extensions)));
 
-    for (int i = 0; i < (int)nv_arrlen(RequiredDeviceExtensions); i++)
+    for (int i = 0; i < (int)nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1; i++)
     {
-      const char* extension = RequiredDeviceExtensions[i];
+      const char* extension = REQUIRED_DEVICE_EXTENSIONS[i];
       bool        validated = false;
       for (u32 j = 0; j < extension_count; j++)
       {
@@ -1445,7 +1449,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
       }
       if (!validated)
       {
-        nv_log_error("Failed to validate extension with name: %s", extension);
+        nv_push_error("Failed to validate extension with name: %s", extension);
         extensionsAvailable = false;
       }
     }
@@ -1465,7 +1469,7 @@ _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
   VkPhysicalDeviceProperties properties;
   vkGetPhysicalDeviceProperties(fallback, &properties);
 
-  nv_log_error("No device found. Falling back to device \"%s\".", properties.deviceName);
+  nv_push_error("No device found. Falling back to device \"%s\".", properties.deviceName);
 
   nvvk_print_device_info(fallback);
 
@@ -1484,23 +1488,23 @@ nvvk_validate_extensions(nv_dynarray_t* available_extensions)
   nv_dynarray_init(sizeof(VkExtensionProperties), extension_count, &nv_allocator_default, &extensions);
   vkEnumerateDeviceExtensionProperties(phys_device, NULL, &extension_count, (VkExtensionProperties*)nv_dynarray_data(&extensions));
 
-  for (int i = 0; i < (int)nv_arrlen(WantedDeviceExtensions); i++)
+  for (int i = 0; i < (int)nv_arrlen(WANTED_DEVICE_EXTENSIONS) - 1; i++)
   {
-    const char* wanted = WantedDeviceExtensions[i];
+    const char* wanted = WANTED_DEVICE_EXTENSIONS[i];
     for (u32 i = 0; i < extension_count; i++)
     {
       VkExtensionProperties ext = ((VkExtensionProperties*)nv_dynarray_data(&extensions))[i];
       if (nv_strcmp(wanted, ext.extensionName) == 0)
       {
         const char* ext_name_copy = nv_strdup(ext.extensionName);
-        nv_dynarray_push_back(available_extensions, &ext_name_copy);
+        nv_dynarray_push_back(available_extensions, (void *)&ext_name_copy);
       }
     }
   }
 
-  for (int i = 0; i < (int)nv_arrlen(RequiredDeviceExtensions); i++)
+  for (int i = 0; i < (int)nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1; i++)
   {
-    const char* required  = RequiredDeviceExtensions[i];
+    const char* required  = REQUIRED_DEVICE_EXTENSIONS[i];
     bool        validated = false;
     for (u32 i = 0; i < extension_count; i++)
     {
@@ -1513,7 +1517,7 @@ nvvk_validate_extensions(nv_dynarray_t* available_extensions)
       }
     }
 
-    if (!validated) nv_log_error("Failed to validate required extension with name %s", required);
+    if (!validated) nv_push_error("Failed to validate required extension with name %s", required);
   }
 
   nv_dynarray_destroy(&extensions);
@@ -1603,7 +1607,7 @@ nvvk_create_device()
   nv_allocator_bind_stack_allocator(&ac, &stack);
 
   nv_dynarray_t enabled_extensions;
-  nv_dynarray_init(sizeof(const char*), nv_arrlen(WantedDeviceExtensions) + nv_arrlen(RequiredDeviceExtensions), &ac, &enabled_extensions);
+  nv_dynarray_init(sizeof(const char*), nv_arrlen(WANTED_DEVICE_EXTENSIONS) - 1 + nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1, &ac, &enabled_extensions);
   nvvk_validate_extensions(&enabled_extensions);
 
   nv_dynarray_t queue_create_infos;
@@ -1783,22 +1787,22 @@ ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* d
 {
   if (!rdr || !dst)
   {
-    nv_log_error("rdr or dst is NULL!");
+    nv_push_error("rdr or dst is NULL!");
     return;
   }
 
   if (scale <= 0)
   {
-    nv_log_error("attempting to load a font with 0 fontscale.");
+    nv_push_error("attempting to load a font with 0 fontscale.");
     return;
   }
 
-  *dst = (cfont_t){};
+  *dst = nv_zero_init(cfont_t);
 
   fontc_file_t f_file;
   if (fontc_load_font(font_path, &f_file) != 0)
   {
-    nv_log_error("There was an error loading the font file. Skipping");
+    nv_push_error("There was an error loading the font file. Skipping");
     return;
   }
 
@@ -1842,7 +1846,7 @@ ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* d
 
   if (ctext_validate_font(dst) != 0)
   {
-    // nv_log_error("Broken font. Something has gone horribly wrong");
+    // nv_push_error("Broken font. Something has gone horribly wrong");
     return;
   }
 }
@@ -1862,7 +1866,7 @@ ctext_destroy_font(cfont_t* fnt)
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return;
   }
 
@@ -1883,7 +1887,7 @@ _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return false;
   }
 
@@ -1918,7 +1922,7 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return;
   }
 
@@ -1997,7 +2001,7 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h)
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     *w = FLT_MAX;
     *h = FLT_MAX;
     return;
@@ -2054,7 +2058,7 @@ _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* 
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return -1;
   }
 
@@ -2129,7 +2133,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   }
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return -1;
   }
 
@@ -2166,7 +2170,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
     case CTEXT_VERT_ALIGN_TOP: ypos += fnt->line_height * scale; break;
     default:
       __builtin_unreachable();
-      nv_log_error("Invalid vertical alignment. Specified (int)%u. (Implement?)", pInfo->vertical);
+      nv_push_error("Invalid vertical alignment. Specified (int)%u. (Implement?)", pInfo->vertical);
       break;
   }
   for (size_t i = 0; i < lines.m_size; i++)
@@ -2186,7 +2190,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
       case CTEXT_HORI_ALIGN_LEFT: break;
       default:
         __builtin_unreachable();
-        nv_log_error("Invalid horizontal alignment. Specified (int)%u. (Implement?)", pInfo->horizontal);
+        nv_push_error("Invalid horizontal alignment. Specified (int)%u. (Implement?)", pInfo->horizontal);
         break;
     }
     actual_chars_drawn = fnt->chars_drawn - old_chars_drawn;
@@ -2220,7 +2224,7 @@ _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* 
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return;
   }
 
@@ -2263,7 +2267,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
   // if (!nv_async_is_task_complete(&fnt->load_task)) { return; }
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_log_error("Broken font");
+    // nv_push_error("Broken font");
     return;
   }
 
@@ -2319,7 +2323,7 @@ _ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 
   if (mapped == NULL)
   {
-    nv_log_error("mapping font buffer memory failed");
+    nv_push_error("mapping font buffer memory failed");
     return;
   }
 
@@ -2378,7 +2382,7 @@ ctext_create_label(nv_scene_t* scene, cfont_t* fnt)
     .index   = fnt->rd->ctext->labels.m_size,
     .text    = nv_string_init(0, &nv_allocator_default),
     .fnt     = fnt,
-    .obj     = nv_object_create(scene, "Text Label", 0, 0, 0, (vec2){}, (vec2){ 1.0f, 1.0f }, NOVA_OBJECT_NO_COLLISION),
+    .obj     = nv_object_create(scene, "Text Label", 0, 0, 0, nv_zero_init(vec2), (vec2){ 1.0f, 1.0f }, NOVA_OBJECT_NO_COLLISION),
   };
   nv_dynarray_push_back(&fnt->rd->ctext->labels, &label);
   return &(((ctext_label_t*)fnt->rd->ctext->labels.m_data)[fnt->rd->ctext->labels.m_size - 1]);
@@ -2517,7 +2521,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 {
   nv_assert(pool != NULL);
 
-  VkDescriptorPoolSize allocations[11]     = {};
+  VkDescriptorPoolSize allocations[11]     = { 0 };
   int                  descriptors_written = 0;
 
   for (int i = 0; i < 11; i++)
@@ -2609,7 +2613,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 int
 nv_descriptor_pool_init(nv_descriptor_pool_t* dst)
 {
-  *dst                                 = (nv_descriptor_pool_t){};
+  *dst                                 = nv_zero_init(nv_descriptor_pool_t);
   nv_descriptor_pool_size pool_sizes[] = {
     { VK_DESCRIPTOR_TYPE_SAMPLER, 0, 0 },
     { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, 0 },
@@ -3076,8 +3080,8 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
       .depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL,
       .depthBoundsTestEnable = VK_FALSE,
       .stencilTestEnable     = VK_FALSE,
-      .front                 = (VkStencilOpState){},
-      .back                  = (VkStencilOpState){},
+      .front                 = nv_zero_init(VkStencilOpState),
+      .back                  = nv_zero_init(VkStencilOpState),
       .minDepthBounds        = 0.0f,
       .maxDepthBounds        = 1.0f,
     };
@@ -3528,13 +3532,13 @@ nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize)
   f = fopen(path, "rb");
   if (!f)
   {
-    nv_log_error("fopen error: %s", strerror(errno));
+    nv_push_error("fopen error: %s", strerror(errno));
     goto CLEANUP_AND_RETURN;
   }
 
   if (fseek(f, 0, SEEK_END) != 0)
   {
-    nv_log_error("fseek error: %s", strerror(errno));
+    nv_push_error("fseek error: %s", strerror(errno));
     goto CLEANUP_AND_RETURN;
   }
 
@@ -3545,13 +3549,13 @@ nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize)
   rewind(f);
   if (errno != 0)
   {
-    nv_log_error("error in rewind?? %s", strerror(errno));
+    nv_push_error("error in rewind?? %s", strerror(errno));
     goto CLEANUP_AND_RETURN;
   }
 
   if (fread(dst, file_size, 1, f) != 1)
   {
-    nv_log_error("fread error %s", strerror(errno));
+    nv_push_error("fread error %s", strerror(errno));
     goto CLEANUP_AND_RETURN;
   }
 
@@ -3894,7 +3898,7 @@ nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* d
   };
   vkCmdCopyBuffer(cmd, staging_buffer.buffer, buffer->buffer, 1, &copy);
 
-  if (nv_vk_end_command_buffer(cmd, graphics_queue, 1) != VK_SUCCESS) { nv_log_error("Failed to write data to GPU buffer"); }
+  if (nv_vk_end_command_buffer(cmd, graphics_queue, 1) != VK_SUCCESS) { nv_push_error("Failed to write data to GPU buffer"); }
 }
 
 void
@@ -3904,7 +3908,7 @@ nv_gpu_write_to_uniform_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data,
   nv_gpu_map_memory(buffer->memory, size, offset, &mapped);
   if (mapped == NULL)
   {
-    nv_log_error("error in mapping");
+    nv_push_error("error in mapping");
     return;
   }
   nv_memcpy(mapped, data, size);
@@ -3933,7 +3937,7 @@ nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* data, s
   if (buffer->is_mapped)
   {
     nv_assert(buffer->mapping != NULL);
-    nv_memcpy(buffer->mapping + offset, data, size);
+    nv_memcpy((unsigned char *)buffer->mapping + offset, data, size);
     return;
   }
   if (!(buffer->memory->usage & NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE))
@@ -3956,7 +3960,7 @@ nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** ou
 
   if (!(memory->usage & NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE))
   {
-    nv_log_error("Memory usage does not have NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE "
+    nv_push_error("Memory usage does not have NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE "
                  "Use nv_gpu_write_to_buffer() instead.");
     *out = NULL;
     return;
@@ -3968,7 +3972,7 @@ nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** ou
   }
   if (vkMapMemory(device, memory->memory, offset, size, 0, &memory->mapped) != VK_SUCCESS)
   {
-    nv_log_error("Memory could not be mapped for write");
+    nv_push_error("Memory could not be mapped for write");
     *out = NULL;
     return;
   }
@@ -4098,7 +4102,7 @@ nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* dest)
 {
   if (!(buffer->memory->usage & NOVA_GPU_BUFFER_TYPE_TRANSFER_SOURCE))
   {
-    nv_log_error("Cannot readback from buffer that is not transfer source");
+    nv_push_error("Cannot readback from buffer that is not transfer source");
     return;
   }
 
@@ -4179,7 +4183,7 @@ nv_gpu_write_to_texture(nv_gpu_texture* tex, const nv_image_t* src)
 {
   if (!(tex->usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
   {
-    nv_log_error("Cannot write to an image which does not have usage "
+    nv_push_error("Cannot write to an image which does not have usage "
                  "VK_IMAGE_USAGE_TRANSFER_DST_BIT");
   }
 
@@ -4238,7 +4242,7 @@ nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** 
     case NOVA_GPU_TEXTURE_USAGE_RESOLVE_TEXTURE: usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; break;
     case NOVA_GPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT: usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; break;
     case NOVA_GPU_TEXTURE_USAGE_PRESENTATION: usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; break;
-    default: nv_log_error("Unknown texture usage: %u", pInfo->usage); break;
+    default: nv_push_error("Unknown texture usage: %u", pInfo->usage); break;
   }
   (*tex)->usage = usage;
 
@@ -4523,7 +4527,7 @@ nv_camera_init(nv_camera_t* cam)
 {
   const flt_t ortho_w = 10.0, ortho_h = 10.0;
   *cam = (nv_camera_t){
-    .perspective = {},
+    .perspective = nv_zero_init(mat4),
     .ortho_size  = (vec2){ ortho_w, ortho_h },
     .ortho       = m4ortho(-ortho_w, ortho_w, -ortho_h, ortho_h, 0.1f, 100.0f),
     .position    = (vec3){ 0.0f, 0.0f, 10.0f },

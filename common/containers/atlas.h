@@ -7,7 +7,7 @@
 #include "../rectpack.h"
 #include <pthread.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // Possibly add features for removing textures?
 
@@ -37,6 +37,6 @@ extern int nv_texture_atlas_finish(nv_texture_atlas_t* atlas);
 
 extern void nv_texture_atlas_destroy(nv_texture_atlas_t* atlas);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_ATLAS_H__

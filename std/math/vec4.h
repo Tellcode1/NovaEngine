@@ -5,7 +5,7 @@
 
 #include <math.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define _NV_DECL_VEC4(TYPE, NAME, FUNC, SQRT_FUNC)                                                                                                                            \
   typedef struct NAME                                                                                                                                                         \
@@ -24,15 +24,15 @@ NOVA_HEADER_START;
   static inline NAME FUNC##normalize(const NAME v)                                                                                                                            \
   {                                                                                                                                                                           \
     TYPE magnitude = FUNC##mag(v);                                                                                                                                            \
-    if (magnitude == 0) return (NAME){};                                                                                                                                      \
+    if (magnitude == 0) return nv_zero_init(NAME);                                                                                                                                      \
     return FUNC##divs(v, magnitude);                                                                                                                                          \
   }
 
-_NV_DECL_VEC4(int, vec4i, v4i, sqrt);
-_NV_DECL_VEC4(float, vec4f, v4f, sqrtf);
-_NV_DECL_VEC4(double, vec4d, v4d, sqrt);
-_NV_DECL_VEC4(flt_t, vec4, v4, sqrt);
+_NV_DECL_VEC4(int, vec4i, v4i, sqrt)
+_NV_DECL_VEC4(float, vec4f, v4f, sqrtf)
+_NV_DECL_VEC4(double, vec4d, v4d, sqrt)
+_NV_DECL_VEC4(flt_t, vec4, v4, sqrt)
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif // __CMATH_VEC4_H

@@ -5,8 +5,9 @@
 
 #include "../../common/format.h"
 #include "../../std/stdafx.h"
+#include "fwdefs.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #if defined(_WIN32)
 #  define VK_USE_PLATFORM_WIN32_KHR
@@ -15,17 +16,6 @@ NOVA_HEADER_START;
 #else
 #  error implement
 #endif
-
-#define NVVK_FORWARD_DECLARE(s)                                                                                                                                               \
-  typedef struct s##_T s##_T;                                                                                                                                                 \
-  typedef s##_T*       s;
-
-NVVK_FORWARD_DECLARE(VkInstance);
-NVVK_FORWARD_DECLARE(VkDevice);
-NVVK_FORWARD_DECLARE(VkPhysicalDevice);
-NVVK_FORWARD_DECLARE(VkSurfaceKHR);
-NVVK_FORWARD_DECLARE(VkDebugUtilsMessengerEXT);
-NVVK_FORWARD_DECLARE(VkQueue);
 
 extern VkInstance               instance;
 extern VkDevice                 device;
@@ -55,6 +45,6 @@ extern u32           MAX_SAMPLES;
 extern unsigned char SUPPORTS_MULTISAMPLING;
 extern flt_t         MAX_ANISOTROPY;
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__VK_STDAFX_H__

@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_hashmap_t      nv_hashmap_t;
 typedef struct nv_hashmap_node_t nv_hashmap_node_t;
@@ -27,7 +27,7 @@ nv_hashmap_std_hash(const void* bytes, int nbytes)
     hash *= FNV_PRIME;
   }
   return hash;
-};
+}
 
 static inline bool
 nv_hashmap_std_key_eq(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, unsigned long nbytes)
@@ -102,6 +102,6 @@ struct nv_hashmap_t
   char                    padding[4];
 };
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_HASHMAP_H__

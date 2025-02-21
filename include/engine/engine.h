@@ -3,7 +3,7 @@
 
 #include "../../std/stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 struct nv_renderer_config;
 union SDL_Event;
@@ -79,6 +79,6 @@ static const real_t NV_FIXED_TICK_RATE  = 1000.0 / (real_t)NV_FIXED_FRAME_RATE; 
 extern void nv_consume_event(const union SDL_Event* event);
 extern void nv_update();
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif // __C_ENGINE_H__

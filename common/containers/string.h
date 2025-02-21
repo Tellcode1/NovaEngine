@@ -3,7 +3,7 @@
 
 #include "../mem.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_string_t nv_string_t;
 
@@ -44,6 +44,6 @@ extern void nv_string_copy_from(const nv_string_t* src, nv_string_t* dst);
 // src is destroyed and unusable after this call!
 extern void nv_string_move_from(nv_string_t* src, nv_string_t* dst);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif // __NOVA_STRING_H__

@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define FONTC_MAGIC 0xDED
 
@@ -33,6 +33,7 @@ typedef enum fontc_err_t
   FONTC_DECOMPRESSION_FAILED              = 4,
   FONTC_ATLAS_ERROR                       = 5,
   FONTC_INVALID_CANARY                    = 6,
+  FONTC_INVALID_ARGUMENT                  = 7,
   FONTC_SOMETHING_HAS_GONE_HORRIBLY_WRONG = 0x7fffffff
 } fontc_err_t;
 
@@ -75,6 +76,6 @@ extern void        fontc_clean_font_file(fontc_file_t* file);
  */
 extern fontc_err_t fontc_load_font(const char* font_source_path, fontc_file_t* file);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__FONTC_H__

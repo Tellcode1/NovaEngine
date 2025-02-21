@@ -6,7 +6,7 @@
 #include "../../std/math/vec2.h"
 #include <SDL2/SDL.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // Only one key OR mouse button may be bound to an action currently!
 
@@ -90,6 +90,6 @@ extern vec2 nv_input_get_mouse_delta(void);
 extern bool nv_input_is_mouse_signalled(nv_input_mouse_button button);
 extern bool nv_input_is_mouse_just_signalled(nv_input_mouse_button button);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_INPUT_H__

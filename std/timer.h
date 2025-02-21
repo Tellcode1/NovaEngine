@@ -28,7 +28,7 @@ timer_begin(real_t duration)
 {
   if (duration <= 0.0f)
   {
-    nv_log_error("Timer duration passed as negative or zero. What do you even want the "
+    nv_push_error("Timer duration passed as negative or zero. What do you even want the "
                  "timer to do????");
     return (timer){ -1, -1 };
   }

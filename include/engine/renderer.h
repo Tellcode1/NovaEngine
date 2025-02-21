@@ -16,11 +16,11 @@
 #include "../../std/math/vec3.h"
 #include "../../std/math/vec4.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
-NVVK_FORWARD_DECLARE(VkFramebuffer);
-NVVK_FORWARD_DECLARE(VkSemaphore);
-NVVK_FORWARD_DECLARE(VkFence);
+NVVK_FORWARD_DECLARE(VkFramebuffer)
+NVVK_FORWARD_DECLARE(VkSemaphore)
+NVVK_FORWARD_DECLARE(VkFence)
 
 typedef struct nv_gpu_texture nv_gpu_texture;
 
@@ -58,7 +58,7 @@ typedef unsigned nv_buffer_mode;
 
 typedef enum nv_sample_count_bits
 {
-  NOVA_SAMPLE_COUNT_MAX_SUPPORTED    = 0xFFFFFFFF,
+  NOVA_SAMPLE_COUNT_MAX_SUPPORTED    = 0x7FFFFFFF,
   NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES = 1,
   NOVA_SAMPLE_COUNT_1_SAMPLES        = 1,
   NOVA_SAMPLE_COUNT_2_SAMPLES        = 2,
@@ -143,6 +143,6 @@ extern void nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, v
 
 extern nv_extent2d nv_get_window_size();
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__LUNA_RENDERER_H__

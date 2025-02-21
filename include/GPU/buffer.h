@@ -5,7 +5,7 @@
 
 #include "../../std/stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_gpu_memory_t nv_gpu_memory_t;
 
@@ -60,6 +60,6 @@ extern void nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* dest);
 
 // extern NVAsync_Context nv_GPU_BufferReadbackAsync(const nv_GPU_Buffer *buffer, void *dest);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_BUFFER_H__

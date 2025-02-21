@@ -6,7 +6,7 @@
 
 // #warning "UNFINISHED"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_async_task_t nv_async_task_t;
 
@@ -42,6 +42,6 @@ extern void nv_async_task_destroy(nv_async_task_t* task);
 
 extern bool nv_async_is_task_complete(nv_async_task_t* task);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_ASYNC_H__

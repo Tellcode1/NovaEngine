@@ -11,7 +11,7 @@
 #include "../../std/stdafx.h"
 #include "vkstdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define NOVA_GPU_ALIGNMENT_UNNECESSARY (1)
 
@@ -33,6 +33,6 @@ extern void nv_gpu_free_memory(nv_gpu_memory_t* mem);
 extern void nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** out);
 extern void nv_gpu_unmap_memory(nv_gpu_memory_t* memory);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_MEMORY_H__

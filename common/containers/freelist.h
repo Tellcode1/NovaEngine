@@ -8,7 +8,7 @@
 #include "../../std/stdafx.h"
 #include "../../std/string.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_chunk_t     nv_chunk_t;
 typedef struct nv_node_t      nv_node_t;
@@ -68,6 +68,6 @@ struct nv_freelist_t
   pthread_mutex_t      m_mutex;
 };
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_FREELIST_H__

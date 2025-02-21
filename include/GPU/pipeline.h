@@ -11,18 +11,16 @@
 #include "vk.h"
 #include "vkstdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
-
-typedef struct nvsm_shader_t nvsm_shader_t;
 
 typedef void (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((ptr) == NULL) nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
+  if ((ptr) == NULL) nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
-  if ((val) == (to)) nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __PRETTY_FUNCTION__)
+  if ((val) == (to)) nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __func__)
 
 #define _NVVK_TO_BIT(n) (1 << n)
 
@@ -66,7 +64,7 @@ extern nv_gpu_result_check_fn _nvvk_result_fn;
   has a hold of. Use NULL to deattach the function.
 */
 static inline void
-nv_GPU_SetResultCheckFn(nv_gpu_result_check_fn func)
+nv_gpu_set_result_check_fn(nv_gpu_result_check_fn func)
 {
   if (func != NULL)
     _nvvk_result_fn = func;
@@ -196,6 +194,6 @@ extern void nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCre
 extern void nv_gpu_create_depth_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
 extern void nv_gpu_create_swapchain(nv_gpu_swapchain_create_info const* pCreateInfo, VkSwapchainKHR* dstSwapchain);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_PIPELINE_H__

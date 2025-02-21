@@ -5,7 +5,7 @@
 
 #include "../std/stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef uint32_t VkFormat_;
 
@@ -87,6 +87,6 @@ extern int nv_format_get_bytes_per_pixel(nv_format fmt);
 // also, stencil channels are also counted
 extern int nv_format_get_num_channels(nv_format fmt);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_FORMAT_H__

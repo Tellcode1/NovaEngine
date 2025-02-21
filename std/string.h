@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // Whether to use the __builtin functions provided by GCC
 // They are generally faster, so no reason not to?
@@ -204,6 +204,6 @@ extern char* nv_strdup(const char* s);
  */
 extern char* nv_substr(const char* s, size_t start, size_t len);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_STR_H__

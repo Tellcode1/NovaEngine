@@ -6,14 +6,14 @@
 #include "../../common/format.h"
 #include "../GPU/vkstdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // Renderable sprite
 
-NVVK_FORWARD_DECLARE(VkImage);
-NVVK_FORWARD_DECLARE(VkImageView);
-NVVK_FORWARD_DECLARE(VkDescriptorSet);
-NVVK_FORWARD_DECLARE(VkSampler);
+NVVK_FORWARD_DECLARE(VkImage)
+NVVK_FORWARD_DECLARE(VkImageView)
+NVVK_FORWARD_DECLARE(VkDescriptorSet)
+NVVK_FORWARD_DECLARE(VkSampler)
 
 typedef struct nv_sprite nv_sprite;
 
@@ -36,6 +36,6 @@ extern VkDescriptorSet nv_sprite_get_descriptor_set(const nv_sprite* spr);
 extern VkSampler       nv_sprite_get_sampler(const nv_sprite* spr);
 extern nv_format       nv_sprite_get_format(const nv_sprite* spr);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_SPRITE_H__

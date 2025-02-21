@@ -13,7 +13,7 @@
 #include "../engine/renderer.h"
 #include "../engine/sprite.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_mesh_t   nv_mesh_t;
 typedef struct nv_vertex_t nv_vertex_t;
@@ -113,6 +113,6 @@ nv_mesh_destroy(nv_mesh_t* mesh)
   nv_gpu_free_memory(mesh->mem);
 }
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_MESH_H__

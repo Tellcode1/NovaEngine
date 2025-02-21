@@ -23,7 +23,7 @@
 // Write all the glyph vertices to the GPU
 // Index them and render them as needed...
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // DEPRECATE THIS YOU FOOL
 // IT WAS ONLY MEANT FOR SIMPLE TESTING
@@ -147,10 +147,10 @@ ctext_init_text_render_info()
                                      .color         = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
                                      .position      = (vec3f){ 0.0f, 0.0f, 0.0f },
                                      .scale         = 1.0f,
-                                     .bbox          = (vec2){},
+                                     .bbox          = nv_zero_init(vec2),
                                      .scale_for_fit = 0 };
 }
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif

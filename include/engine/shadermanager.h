@@ -5,7 +5,7 @@
 
 #include "../../std/stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #ifndef NVSM_EXECUTABLE
 #  define NVSM_EXECUTABLE 0
@@ -35,6 +35,6 @@ extern int nvsm_load_shader(const char* name, struct nvsm_shader_t** out);
 */
 extern int nvsm_load_shader_from_disk(const char* path, struct nvsm_shader_t** out);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_SHADERMANAGER_H__

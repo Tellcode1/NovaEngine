@@ -9,7 +9,7 @@
 #include "../../external/volk/volk.h"
 #include "../../std/stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 // pointer to allocator
 #ifndef NOVA_VK_ALLOCATOR
@@ -67,6 +67,6 @@ extern u32 nv_vk_get_surface_image_count(VkPhysicalDevice phys_device, VkSurface
 
 extern void nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_VK_H__

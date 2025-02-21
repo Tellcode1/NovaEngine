@@ -4,19 +4,16 @@
 // implementation: vk.c
 
 #include "../../common/format.h"
+#include "../../common/image.h"
 #include "../../std/stdafx.h"
 #include "../engine/renderer.h"
+#include "memory.h"
 #include "vkstdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
-NVVK_FORWARD_DECLARE(VkImage);
-NVVK_FORWARD_DECLARE(VkImageView);
-NVVK_FORWARD_DECLARE(VkSampler);
+typedef struct nv_gpu_sampler nv_gpu_sampler;
 
-typedef struct nv_gpu_sampler  nv_gpu_sampler;
-typedef struct nv_image_t      nv_image_t;
-typedef struct nv_gpu_memory_t nv_gpu_memory_t;
 typedef enum nv_gpu_texture_usage
 {
   NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE      = 0,
@@ -67,6 +64,6 @@ extern VkImage     nv_gpu_texture_get(const nv_gpu_texture* tex);
 extern VkImageView nv_gpu_texture_get_view(const nv_gpu_texture* tex);
 extern VkSampler   nv_gpu_sampler_get(const nv_gpu_sampler* sampler);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_TEXTURE_H__

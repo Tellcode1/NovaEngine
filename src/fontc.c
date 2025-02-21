@@ -47,7 +47,7 @@ main(int argc, char* argv[])
   char error[256];
   if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
-    nv_log_error("PROPS error: %s", error);
+    nv_push_error("PROPS error: %s", error);
     help = 1;
   }
 
@@ -130,7 +130,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
   size_t bitmap_size = file->header.bmpwidth * file->header.bmpheight;
   if (bitmap_size > __INT32_MAX__)
   {
-    nv_log_error("image storage size is > __INT32_MAX__");
+    nv_push_error("image storage size is > __INT32_MAX__");
     retcode = FONTC_SOMETHING_HAS_GONE_HORRIBLY_WRONG;
     goto CLEANUP;
   }
@@ -208,7 +208,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   FT_Face    face;
   if (FT_Init_FreeType(&lib))
   {
-    nv_log_error("Failed to initialize ft");
+    nv_push_error("Failed to initialize ft");
     retcode = FONTC_FREETYPE_ERROR;
     goto CLEANUP_AND_RETURN;
   }
@@ -218,7 +218,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   if (FT_New_Face(lib, font_path, 0, &face))
   {
     retcode = FONTC_FONT_FILE_NOT_VALID;
-    nv_log_error("Failed to load font file: %s", font_path);
+    nv_push_error("Failed to load font file: %s", font_path);
     goto CLEANUP_AND_RETURN;
   }
   FT_Set_Pixel_Sizes(face, 0, pixel_size);
@@ -235,7 +235,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   glyphs               = nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_size);
   if (!glyphs)
   {
-    nv_log_error("Failed to allocate memory for glyphs");
+    nv_push_error("Failed to allocate memory for glyphs");
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
     goto CLEANUP_AND_RETURN;
   }
@@ -248,7 +248,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   faces = nv_malloc(sizeof(FT_Face) * num_threads);
   if (!faces)
   {
-    nv_log_error("malloc faces failed");
+    nv_push_error("malloc faces failed");
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
     goto CLEANUP_AND_RETURN;
   }
@@ -257,7 +257,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   {
     if (FT_New_Face(lib, font_path, 0, &faces[omp_get_thread_num()]))
     {
-      nv_log_error("Failed to load font file: %s", font_path);
+      nv_push_error("Failed to load font file: %s", font_path);
 #pragma omp atomic write
       retcode = FONTC_FREETYPE_ERROR;
       // Skip further processing in this thread.
@@ -296,7 +296,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
 #pragma omp critical
         if (!nv_texture_atlas_add(&atlas, &(nv_image_t){ .w = w, .h = h, .fmt = NOVA_FORMAT_R8, .data = (unsigned char*)buffer }, &x, &y))
         {
-          nv_log_error("Atlas error");
+          nv_push_error("Atlas error");
 #pragma omp atomic write
           retcode = FONTC_ATLAS_ERROR;
         }
@@ -379,7 +379,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   atlas_image = nv_malloc(image_size);
   if (!atlas_image)
   {
-    nv_log_error("Failed to allocate memory for atlas image");
+    nv_push_error("Failed to allocate memory for atlas image");
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
     goto CLEANUP_AND_RETURN;
   }
@@ -400,36 +400,46 @@ CLEANUP_AND_RETURN:
 fontc_err_t
 fontc_write_font_file(const char* out, const fontc_file_t* file)
 {
-  nv_assert(out != NULL);
-  nv_assert(file != NULL);
+  nv_assert_and_ret(out != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file->bitmap != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file->glyphs != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file->header.magic != FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
+  nv_assert_and_ret(file->header.magic2 != FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
 
-  FILE* f = fopen(out, "wb");
+  fontc_err_t retcode = FONTC_SUCCESS;
+
+  unsigned char* compressed_image  = NULL;
+  fontc_glyph_t* compressed_glyphs = NULL;
+  FILE*          f                 = NULL;
+
+  f = fopen(out, "wb");
   if (!f)
   {
-    nv_log_error("Failed to open output file: %s", out);
-    return FONTC_OTHER_IO_ERROR;
+    nv_push_error("Failed to open output file: %s", out);
+    retcode = FONTC_OTHER_IO_ERROR;
+    goto CLEANUP_AND_RETURN;
   }
 
   size_t uncompressed_image_size  = file->header.img_compressed_sz;
   size_t uncompressed_glyphs_size = file->header.glyphs_compressed_sz;
 
-  unsigned char* comp_image = nv_malloc(uncompressed_image_size);
-  if (!comp_image)
+  compressed_image = nv_malloc(uncompressed_image_size);
+  if (!compressed_image)
   {
-    nv_log_error("Failed to allocate memory for compressed image");
-    fclose(f);
-    return FONTC_MEMORY_ALLOCATION_FAILED;
+    nv_push_error("Failed to allocate memory for compressed image");
+    retcode = FONTC_MEMORY_ALLOCATION_FAILED;
+    goto CLEANUP_AND_RETURN;
   }
   size_t compressed_image_size = uncompressed_image_size;
-  nv_bufcompress(file->bitmap, uncompressed_image_size, comp_image, &compressed_image_size);
+  nv_bufcompress(file->bitmap, uncompressed_image_size, compressed_image, &compressed_image_size);
 
-  fontc_glyph_t* compressed_glyphs = nv_malloc(uncompressed_glyphs_size);
+  compressed_glyphs = nv_malloc(uncompressed_glyphs_size);
   if (!compressed_glyphs)
   {
-    nv_log_error("Failed to allocate memory for compressed glyphs");
-    nv_free(comp_image);
-    fclose(f);
-    return FONTC_MEMORY_ALLOCATION_FAILED;
+    nv_push_error("Failed to allocate memory for compressed glyphs");
+    retcode = FONTC_MEMORY_ALLOCATION_FAILED;
+    goto CLEANUP_AND_RETURN;
   }
   size_t compressed_glyphs_size = uncompressed_glyphs_size;
   nv_bufcompress(file->glyphs, uncompressed_glyphs_size, compressed_glyphs, &compressed_glyphs_size);
@@ -442,35 +452,30 @@ fontc_write_font_file(const char* out, const fontc_file_t* file)
 
   if (fwrite(&header, sizeof(fontc_file_header_t), 1, f) != 1)
   {
-    nv_log_error("Failed to write header");
-    nv_free(comp_image);
-    nv_free(compressed_glyphs);
-    fclose(f);
-    return FONTC_OTHER_IO_ERROR;
+    nv_push_error("Failed to write header");
+    retcode = FONTC_OTHER_IO_ERROR;
+    goto CLEANUP_AND_RETURN;
   }
   if (fwrite(compressed_glyphs, compressed_glyphs_size, 1, f) != 1)
   {
-    nv_log_error("Failed to write glyph data");
-    nv_free(comp_image);
-    nv_free(compressed_glyphs);
-    fclose(f);
-    return FONTC_OTHER_IO_ERROR;
+    nv_push_error("Failed to write glyph data");
+    retcode = FONTC_OTHER_IO_ERROR;
+    goto CLEANUP_AND_RETURN;
   }
-  if (fwrite(comp_image, compressed_image_size, 1, f) != 1)
+  if (fwrite(compressed_image, compressed_image_size, 1, f) != 1)
   {
-    nv_log_error("Failed to write image data");
-    nv_free(comp_image);
-    nv_free(compressed_glyphs);
-    fclose(f);
-    return FONTC_OTHER_IO_ERROR;
+    nv_push_error("Failed to write image data");
+    retcode = FONTC_OTHER_IO_ERROR;
+    goto CLEANUP_AND_RETURN;
   }
-
-  fclose(f);
-  nv_free(comp_image);
-  nv_free(compressed_glyphs);
 
   nv_log_info("wrotebaked font to %s", out);
-  return FONTC_SUCCESS;
+
+CLEANUP_AND_RETURN:
+  if (f) { nv_free(f); }
+  if (compressed_image) { nv_free(compressed_image); }
+  if (compressed_glyphs) { nv_free(compressed_glyphs); }
+  return retcode;
 }
 
 void

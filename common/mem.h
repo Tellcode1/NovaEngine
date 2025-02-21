@@ -8,7 +8,7 @@
 #include "string.h"
 #include <stddef.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 #define NOVA_ALLOCATION_CANARY (0xBEEFDEAD)
 
@@ -98,6 +98,6 @@ nv_allocator_bind_heap_allocator(nv_allocator_t* allocator, nv_freelist_t* list)
   allocator->context = list;
 }
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif

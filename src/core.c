@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <bits/pthreadtypes.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -22,6 +23,7 @@
 #include "../common/image.h"
 #include "../common/mem.h"
 #include "../std/async.h"
+#include "../std/errqueue.h"
 #include "../std/math/math.h"
 #include "../std/print.h"
 #include "../std/props.h"
@@ -29,7 +31,36 @@
 #include "../std/strconv.h"
 #include "../std/string.h"
 
-#define ALIGN_UP(ptr, alignment) (void*)(((uintptr_t)(ptr) + (alignment - 1)) & ~(alignment - 1))
+static nv_error_queue_t g_error_queue = { .front = -1, .back = -1 };
+
+void
+nv_push_error(const char* fmt, ...)
+{
+  char* write = nv_error_queue_push(&g_error_queue);
+
+  va_list args;
+  va_start(args, fmt);
+
+  nv_vsnprintf(write, NV_ERROR_LENGTH - 1, fmt, args);
+
+  va_end(args);
+}
+
+const char*
+nv_pop_error()
+{
+  return nv_error_queue_pop(&g_error_queue);
+}
+
+static inline void*
+align_up(void* ptr, size_t alignment)
+{
+  nv_assert((alignment & (alignment - 1)) == 0 && "only pwoer of two alignment supported");
+  char*  char_ptr = (char*)ptr;
+  size_t offset   = alignment - ((uintptr_t)char_ptr % alignment);
+  return (void*)(char_ptr + (offset % alignment));
+}
+
 #define ALIGN_UP_SIZE(size, align) (((size) + (align) - 1) & ~((align) - 1))
 
 static FILE*  g_stdstream   = NULL;
@@ -57,7 +88,7 @@ void
 nv_setwbuf(char* buf, size_t size)
 {
   nv_assert(size > 0);
-  if (g_writebuf) nv_free(g_writebuf);
+  if (g_writebuf) { nv_free(g_writebuf); }
 
   g_writebufsiz = size == 0 ? NOVA_WBUF_SIZE : size;
   g_writebuf    = buf ? buf : nv_malloc(size);
@@ -79,7 +110,7 @@ nv_itoa2(intmax_t x, char out[], int base, size_t max)
   {
     return 0; // this shouldn't be an error
   }
-  else if (max == 1)
+  if (max == 1)
   {
     out[0] = 0;
     return 0;
@@ -98,7 +129,9 @@ nv_itoa2(intmax_t x, char out[], int base, size_t max)
   uintmax_t pwr = 1;
 
   while (x / base >= (intmax_t)pwr)
+  {
     pwr *= base;
+  }
 
   if (x < 0 && base == 10)
   {
@@ -390,7 +423,7 @@ nv_ptoa2(void* p, char* buf, size_t max)
   }
   buf[w] = 0;
   return w;
-};
+}
 
 size_t
 nv_btoa2(size_t x, bool upgrade, char* buf, size_t max)
@@ -833,7 +866,7 @@ get_file_extension(const char* path)
   const char* dot = strrchr(path, '.');
   // Imagine someone actually uses this project.
   // And then they see this.
-  if (!dot || dot == path) return "piss";
+  if (!dot || dot == path) { return "piss"; }
   return dot + 1;
 }
 
@@ -891,7 +924,7 @@ nv_image_load(const char* path)
   if (nv_strcmp(ext, "jpeg") == 0 || nv_strcmp(ext, "jpg") == 0) { return nv_image_load_jpeg(path); }
   else if (nv_strcmp(ext, "png") == 0) { return nv_image_load_png(path); }
   nv_assert(0);
-  return (nv_image_t){};
+  return nv_zero_init(nv_image_t);
 }
 
 unsigned char*
@@ -1074,7 +1107,7 @@ nv_image_load_png(const char* path)
 
   if (texture.w == 0 || texture.h == 0)
   {
-    nv_log_error("zero w/h");
+    nv_push_error("zero w/h");
     fclose(f);
     return texture;
   }
@@ -1097,7 +1130,7 @@ nv_image_load_png(const char* path)
     case 3: texture.fmt = NOVA_FORMAT_RGB8; break;
     case 4: texture.fmt = NOVA_FORMAT_RGBA8; break;
     default:
-      nv_log_error("unsupported file(png) format: channels = %d", channels);
+      nv_push_error("unsupported file(png) format: channels = %d", channels);
       fclose(f);
       png_destroy_read_struct(&png, &info, NULL);
       return nv_zero_init(nv_image_t);
@@ -1133,13 +1166,13 @@ nv_image_load_jpeg(const char* path)
 
   if (!path)
   {
-    nv_log_error("invalid input path (NULL)");
+    nv_push_error("invalid input path (NULL)");
     return img;
   }
 
   if ((f = fopen(path, "rb")) == NULL)
   {
-    nv_log_error("couldn't open file \"%s\". Are you sure that it exists?", path);
+    nv_push_error("couldn't open file \"%s\". Are you sure that it exists?", path);
     return img;
   }
 
@@ -1149,7 +1182,7 @@ nv_image_load_jpeg(const char* path)
   jpeg_stdio_src(&cinfo, f);
   if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK)
   {
-    nv_log_error("failed to read JPEG header from \"%s\"", path);
+    nv_push_error("failed to read JPEG header from \"%s\"", path);
     jpeg_destroy_decompress(&cinfo);
     fclose(f);
     return img;
@@ -1165,7 +1198,7 @@ nv_image_load_jpeg(const char* path)
     case 1: img.fmt = NOVA_FORMAT_R8; break;
     case 3: img.fmt = NOVA_FORMAT_RGB8; break;
     default:
-      nv_log_error("invalid number of channels: %d", cinfo.output_components);
+      nv_push_error("invalid number of channels: %d", cinfo.output_components);
       jpeg_destroy_decompress(&cinfo);
       fclose(f);
       return img;
@@ -1174,7 +1207,7 @@ nv_image_load_jpeg(const char* path)
   const size_t bytes_per_pixel = nv_format_get_bytes_per_pixel(img.fmt);
   if (bytes_per_pixel == 0)
   {
-    nv_log_error("invalid bytes per pixel for format.");
+    nv_push_error("invalid bytes per pixel for format.");
     jpeg_destroy_decompress(&cinfo);
     fclose(f);
     return img;
@@ -1183,7 +1216,7 @@ nv_image_load_jpeg(const char* path)
   img.data = (unsigned char*)nv_malloc(img.w * img.h * bytes_per_pixel);
   if (!img.data)
   {
-    nv_log_error("malloc for imagedata failed");
+    nv_push_error("malloc for imagedata failed");
     jpeg_destroy_decompress(&cinfo);
     fclose(f);
     return img;
@@ -1195,7 +1228,7 @@ nv_image_load_jpeg(const char* path)
     bufarr[0] = img.data + i * img.w * bytes_per_pixel;
     if (jpeg_read_scanlines(&cinfo, bufarr, 1) != 1)
     {
-      nv_log_error("failed to read scanline %d", i);
+      nv_push_error("failed to read scanline %d", i);
       nv_free(img.data);
       jpeg_destroy_decompress(&cinfo);
       fclose(f);
@@ -1218,14 +1251,14 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
   FILE* f = fopen(path, "wb");
   if (!f)
   {
-    nv_log_error("Failed to open file: %s", path);
+    nv_push_error("Failed to open file: %s", path);
     return;
   }
 
   png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   if (!png)
   {
-    nv_log_error("png error");
+    nv_push_error("png error");
     fclose(f);
     return;
   }
@@ -1233,7 +1266,7 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
   png_infop info = png_create_info_struct(png);
   if (!info)
   {
-    nv_log_error("png error");
+    nv_push_error("png error");
     png_destroy_write_struct(&png, NULL);
     fclose(f);
     return;
@@ -1241,7 +1274,7 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
 
   if (setjmp(png_jmpbuf(png)))
   {
-    nv_log_error("setjmp error");
+    nv_push_error("setjmp error");
     png_destroy_write_struct(&png, &info);
     fclose(f);
     return;
@@ -1257,7 +1290,7 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
     case 3: coltype = PNG_COLOR_TYPE_RGB; break;
     case 4: coltype = PNG_COLOR_TYPE_RGBA; break;
     default:
-      nv_log_error("Unsupported number of channels: %i", numc);
+      nv_push_error("Unsupported number of channels: %i", numc);
       png_destroy_write_struct(&png, &info);
       fclose(f);
       return;
@@ -1266,7 +1299,7 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
   const int bytesperpixel = nv_format_get_bytes_per_pixel(tex->fmt);
   if (bytesperpixel <= 0)
   {
-    nv_log_error("invalid bytes per pixel: %i", bytesperpixel);
+    nv_push_error("invalid bytes per pixel: %i", bytesperpixel);
     png_destroy_write_struct(&png, &info);
     fclose(f);
     return;
@@ -1279,7 +1312,7 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
   png_bytep* row_pointers = (png_bytep*)nv_malloc(sizeof(png_bytep) * tex->h);
   if (!row_pointers)
   {
-    nv_log_error("malloc row_pointers failed");
+    nv_push_error("malloc row_pointers failed");
     png_destroy_write_struct(&png, &info);
     fclose(f);
     return;
@@ -1615,7 +1648,7 @@ nv_memmove(void* dst, const void* src, size_t sz)
 
   if (!dst || !src || sz == 0) { return NULL; }
 
-  if (dst > src && dst < (src + sz))
+  if (dst > src && (unsigned char*)dst < ((unsigned char*)src + sz))
   {
     unsigned char*       d = (unsigned char*)dst + sz;
     const unsigned char* s = (const unsigned char*)src + sz;
@@ -2235,11 +2268,11 @@ saalloc(nv_allocator_t* parent, size_t alignment, size_t size)
   size                          = ALIGN_UP_SIZE(size, alignment);
   if ((allocator->bufoffset + size + sizeof(sablock)) > allocator->bufsiz)
   {
-    nv_log_error("oom"); // out of memory
+    nv_push_error("oom"); // out of memory
     return NULL;
   }
 
-  sablock* block = ALIGN_UP(allocator->buf + allocator->bufoffset, alignment);
+  sablock* block = align_up(allocator->buf + allocator->bufoffset, alignment);
   block->size    = size;
   block->canary  = NOVA_ALLOCATION_CANARY;
   block++; // move past the header, so return is the memory after header
@@ -2265,7 +2298,6 @@ safree(nv_allocator_t* parent, void* block)
   void* allocator_last_block = (allocator->buf + allocator->bufoffset - p->size - sizeof(sablock));
   if (block != allocator_last_block) { return; }
   allocator->bufoffset -= p->size + sizeof(sablock);
-  return;
 }
 
 nv_allocator_t nv_allocator_default = (nv_allocator_t){ .alloc = heapalloc, .calloc = heapcalloc, .realloc = heaprealloc, .free = heapfree, .context = NULL };
@@ -2341,14 +2373,14 @@ heap_alloc_internal(size_t alignment, size_t size)
 
   if (total_size <= 0)
   {
-    nv_log_error("zero size malloc\n");
+    nv_push_error("zero size malloc\n");
     return NULL;
   }
 
   void* mapping = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   if (mapping == MAP_FAILED || !mapping)
   {
-    nv_log_error("mmap failed: %s\n", strerror(*(__errno_location())));
+    nv_push_error("mmap failed: %s\n", strerror(*(__errno_location())));
     return NULL;
   }
 
@@ -2359,7 +2391,7 @@ heap_alloc_internal(size_t alignment, size_t size)
 
   nv_node_t* p = (nv_node_t*)((nv_chunk_t*)mapping + 1);
   *p           = (nv_node_t){
-              .payload      = ALIGN_UP(p + 1, alignment),
+              .payload      = align_up(p + 1, alignment),
               .mapping      = mapping,
               .mapping_size = total_size,
               .canary       = NOVA_ALLOCATION_CANARY,
@@ -2386,11 +2418,11 @@ heap_free_node_internal(nv_node_t* node)
 
   void*  mapping = node->mapping;
   size_t size    = node->mapping_size;
-  *node          = (nv_node_t){};
+  *node          = nv_zero_init(nv_node_t);
 
   if (munmap(mapping, size) == -1)
   {
-    nv_log_error("munmap failed: %s\n", strerror(*(__errno_location())));
+    nv_push_error("munmap failed: %s\n", strerror(*(__errno_location())));
     return;
   }
 }
@@ -2417,12 +2449,12 @@ nv_allocator_heap_init(nv_allocator_heap* pool)
 // ==============================
 
 void
-nv_dynarray_init(int typesize, size_t init_size, nv_allocator_t* allocator, nv_dynarray_t* vec)
+nv_dynarray_init(size_t typesize, size_t init_size, nv_allocator_t* allocator, nv_dynarray_t* vec)
 {
   nv_assert(typesize > 0);
   nv_assert(allocator != NULL);
 
-  *vec            = (nv_dynarray_t){};
+  *vec            = nv_zero_init(nv_dynarray_t);
   vec->m_size     = 0;
   vec->m_typesize = typesize;
   vec->m_canary   = CONT_CANARY;
@@ -2484,7 +2516,7 @@ nv_dynarray_capacity(const nv_dynarray_t* vec)
   return cap;
 }
 
-int
+size_t
 nv_dynarray_typesize(const nv_dynarray_t* vec)
 {
   pthread_mutex_lock((pthread_mutex_t*)&vec->m_mutex);
@@ -2499,19 +2531,20 @@ nv_dynarray_data(const nv_dynarray_t* vec)
 {
   pthread_mutex_lock((pthread_mutex_t*)&vec->m_mutex);
   nv_assert(CONT_IS_VALID(vec));
-  void* p = vec->m_data;
+  void* ptr = vec->m_data;
   pthread_mutex_unlock((pthread_mutex_t*)&vec->m_mutex);
-  return p;
+  return ptr;
 }
 
 void*
 nv_dynarray_back(nv_dynarray_t* vec)
 {
-  pthread_mutex_lock((pthread_mutex_t*)&vec->m_mutex);
+  pthread_mutex_lock(&vec->m_mutex);
   nv_assert(CONT_IS_VALID(vec));
-  void* p = nv_dynarray_get(vec, NV_MAX(1ULL, vec->m_size) - 1); // stupid but works
-  pthread_mutex_unlock((pthread_mutex_t*)&vec->m_mutex);
-  return p;
+  void* ptr = nv_dynarray_get(vec, NV_MAX(1ULL, vec->m_size) - 1); // stupid but works
+  // that's how I'd describe the entirety of this projetc
+  pthread_mutex_unlock(&vec->m_mutex);
+  return ptr;
 }
 
 void*
@@ -2528,17 +2561,17 @@ nv_dynarray_get(const nv_dynarray_t* vec, size_t i)
 void
 nv_dynarray_set(nv_dynarray_t* vec, size_t i, void* elem)
 {
-  pthread_mutex_lock((pthread_mutex_t*)&vec->m_mutex);
+  pthread_mutex_lock(&vec->m_mutex);
   nv_assert(CONT_IS_VALID(vec));
   nv_memcpy((char*)vec + (vec->m_typesize * i), elem, vec->m_typesize);
-  pthread_mutex_unlock((pthread_mutex_t*)&vec->m_mutex);
+  pthread_mutex_unlock(&vec->m_mutex);
 }
 
 void
 nv_dynarray_copy_from(const nv_dynarray_t* RESTRICT src, nv_dynarray_t* RESTRICT dst)
 {
   pthread_mutex_lock((pthread_mutex_t*)&src->m_mutex);
-  pthread_mutex_lock((pthread_mutex_t*)&dst->m_mutex);
+  pthread_mutex_lock(&dst->m_mutex);
 
   nv_assert(CONT_IS_VALID(src));
   nv_assert(CONT_IS_VALID(dst));
@@ -2549,14 +2582,14 @@ nv_dynarray_copy_from(const nv_dynarray_t* RESTRICT src, nv_dynarray_t* RESTRICT
   nv_memcpy(dst->m_data, src->m_data, src->m_size * src->m_typesize);
 
   pthread_mutex_unlock((pthread_mutex_t*)&src->m_mutex);
-  pthread_mutex_unlock((pthread_mutex_t*)&dst->m_mutex);
+  pthread_mutex_unlock(&dst->m_mutex);
 }
 
 void
 nv_dynarray_move_from(nv_dynarray_t* RESTRICT src, nv_dynarray_t* RESTRICT dst)
 {
-  pthread_mutex_lock((pthread_mutex_t*)&src->m_mutex);
-  pthread_mutex_lock((pthread_mutex_t*)&dst->m_mutex);
+  pthread_mutex_lock(&src->m_mutex);
+  pthread_mutex_lock(&dst->m_mutex);
 
   nv_assert(CONT_IS_VALID(src));
   nv_assert(CONT_IS_VALID(dst));
@@ -2569,8 +2602,8 @@ nv_dynarray_move_from(nv_dynarray_t* RESTRICT src, nv_dynarray_t* RESTRICT dst)
   src->m_capacity = 0;
   src->m_data     = NULL;
 
-  pthread_mutex_unlock((pthread_mutex_t*)&src->m_mutex);
-  pthread_mutex_unlock((pthread_mutex_t*)&dst->m_mutex);
+  pthread_mutex_unlock(&src->m_mutex);
+  pthread_mutex_unlock(&dst->m_mutex);
 }
 
 bool
@@ -2589,15 +2622,13 @@ nv_dynarray_equal(const nv_dynarray_t* vec1, const nv_dynarray_t* vec2)
   pthread_mutex_lock((pthread_mutex_t*)&vec1->m_mutex);
   pthread_mutex_lock((pthread_mutex_t*)&vec2->m_mutex);
 
-  bool eq = 1;
-  if (vec1->m_size != vec2->m_size || vec1->m_typesize != vec2->m_typesize) { eq = 0; }
-
-  else if (nv_memcmp(vec1->m_data, vec2->m_data, vec1->m_size * vec1->m_typesize) != 0) { eq = 0; }
+  bool equal = 1;
+  if ((vec1->m_size != vec2->m_size || vec1->m_typesize != vec2->m_typesize) || (nv_memcmp(vec1->m_data, vec2->m_data, vec1->m_size * vec1->m_typesize) != 0)) { equal = 0; }
 
   pthread_mutex_unlock((pthread_mutex_t*)&vec1->m_mutex);
   pthread_mutex_unlock((pthread_mutex_t*)&vec2->m_mutex);
 
-  return eq;
+  return equal;
 }
 
 void
@@ -2622,7 +2653,7 @@ nv_dynarray_push_back(nv_dynarray_t* RESTRICT vec, const void* RESTRICT elem)
   if (vec->m_size >= vec->m_capacity) { nv_dynarray_resize(vec, NV_MAX(1, vec->m_capacity * 2)); }
 
   nv_assert(vec->m_data != NULL);
-  nv_assert(!(elem >= vec->m_data && elem <= (vec->m_data + vec->m_size))); // breaks restriction rules
+  nv_assert(!(elem >= vec->m_data && (unsigned char*)elem <= ((unsigned char*)vec->m_data + vec->m_size))); // breaks restriction rules
   nv_memcpy((uchar*)vec->m_data + (vec->m_size * vec->m_typesize), elem, vec->m_typesize);
   vec->m_size++;
 
@@ -2656,7 +2687,7 @@ nv_dynarray_push_set(nv_dynarray_t* RESTRICT vec, const void* RESTRICT arr, size
   pthread_mutex_lock(&vec->m_mutex);
 
   size_t required_capacity = vec->m_size + count;
-  if (required_capacity >= vec->m_capacity) nv_dynarray_resize(vec, required_capacity);
+  if (required_capacity >= vec->m_capacity) { nv_dynarray_resize(vec, required_capacity); }
   nv_memcpy((uchar*)vec->m_data + (vec->m_size * vec->m_typesize), arr, count * vec->m_typesize);
   vec->m_size += count;
 
@@ -2712,9 +2743,9 @@ nv_dynarray_remove(nv_dynarray_t* vec, size_t index)
 
   pthread_mutex_lock(&vec->m_mutex);
 
-  if (index >= vec->m_size)
-    return;
-  else if (vec->m_size - index - 1)
+  if (index >= vec->m_size) { return; }
+
+  if (vec->m_size - index - 1)
   {
     // please don't ask me what this is
     nv_memcpy((uchar*)vec->m_data + (index * vec->m_typesize), (uchar*)vec->m_data + ((index + 1) * vec->m_typesize), (vec->m_size - index - 1) * vec->m_typesize);
@@ -2733,7 +2764,7 @@ nv_dynarray_find(const nv_dynarray_t* RESTRICT vec, const void* RESTRICT elem)
 
   for (int i = 0; i < (int)vec->m_size; i++)
   {
-    if (nv_memcmp(vec->m_data + (i * vec->m_typesize), elem, vec->m_typesize))
+    if (nv_memcmp((unsigned char*)vec->m_data + (i * vec->m_typesize), elem, vec->m_typesize))
     {
       pthread_mutex_unlock((pthread_mutex_t*)&vec->m_mutex);
       return i;
@@ -2777,11 +2808,11 @@ nv_string_resize(nv_string_t* str, int new_capacity)
 nv_string_t
 nv_string_init(size_t initial_size, nv_allocator_t* allocator)
 {
-  nv_string_t str;
-  str.allocator  = allocator;
-  str.m_capacity = (initial_size > 0) ? initial_size : 1;
-  str.m_data     = str.allocator->alloc(str.allocator, 1, str.m_capacity);
-  str.m_canary   = CONT_CANARY;
+  nv_string_t str = nv_zero_init(nv_string_t);
+  str.allocator   = allocator;
+  str.m_capacity  = (initial_size > 0) ? initial_size : 1;
+  str.m_data      = str.allocator->alloc(str.allocator, 1, str.m_capacity);
+  str.m_canary    = CONT_CANARY;
   nv_assert(str.m_data != NULL);
 
   str.m_data[0] = 0;
@@ -2793,7 +2824,7 @@ nv_string_t
 nv_string_init_str(const char* init, nv_allocator_t* allocator)
 {
   nv_assert(init != NULL && nv_strlen(init) > 0);
-  nv_string_t str = (nv_string_t){};
+  nv_string_t str = nv_zero_init(nv_string_t);
   str.allocator   = allocator;
   size_t len      = nv_strlen(init);
   str.m_capacity  = len + 1;
@@ -2991,7 +3022,7 @@ nv_hashmap_init(int init_size, int keysize, int valuesize, nv_hashmap_hash_fn ha
   nv_assert(dst != NULL);
   nv_assert(keysize > 0 && valuesize > 0);
 
-  *dst = (nv_hashmap_t){};
+  *dst = nv_zero_init(nv_hashmap_t);
 
   if (init_size < 0)
   {
@@ -3160,8 +3191,8 @@ nv_hashmap_insert(nv_hashmap_t* map, const void* NV_RESTRICT key, const void* NV
   if (!map->m_nodes[i])
   {
     // Batch allocation for the entire node at once.
-    void* alloc            = _nv_hashmap_alloc(sizeof(nv_hashmap_node_t) + map->m_key_size + map->m_value_size);
-    map->m_nodes[i]        = alloc;
+    unsigned char* alloc   = (unsigned char*)_nv_hashmap_alloc(sizeof(nv_hashmap_node_t) + map->m_key_size + map->m_value_size);
+    map->m_nodes[i]        = (void*)alloc;
     map->m_nodes[i]->key   = alloc + sizeof(nv_hashmap_node_t);
     map->m_nodes[i]->value = alloc + sizeof(nv_hashmap_node_t) + map->m_key_size;
   }
@@ -3195,8 +3226,8 @@ nv_hashmap_insert_or_replace(nv_hashmap_t* map, const void* NV_RESTRICT key, voi
   if (!map->m_nodes[i])
   {
     // Batch allocation for the entire node at once.
-    void* alloc            = _nv_hashmap_alloc(sizeof(nv_hashmap_node_t) + map->m_key_size + map->m_value_size);
-    map->m_nodes[i]        = alloc;
+    unsigned char* alloc   = (unsigned char*)_nv_hashmap_alloc(sizeof(nv_hashmap_node_t) + map->m_key_size + map->m_value_size);
+    map->m_nodes[i]        = (void*)alloc;
     map->m_nodes[i]->key   = alloc + sizeof(nv_hashmap_node_t);
     map->m_nodes[i]->value = alloc + sizeof(nv_hashmap_node_t) + map->m_key_size;
   }
@@ -3252,12 +3283,12 @@ nv_texture_atlas_init(nv_texture_atlas_t* atlas, size_t width, size_t height, nv
 {
   if (!atlas)
   {
-    nv_log_error("Passing null to atlas is not valid");
+    nv_push_error("Passing null to atlas is not valid");
     return;
   }
   if (width == 0 || height == 0 || nv_format_get_bytes_per_pixel(fmt) == 0)
   {
-    nv_log_error("Invalid size/format for atlas");
+    nv_push_error("Invalid size/format for atlas");
     return;
   }
 
@@ -3314,7 +3345,7 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
 
   if (atlas->w == 0 || atlas->h == 0)
   {
-    nv_log_error("zero size atlas? possible corruption");
+    nv_push_error("zero size atlas? possible corruption");
     pthread_mutex_unlock(&atlas->mutex);
     return;
   }
@@ -3380,13 +3411,13 @@ nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
   {
     if (max_w == 0 || max_h == 0)
     {
-      nv_log_error("0 optimal w/h??");
+      nv_push_error("0 optimal w/h??");
       return -1;
     }
     size_t channels = nv_format_get_bytes_per_pixel(atlas->fmt);
     if (channels == 0)
     {
-      nv_log_error("invalid format?");
+      nv_push_error("invalid format?");
       return -1;
     }
     unsigned char* new_data = (unsigned char*)nv_calloc(max_w * max_h * channels);
@@ -3427,9 +3458,9 @@ nv_texture_atlas_destroy(nv_texture_atlas_t* atlas)
 void
 nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin)
 {
-  if (!bin) return;
+  if (!bin) { return; }
 
-  *bin              = (nv_skyline_bin_t){};
+  *bin              = nv_zero_init(nv_skyline_bin_t);
   bin->w            = w;
   bin->h            = h;
   bin->skyline      = (size_t*)nv_calloc(w * sizeof(size_t));
@@ -3452,7 +3483,7 @@ nv_skyline_bin_max_height(const nv_skyline_bin_t* bin, size_t x, size_t w)
   size_t max_h = 0;
   for (size_t i = x; i < x + w && i < bin->w; i++)
   {
-    if (bin->skyline[i] > max_h) {max_h = bin->skyline[i];}
+    if (bin->skyline[i] > max_h) { max_h = bin->skyline[i]; }
   }
   return max_h;
 }
@@ -3519,7 +3550,7 @@ nv_skyline_bin_pack_rects(nv_skyline_bin_t* bin, nv_skyline_rect_t* rects, size_
       rects[i].x = x;
       rects[i].y = y;
     }
-    else { nv_log_error("failed to pack rect %d", (int)i); }
+    else { nv_push_error("failed to pack rect %d", (int)i); }
   }
 }
 
@@ -3572,7 +3603,7 @@ nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
     size_t* new_skyline = (size_t*)nv_realloc(bin->skyline, new_w * sizeof(size_t));
     if (!new_skyline)
     {
-      nv_log_error("Memory allocation failed for bin->skyline in nv_skyline_bin_resize");
+      nv_push_error("Memory allocation failed for bin->skyline in nv_skyline_bin_resize");
       nv_free(valid_rects);
       nv_free(invalid_rects);
       return;
@@ -3611,7 +3642,7 @@ nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h)
   {
     size_t x, y;
     if (nv_skyline_bin_find_best_placement(bin, &invalid_rects[i], &x, &y)) { nv_skyline_bin_place_rect(bin, &invalid_rects[i], x, y); }
-    else { nv_log_error("failed to repack rect %lu after resize", i); }
+    else { nv_push_error("failed to repack rect %lu after resize", i); }
   }
 
   if (invalid_rects) nv_free(invalid_rects);
@@ -3767,7 +3798,7 @@ nv_freelist_alloc(nv_freelist_t* list, size_t alignment, size_t size)
     if (!node->in_use && aligned_node_size >= size)
     {
       node->in_use  = 1;
-      node->payload = ALIGN_UP(node->payload, alignment);
+      node->payload = align_up(node->payload, alignment);
       nv_assert(((uintptr_t)node->payload % alignment) == 0);
       nv_freelist_check_circle(list);
       return node->payload;
@@ -3839,13 +3870,13 @@ nv_freelist_free(nv_freelist_t* list, void* block)
 
   if (!found)
   {
-    nv_log_error("no block found");
+    nv_push_error("no block found");
     return;
   }
 
   if (!node->in_use)
   {
-    nv_log_error("real_t free");
+    nv_push_error("real_t free");
     return;
   }
 

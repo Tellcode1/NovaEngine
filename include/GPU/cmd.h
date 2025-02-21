@@ -83,7 +83,7 @@ nv_gpu_create_command_buffers(nv_command_pool_t* pool, nv_command_buffer_t* buff
   {
     nv_command_buffer_t* buf = &buffers[i];
     pool->command_buffers[i] = buf;
-    *buf                     = (nv_command_buffer_t){};
+    *buf                     = nv_zero_init(nv_command_buffer_t);
     buf->handle              = cmds[i];
   }
   pool->nbuffers = nbuffers;
@@ -94,7 +94,7 @@ nv_gpu_create_command_buffers(nv_command_pool_t* pool, nv_command_buffer_t* buff
 static inline void
 nv_gpu_bind_vertex_buffers(nv_command_buffer_t* cmd, nv_gpu_buffer_t* buffers, size_t nbuffers, size_t* offsets)
 {
-  VkBuffer vkbuffers[NV_COMMAND_BUFFER_MAX_BOUND_BUFFERS] = {};
+  VkBuffer vkbuffers[NV_COMMAND_BUFFER_MAX_BOUND_BUFFERS] = { 0 };
   for (size_t i = 0; i < nbuffers; i++)
   {
     vkbuffers[i]                 = buffers[i].buffer;

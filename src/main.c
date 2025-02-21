@@ -53,12 +53,12 @@ test_allocator(void)
   }
   if (!TestLargeAllocation)
   {
-    nv_log_error("Large allocation failed");
+    nv_push_error("Large allocation failed");
     pass = 0;
   }
   if (nv_memset((uchar*)TestLargeAllocation, 0, 100) == NULL)
   {
-    nv_log_error("Large allocation memset failed");
+    nv_push_error("Large allocation memset failed");
     pass = 0;
   }
 
@@ -69,7 +69,7 @@ test_allocator(void)
     {
       pass           = 0;
       allocations[i] = NULL;
-      nv_log_error("allocation failed %d", i);
+      nv_push_error("allocation failed %d", i);
       continue;
     }
     *allocation    = i;
@@ -80,21 +80,21 @@ test_allocator(void)
   {
     if (allocations[i] == NULL)
     {
-      nv_log_error("NULL allocation at index %d", i);
+      nv_push_error("NULL allocation at index %d", i);
       pass = 0;
       continue;
     }
     size_t test = *(allocations[i]);
     if (i != test)
     {
-      nv_log_error("addr %p (index %d) has incorrect data. expected %d got %d", allocations[i], i, i, test);
+      nv_push_error("addr %p (index %d) has incorrect data. expected %d got %d", allocations[i], i, i, test);
       pass = 0;
     }
     for (size_t j = 0; j < i; j++)
     {
       if (allocations[i] == allocations[j])
       {
-        nv_log_error("duplicate allocations at index %d and %d: %p", i, j, allocations[i]);
+        nv_push_error("duplicate allocations at index %d and %d: %p", i, j, allocations[i]);
         pass = 0;
       }
     }
@@ -141,7 +141,7 @@ main(int argc, char* argv[])
   char error[256];
   if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
-    nv_log_error("PROPS error: %s", error);
+    nv_push_error("PROPS error: %s", error);
     nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);
   }

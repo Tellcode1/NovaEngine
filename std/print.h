@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 /**
  * default size of the write buffer
@@ -93,6 +93,6 @@ extern size_t nv_vsnprintf(char* dest, size_t max_chars, const char* fmt, va_lis
  */
 extern size_t _nv_vsfnprintf(void* dest, bool is_file, size_t max_chars, const char* fmt, va_list args);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif // __NOVA_PRINT_H__

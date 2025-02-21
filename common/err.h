@@ -3,7 +3,7 @@
 
 #include "../std/stdafx.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef enum lerrc
 {
@@ -28,6 +28,6 @@ typedef enum lerrc
   NOVA_ERR_INVALID_MEMORY,
 } lerrc;
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_ERR_H__

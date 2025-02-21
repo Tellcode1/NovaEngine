@@ -8,7 +8,7 @@
 #include "collider.h"
 #include "sprite_renderer.h"
 
-NOVA_HEADER_START;
+NOVA_HEADER_START
 
 typedef struct nv_transform
 {
@@ -46,6 +46,6 @@ extern nv_transform*       nv_object_get_transform(nv_object* obj);
 extern nv_collider_t*      nv_object_get_collider(nv_object* obj);
 extern nv_sprite_renderer* nv_object_get_sprite_renderer(nv_object* obj);
 
-NOVA_HEADER_END;
+NOVA_HEADER_END
 
 #endif //__NOVA_OBJECT_H__
