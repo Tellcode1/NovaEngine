@@ -4,6 +4,8 @@
 #include "../../std/stdafx.h"
 #include "../mem.h"
 
+NOVA_HEADER_START
+
 typedef struct nv_bitset_t nv_bitset_t;
 typedef unsigned char      nv_bitset_bit;
 
@@ -23,5 +25,7 @@ struct nv_bitset_t
   size_t          size;
   nv_allocator_t* allocator;
 };
+
+NOVA_HEADER_END
 
 #endif //__NOVA_BITSET_H__

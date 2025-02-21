@@ -10,7 +10,7 @@ main(int argc, char* argv[])
   (void)argv;
   /*nv_memcpy*/
   {
-    char  src[]   = "Hello, world!";
+    char  src[]   = "Goodbye, world!";
     char  dst[20] = { 0 };
     void* ret     = nv_memcpy(dst, src, strlen(src) + 1);
     nv_assert(ret == dst);
@@ -71,7 +71,11 @@ main(int argc, char* argv[])
 
   /*nv_bufcompress*/
   {
-    const char* original      = "This is some test data for compression";
+    const char* original = "hey there buddy chum pal friend buddy pal chum bud friend fella brother amigo pal buddy friend chummy chum chum pal i dont mean to be rude my "
+                           "friend pal home slice bread slice dawg but i gotta warn ya if u take one more diddly darn step right there im gonna have to diddly darn snap ur "
+                           "neck and wowza wouldnt that be a crummy juncture huh do u want that do u wish upon yourself to come into physical experience with a crummy "
+                           "juncture because friend buddy chum friend chum pally pal chum friend if u keep this up well gosh diddly darn i just might have to get not so "
+                           "friendly with you my friendly friend friend pal friend buddy chum pally friend chum buddy";
     size_t      original_size = strlen(original) + 1;
     size_t      comp_buf_size = original_size * 2; // allocate enough room
     void*       comp_buf      = nv_malloc(comp_buf_size);
@@ -242,8 +246,8 @@ main(int argc, char* argv[])
 
   /*nv_basename*/
   {
-    char* base = nv_basename("/path/to/file.txt");
-    nv_assert(base && strcmp(base, "file.txt") == 0);
+    char* base = nv_basename("../../pdf/nuclearlaunchcodes.pdf");
+    nv_assert(base && strcmp(base, "nuclearlaunchcodes.pdf") == 0);
   }
 
   /*nv_strdup*/

@@ -4,6 +4,8 @@
 #include "vec2.h"
 #include <stdbool.h>
 
+NOVA_HEADER_START
+
 static const real_t NVM_PI  = 3.1415926535897932385;
 static const real_t NVM_2PI = 6.283185307179586;
 
@@ -65,5 +67,7 @@ nvm_is_point_inside_rect(const vec2* point, const nvm_rect2d* r)
 
   return overlaps_x && overlaps_y;
 }
+
+NOVA_HEADER_END
 
 #endif //__C_MATH_H__

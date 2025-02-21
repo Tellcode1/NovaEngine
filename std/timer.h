@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <sys/time.h>
 
+NOVA_HEADER_START
+
 typedef struct timer
 {
   real_t start;
@@ -73,5 +75,7 @@ timer_time_since_done(const timer* tm)
 {
   return (__timer_get_currtime() - tm->end);
 }
+
+NOVA_HEADER_END
 
 #endif //__TIMER_H__

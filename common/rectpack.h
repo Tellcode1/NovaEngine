@@ -3,6 +3,8 @@
 
 #include "../std/stdafx.h"
 
+NOVA_HEADER_START
+
 typedef struct nv_skyline_bin_t  nv_skyline_bin_t;
 typedef struct nv_skyline_rect_t nv_skyline_rect_t;
 
@@ -27,5 +29,7 @@ extern int    nv_skyline_bin_find_best_placement(const nv_skyline_bin_t* bin, co
 extern void   nv_skyline_bin_place_rect(nv_skyline_bin_t* bin, const nv_skyline_rect_t* rect, size_t x, size_t y);
 extern void   nv_skyline_bin_pack_rects(nv_skyline_bin_t* bin, nv_skyline_rect_t* rects, size_t nrects);
 extern void   nv_skyline_bin_resize(nv_skyline_bin_t* bin, size_t new_w, size_t new_h);
+
+NOVA_HEADER_END
 
 #endif //__NOVA_RECT_PACK_H__

@@ -5,6 +5,8 @@
 
 #include "stdafx.h"
 
+NOVA_HEADER_START
+
 typedef struct nv_option_t nv_option_t;
 
 typedef enum nv_option_type
@@ -19,11 +21,18 @@ typedef enum nv_option_type
 struct nv_option_t
 {
   nv_option_type type;
-  const char*    short_name; // a one character option
-  const char*    long_name;  // a string option
-  void*          value;      // Pointer to where the value will be stored
-                             // For strings, pass the buffer instead.
-  size_t buffer_size;        // The size of the char buffer when option type is string
+  const char*    short_name;
+  const char*    long_name;
+
+  /*
+    Pointer to where the value will be stored
+    For strings, pass the buffer instead.
+    This CAN be NULL.
+  */
+  void*          value;
+
+  // The size of the char buffer when option type is string
+  size_t buffer_size;
 };
 
 /**
@@ -40,5 +49,7 @@ extern int nv_props_parse(int argc, char* argv[], const nv_option_t* options, in
  * @param buf_size size of buf for writing the help message to
  */
 extern void nv_props_gen_help(const nv_option_t* options, int noptions, char* buf, size_t buf_size);
+
+NOVA_HEADER_END
 
 #endif //__NOVA_PROGRAM_OPTIONS_H__

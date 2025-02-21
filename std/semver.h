@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 
+NOVA_HEADER_START
+
 #define NV_SEMVER_MAJOR_VERSION_NUMBER_MAX 1023
 #define NV_SEMVER_MINOR_VERSION_NUMBER_MAX 1023
 #define NV_SEMVER_PATCH_VERSION_NUMBER_MAX 4095
@@ -26,5 +28,7 @@ nv_semver_unpack_version(version_t version, version_t* major, version_t* minor, 
   *minor = (version >> 12) & 0x3FF;
   *patch = version & 0xFFF;
 }
+
+NOVA_HEADER_END
 
 #endif //__NOVA_SEMVER_H__

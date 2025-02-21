@@ -169,6 +169,10 @@ extern size_t nv_strcspn(const char* s, const char* reject);
  */
 extern size_t nv_strspn(const char* s, const char* accept);
 
+/*
+* return a pointer ot the first character in s1 that is in both s1 and s2.
+* 
+*/
 extern char* nv_strpbrk(const char* s1, const char* s2);
 
 /*

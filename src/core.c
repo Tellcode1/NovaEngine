@@ -2400,12 +2400,14 @@ nv_strcspn(const char* s, const char* reject)
 char*
 nv_strpbrk(const char* s1, const char* s2)
 {
+  if (!s1 || !s2)
+  {
+    return NULL;
+  }
+
 #  if defined(__GNUC__) && (NOVA_STR_USE_BUILTIN)
   return __builtin_strpbrk(s1, s2);
 #  endif
-
-  if (!s1 || !s2)
-    return NULL;
 
   while (*s1)
   {
