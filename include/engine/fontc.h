@@ -3,11 +3,9 @@
 
 // implementation: vk.c
 
-#include "../../common/rectpack.h"
+#include "../../common/containers/rectpack.h"
 #include "../../std/semver.h"
 #include "../../std/stdafx.h"
-#include <stdbool.h>
-#include <stdio.h>
 
 NOVA_HEADER_START
 
@@ -41,6 +39,7 @@ struct fontc_file_header_t
 {
   int       magic;
   version_t version;
+  int       pixel_size;
   int       float_size;
   flt_t     line_height, space_width;
   int       bmpwidth, bmpheight;
@@ -51,10 +50,10 @@ struct fontc_file_header_t
 
 struct fontc_glyph_t
 {
-  unsigned codepoint;
-  flt_t    advance;
-  flt_t    x0, x1, y0, y1;
-  flt_t    l, b, r, t;
+  u32   codepoint;
+  flt_t advance;
+  flt_t x0, x1, y0, y1;
+  flt_t l, b, r, t;
 };
 
 struct fontc_file_t
@@ -74,7 +73,7 @@ extern void        fontc_clean_font_file(fontc_file_t* file);
  * Will bake the file if needed. Load the cache if available.
  * Pass in the path to the font TTF or OTF FILE!!
  */
-extern fontc_err_t fontc_load_font(const char* font_source_path, fontc_file_t* file);
+extern fontc_err_t fontc_load_font(const char* font_source_path, int pixel_size, fontc_file_t* file);
 
 NOVA_HEADER_END
 

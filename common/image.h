@@ -11,9 +11,9 @@ typedef struct nv_image_t nv_image_t;
 // CPU Image
 struct nv_image_t
 {
-  size_t         w, h;
-  nv_format      fmt;
-  unsigned char* data;
+  size_t         m_width, m_height;
+  nv_format      m_format;
+  unsigned char* m_data;
 };
 
 extern nv_image_t nv_image_load(const char* path);

@@ -28,6 +28,7 @@ set(SOURCES
     src/vk.c
     src/nvsm.c
     src/fontc.c
+    ssl/ssl.c
 )
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/box2d)

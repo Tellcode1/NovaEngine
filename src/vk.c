@@ -1052,7 +1052,7 @@ nv_renderer_end(nv_renderer_t* rd)
 {
   const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_dynarray_get(&rd->draw_cmd_buffers, rd->frame);
 
-  for (int i = 0; i < (int)rd->ctext->labels.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&rd->ctext->labels); i++)
   {
     ctext_label_t* label = nv_dynarray_get(&rd->ctext->labels, i);
 
@@ -1432,7 +1432,7 @@ nvvk_print_device_info(VkPhysicalDevice device)
   nv_log_info("(%s) %s", device_type_str, properties.deviceName);
   nv_log_info("Vulkan API Version: %u.%u.%u", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
   nv_log_info(
-      "Driver Vendor: %s Version: %u.%u.%u Device ID: %x",
+      "Driver Vendor: %s Driver Version: %u.%u.%u Device ID: %x",
       device_driver_vendor,
       VK_VERSION_MAJOR(properties.driverVersion),
       VK_VERSION_MINOR(properties.driverVersion),
@@ -1620,8 +1620,10 @@ nvvk_validate_queues(nv_dynarray_t* queue_create_infos)
    * Vulkan gives errores sometimes even though the spec states that if queueCount is 1,
    * Only 1 element of pQueuePriorities may be checked. Seems like an issue with the validation layers
    * Should I submit a bug report? Nah. They can deal with it.
+   * It doesn not seem to be a bug with them, but the fact that this float variable is local and it goes out of scope
+   * FIXED
    */
-  const float queue_priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+  // const float queue_priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
   for (int i = 0; i < (int)nv_dynarray_size(&unique_queue_families); i++)
   {
@@ -1631,7 +1633,7 @@ nvvk_validate_queues(nv_dynarray_t* queue_create_infos)
       .flags            = 0,
       .queueFamilyIndex = ((u32*)nv_dynarray_data(&unique_queue_families))[i],
       .queueCount       = 1,
-      .pQueuePriorities = queue_priorities,
+      .pQueuePriorities = NULL,
     };
     nv_dynarray_push_back(queue_create_infos, &queue_info);
   }
@@ -1657,6 +1659,13 @@ nvvk_create_device()
   nv_dynarray_t queue_create_infos;
   nv_dynarray_init(sizeof(VkDeviceQueueCreateInfo), 0, &nv_allocator_default, &queue_create_infos);
   nvvk_validate_queues(&queue_create_infos);
+
+  const float queue_priority = 1.0F;
+  for (int i = 0; i < (int)nv_dynarray_size(&queue_create_infos); i++)
+  {
+    VkDeviceQueueCreateInfo* info = (VkDeviceQueueCreateInfo*)nv_dynarray_get(&queue_create_infos, i);
+    info->pQueuePriorities        = &queue_priority;
+  }
 
   VkDeviceCreateInfo deviceCreateInfo = {
     .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -1749,7 +1758,7 @@ _ctext_load_font_upload_glyph_atlas(const nv_texture_atlas_t* atlas, cfont_t* ds
     .samples     = NOVA_SAMPLE_COUNT_1_SAMPLES,
     .type        = VK_IMAGE_TYPE_2D,
     .usage       = NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE,
-    .extent      = (nv_extent3D){ .width = atlas->w, .height = atlas->h, .depth = 1 },
+    .extent      = (nv_extent3D){ .width = atlas->m_width, .height = atlas->m_height, .depth = 1 },
     .arraylayers = 1,
     .miplevels   = 1,
   };
@@ -1761,9 +1770,10 @@ _ctext_load_font_upload_glyph_atlas(const nv_texture_atlas_t* atlas, cfont_t* ds
   nv_gpu_allocate_memory(imageMemoryRequirements.size, NOVA_GPU_MEMORY_USAGE_GPU_LOCAL, &dst->texture_mem);
   nv_gpu_bind_texture_to_memory(dst->texture_mem, 0, dst->texture);
 
-  const int atlas_w = atlas->w, atlas_h = atlas->h;
+  const size_t atlas_w = atlas->m_width;
+  const size_t atlas_h = atlas->m_height;
 
-  nv_image_t atlas_img = (nv_image_t){ .w = atlas_w, .h = atlas_h, .fmt = NOVA_FORMAT_R8, .data = (unsigned char*)atlas->data };
+  nv_image_t atlas_img = (nv_image_t){ .m_width = atlas_w, .m_height = atlas_h, .m_format = NOVA_FORMAT_R8, .m_data = (unsigned char*)atlas->m_data };
   nv_gpu_write_to_texture(dst->texture, &atlas_img);
 
   const nv_gpu_sampler_create_info sampler_info = { .filter = VK_FILTER_LINEAR, .mipmap_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR, .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT };
@@ -1792,61 +1802,6 @@ _ctext_load_font_update_descriptors(nv_ctext_module* ctext, cfont_t* dst)
   }
 }
 
-// typedef struct _ctext_font_load
-// {
-//   nv_renderer_t* rd;
-//   const char*    font_path;
-//   int            scale;
-//   cfont_t*       dst;
-// } _ctext_font_load;
-
-// static inline void*
-// _ctext_load_font_internal(void* _user_data) {
-//   _ctext_font_load* load      = (_ctext_font_load*)_user_data;
-//   nv_renderer_t*    rd        = load->rd;
-//   const char*       font_path = load->font_path;
-//   int               scale     = load->scale;
-//   cfont_t*          dst       = load->dst;
-
-//   nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
-//   nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
-
-//   fontc_file_t f_file;
-//   fontc_read_font(font_path, &f_file);
-
-//   nv_texture_atlas_t atlas;
-
-//   dst->line_height = f_file.header.line_height;
-//   dst->space_width = f_file.header.space_width;
-//   atlas.w          = f_file.header.bmpwidth;
-//   atlas.h          = f_file.header.bmpheight;
-//   atlas.data       = f_file.bitmap;
-
-//   for (int i = 0; i < f_file.header.numglyphs; i++) {
-//     ctext_glyph_t glyph = {
-//       .x0      = f_file.glyphs[i].x0,
-//       .x1      = f_file.glyphs[i].x1,
-//       .y0      = f_file.glyphs[i].y0,
-//       .y1      = f_file.glyphs[i].y1,
-//       .l       = f_file.glyphs[i].l,
-//       .r       = f_file.glyphs[i].r,
-//       .b       = f_file.glyphs[i].b,
-//       .t       = f_file.glyphs[i].t,
-//       .advance = f_file.glyphs[i].advance,
-//     };
-//     char glyphi = f_file.glyphs[i].codepoint;
-//     nv_hashmap_insert(&dst->glyph_map, &glyphi, &glyph);
-//   }
-
-//   _ctext_load_font_upload_glyph_atlas(&atlas, dst);
-//   _ctext_load_font_update_descriptors(rd->ctext, dst);
-
-//   nv_free(f_file.glyphs);
-//   nv_free(f_file.bitmap);
-
-//   return NULL;
-// }
-
 void
 ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* dst)
 {
@@ -1865,7 +1820,7 @@ ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* d
   *dst = nv_zero_init(cfont_t);
 
   fontc_file_t f_file;
-  if (fontc_load_font(font_path, &f_file) != 0)
+  if (fontc_load_font(font_path, scale, &f_file) != 0)
   {
     nv_push_error("There was an error loading the font file. Skipping");
     return;
@@ -1876,16 +1831,16 @@ ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* d
 
   dst->rd = rdr;
 
-  nv_hashmap_init(16, sizeof(char), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
+  nv_hashmap_init(16, sizeof(u32), sizeof(ctext_glyph_t), NULL, NULL, &nv_allocator_default, &dst->glyph_map);
   nv_dynarray_init(sizeof(ctext_drawcall_t), 4, &nv_allocator_default, &dst->drawcalls);
 
   nv_texture_atlas_t atlas;
 
   dst->line_height = f_file.header.line_height;
   dst->space_width = f_file.header.space_width;
-  atlas.w          = f_file.header.bmpwidth;
-  atlas.h          = f_file.header.bmpheight;
-  atlas.data       = f_file.bitmap;
+  atlas.m_width    = f_file.header.bmpwidth;
+  atlas.m_height   = f_file.header.bmpheight;
+  atlas.m_data     = f_file.bitmap;
 
   for (int i = 0; i < f_file.header.numglyphs; i++)
   {
@@ -1900,8 +1855,8 @@ ctext_load_font(nv_renderer_t* rdr, const char* font_path, int scale, cfont_t* d
       .t       = f_file.glyphs[i].t,
       .advance = f_file.glyphs[i].advance,
     };
-    char glyphi = f_file.glyphs[i].codepoint;
-    nv_hashmap_insert(&dst->glyph_map, &glyphi, &glyph);
+    u32 codepoint = f_file.glyphs[i].codepoint;
+    nv_hashmap_insert(&dst->glyph_map, &codepoint, &glyph);
   }
 
   _ctext_load_font_upload_glyph_atlas(&atlas, dst);
@@ -1958,7 +1913,7 @@ _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
     return false;
   }
 
-  size_t new_allocation_size;
+  size_t new_allocation_size = 0;
 
   if (fnt->allocated_size < new_buffer_size)
   {
@@ -1969,7 +1924,9 @@ _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
     new_allocation_size = NVM_MAX(fnt->allocated_size / 3, new_buffer_size);
   }
   else
+  {
     return false;
+  }
 
   vkDeviceWaitIdle(device);
 
@@ -2016,7 +1973,7 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
   vkCmdBindIndexBuffer(cmd, fnt->buffer.buffer, fnt->index_buffer_offset, VK_INDEX_TYPE_UINT32);
 
-  int offset = 0;
+  size_t offset = 0;
   for (int i = 0; i < (int)nv_dynarray_size(&fnt->drawcalls); i++)
   {
     ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_dynarray_get(&fnt->drawcalls, i);
@@ -2026,7 +1983,7 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
     pc.color = drawcall->color;
     vkCmdPushConstants(cmd, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct push_constants), &pc);
 
-    vkCmdDrawIndexed(cmd, drawcall->index_count, 1, 0, offset, 0);
+    vkCmdDrawIndexed(cmd, drawcall->index_count, 1, 0, (int32_t)offset, 0);
     offset += drawcall->vertex_count;
   }
 }
@@ -2035,37 +1992,50 @@ static nv_dynarray_t
 split_string_by_lines(const char* str)
 {
   nv_dynarray_t result;
-  char*         substr;
+  char*         substr  = NULL;
   const size_t  str_len = nv_strlen(str);
   size_t        i_start = 0;
 
   nv_dynarray_init(sizeof(char*), 16, &nv_allocator_default, &result);
 
+  // FIXED: consecutive newlines not being considered
+  // they are now added as a single NULL terminator
   for (size_t i = 0; i < str_len; i++)
   {
-    if (str[i] == '\n')
+    if (str[i] == '\n' || str[i] == '\r')
     {
-      if (i > i_start)
-      {
-        substr = nv_substr(str, i_start, i - i_start);
-        if (substr)
-        {
-          // substr should now handle errors internally
-          nv_dynarray_push_back(&result, &substr);
-        }
-      }
+      substr = nv_substr(str, i_start, i - i_start);
+      nv_dynarray_push_back(&result, (void*)&substr);
       i_start = i + 1;
     }
   }
 
-  if (i_start < str_len)
-  {
-    substr = nv_substr(str, i_start, str_len - i_start);
-    nv_dynarray_push_back(&result, &substr);
-  }
+  substr = nv_substr(str, i_start, str_len - i_start);
+  nv_dynarray_push_back(&result, (void*)&substr);
 
   return result;
 }
+
+// static nv_dynarray_t
+// split_string_by_lines(char *str)
+// {
+//   nv_dynarray_t result;
+//   nv_dynarray_init(sizeof(char*), 16, &nv_allocator_default, &result);
+
+//   char *line_start = str;
+//   for (size_t i = 0; str[i] != '\0'; i++)
+//   {
+//     if (str[i] == '\n' || str[i] == '\r')
+//     {
+//       str[i] = '\0';
+//       nv_dynarray_push_back(&result, &line_start);
+//       line_start = &str[i + 1];
+//     }
+//   }
+//   nv_dynarray_push_back(&result, &line_start);
+
+//   return result;
+// }
 
 // Get the unscaled size of the string
 // Warning: slow
@@ -2084,8 +2054,11 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h)
 
   bool is_new_line = true;
 
+  u32 codepoint = 0;
+
   while (*str)
   {
+    codepoint = (u32)*str;
     switch (*str)
     {
       case ' ':
@@ -2108,7 +2081,7 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h)
         break;
       default:
       {
-        const ctext_glyph_t* glyph = (ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, str);
+        const ctext_glyph_t* glyph = (ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
         if (!glyph)
         {
           break;
@@ -2138,8 +2111,8 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h)
 }
 
 // TODO: Implement instancing: Very hard
-static int
-_ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* drawcall, flt_t scale, flt_t zpos, const int glyph_iter, flt_t x, const flt_t y)
+static size_t
+_ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* drawcall, flt_t scale, flt_t zpos, const size_t glyph_iter, flt_t x, flt_t y)
 {
   if (ctext_validate_font(fnt) != 0)
   {
@@ -2147,64 +2120,70 @@ _ctext_render_line(const cfont_t* fnt, const char* str, const ctext_drawcall_t* 
     return -1;
   }
 
-  int iter = 0;
-  while (*str)
+  u32 codepoint = 0;
+
+  size_t iter = 0;
+
+  const size_t string_length = nv_strlen(str);
+  for (size_t i = 0; i < string_length; i++)
   {
-    switch (*str)
+    if (str[i] == ' ')
     {
-      case ' ': x += fnt->space_width * scale; break;
-      case '\t': x += fnt->space_width * 4.0f * scale; break;
-      default:
-      {
-        const ctext_glyph_t* glyph = (const ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, str);
-        if (!glyph)
-        {
-          nv_log_info("no glyph when rendering char %i", *str);
-          break;
-        }
-        const flt_t glyph_x0 = (glyph->x0 * scale) + x;
-        const flt_t glyph_x1 = (glyph->x1 * scale) + x;
-        const flt_t glyph_y0 = (glyph->y0 * scale) + y;
-        const flt_t glyph_y1 = (glyph->y1 * scale) + y;
-
-        const int             index_offset = (fnt->chars_drawn + iter) * 4;
-        ctext_glyph_vertex_t* v_out        = drawcall->vertices + (glyph_iter + iter) * 4;
-        // clang-format off
-        v_out[0] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y0, zpos}, (vec2f){glyph->l, glyph->b} };
-        v_out[1] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y0, zpos}, (vec2f){glyph->r, glyph->b} };
-        v_out[2] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y1, zpos}, (vec2f){glyph->r, glyph->t} };
-        v_out[3] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y1, zpos}, (vec2f){glyph->l, glyph->t} };
-        // clang-format on
-
-        u32* i_out = drawcall->indices + (glyph_iter + iter) * 6;
-        i_out[0]   = index_offset;
-        i_out[1]   = index_offset + 1;
-        i_out[2]   = index_offset + 2;
-        i_out[3]   = index_offset + 2;
-        i_out[4]   = index_offset + 3;
-        i_out[5]   = index_offset;
-
-        x += glyph->advance * scale;
-        iter++;
-        break;
-      }
+      x += fnt->space_width * scale;
+      continue;
     }
-    str++;
+    if (str[i] == '\t')
+    {
+      x += fnt->space_width * 4.0f * scale;
+      continue;
+    }
+
+    codepoint                  = (u32)str[i];
+    const ctext_glyph_t* glyph = (const ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
+    if (!glyph)
+    {
+      nv_log_info("no glyph when rendering char %i", str[i]);
+      break;
+    }
+    const flt_t glyph_x0 = (glyph->x0 * scale) + x;
+    const flt_t glyph_x1 = (glyph->x1 * scale) + x;
+    const flt_t glyph_y0 = (glyph->y0 * scale) + y;
+    const flt_t glyph_y1 = (glyph->y1 * scale) + y;
+
+    const size_t          index_offset = (fnt->chars_drawn + iter) * 4;
+    ctext_glyph_vertex_t* v_out        = drawcall->vertices + ((glyph_iter + iter) * 4);
+    // clang-format off
+      v_out[0] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y0, zpos}, (vec2f){glyph->l, glyph->b} };
+      v_out[1] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y0, zpos}, (vec2f){glyph->r, glyph->b} };
+      v_out[2] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y1, zpos}, (vec2f){glyph->r, glyph->t} };
+      v_out[3] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y1, zpos}, (vec2f){glyph->l, glyph->t} };
+    // clang-format on
+
+    u32* i_out = drawcall->indices + ((glyph_iter + iter) * 6);
+    i_out[0]   = index_offset;
+    i_out[1]   = index_offset + 1;
+    i_out[2]   = index_offset + 2;
+    i_out[3]   = index_offset + 2;
+    i_out[4]   = index_offset + 3;
+    i_out[5]   = index_offset;
+
+    x += glyph->advance * scale;
+    iter++;
   }
 
   return iter;
 }
 
-static inline int
-_ctext_get_effective_length(const char* buf, int buflen)
+static inline size_t
+_ctext_get_effective_length(const char* buf, size_t buflen)
 {
-  int len = 0;
-  for (int i = 0; i < buflen; i++)
+  size_t len = 0;
+  for (size_t i = 0; i < buflen; i++)
   {
     const char c = buf[i];
     // I've tried to use isprint here
     // It causes some weird artefacts for some damned reason.
-    if (c != ' ' && c != '\t' && c != '\n')
+    if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
     {
       len++;
     }
@@ -2215,7 +2194,7 @@ _ctext_get_effective_length(const char* buf, int buflen)
 int
 _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_render_info_t* pInfo, const char* str)
 {
-  if (*str == 0) // nv_strlen == 0
+  if (!str || *str == 0) // nv_strlen == 0
   {
     return 1;
   }
@@ -2226,17 +2205,21 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
   }
 
   nv_dynarray_t lines;
-  flt_t         text_w, text_h;
-  flt_t         scale;
-  flt_t         ypos, xpos;
-  int           actual_chars_drawn;
-  const int     old_chars_drawn = fnt->chars_drawn;
+
+  flt_t text_w = 0.0f;
+  flt_t text_h = 0.0f;
+  flt_t scale  = 0.0f;
+  flt_t ypos   = 0.0f;
+  flt_t xpos   = 0.0f;
+
+  const size_t old_chars_drawn    = fnt->chars_drawn;
+  size_t       actual_chars_drawn = 0;
 
   lines = split_string_by_lines(str);
 
   scale = pInfo->scale;
   ctext_get_text_size(fnt, str, &text_w, NULL);
-  text_h = -fnt->line_height * ((int)lines.m_size - 1);
+  text_h = -fnt->line_height * ((flt_t)nv_dynarray_size(&lines) - 1.0f);
 
   if (pInfo->scale_for_fit)
   {
@@ -2261,7 +2244,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
       nv_push_error("Invalid vertical alignment. Specified (int)%u. (Implement?)", pInfo->vertical);
       break;
   }
-  for (size_t i = 0; i < lines.m_size; i++)
+  for (size_t i = 0; i < nv_dynarray_size(&lines); i++)
   {
     // render_line returns the number of chars DRAWN. not the number of
     // characters in the string.
@@ -2292,10 +2275,11 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
         // has drawn. only this call.
         NVM_MAX(actual_chars_drawn, 0),
         xpos,
-        (ypos + ((flt_t)i * fnt->line_height * scale)));
+        ypos);
+    ypos += fnt->line_height * scale;
   }
 
-  for (size_t i = 0; i < lines.m_size; i++)
+  for (size_t i = 0; i < nv_dynarray_size(&lines); i++)
   {
     char* line = ((char**)nv_dynarray_data(&lines))[i];
     nv_free(line);
@@ -2312,7 +2296,7 @@ _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* 
 {
   if (ctext_validate_font(fnt) != 0)
   {
-    // nv_push_error("Broken font");
+    nv_push_error("Broken font");
     return;
   }
 
@@ -2326,7 +2310,7 @@ _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* 
   const size_t index_count     = effective_length * 6;
   const size_t allocation_size = (vertex_count * sizeof(ctext_glyph_vertex_t)) + (index_count * sizeof(u32));
 
-  void* allocation = nv_malloc(allocation_size);
+  void* allocation = nv_calloc(allocation_size);
 
   ctext_drawcall_t drawcall = nv_zero_init(ctext_drawcall_t);
   drawcall.vertices         = (ctext_glyph_vertex_t*)allocation;
@@ -2354,7 +2338,9 @@ void
 ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...)
 {
   if (!fnt || !pInfo || !fmt)
+  {
     return;
+  }
 
   // if (!nv_async_is_task_complete(&fnt->load_task)) { return; }
   if (ctext_validate_font(fnt) != 0)
@@ -2363,23 +2349,23 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
     return;
   }
 
-  char*  buffer;
-  size_t buffer_size;
+  char*  buffer      = NULL;
+  size_t buffer_size = 0;
 
-  va_list arg;
-  va_start(arg, fmt);
+  va_list args;
+  va_start(args, fmt);
 
-  buffer_size = nv_vsnprintf(NULL, SIZE_MAX, fmt, arg);
+  buffer_size = nv_vsnprintf(args, NULL, SIZE_MAX, fmt);
   buffer      = nv_malloc(buffer_size + 1);
   nv_assert(buffer != NULL);
 
-  va_end(arg);
-  va_start(arg, fmt);
+  va_end(args);
+  va_start(args, fmt);
 
-  nv_vsnprintf(buffer, buffer_size + 1, fmt, arg);
+  nv_vsnprintf(args, buffer, buffer_size + 1, fmt);
   buffer[buffer_size] = 0;
 
-  va_end(arg);
+  va_end(args);
 
   _ctext_render_and_submit_drawcall(fnt, pInfo, buffer, buffer_size);
 
@@ -2471,7 +2457,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
 void
 ctext_flush_renders(nv_renderer_t* rd)
 {
-  for (int i = 0; i < (int)rd->ctext->fonts.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&rd->ctext->fonts); i++)
   {
     cfont_t* fnt = *(cfont_t**)nv_dynarray_get(&rd->ctext->fonts, i);
     _ctext_flush_font(rd, fnt);
@@ -2484,13 +2470,13 @@ ctext_create_label(nv_scene_t* scene, cfont_t* fnt)
   ctext_label_t label = {
     .h_align = CTEXT_HORI_ALIGN_LEFT,
     .v_align = CTEXT_VERT_ALIGN_TOP,
-    .index   = fnt->rd->ctext->labels.m_size,
+    .index   = (int)nv_dynarray_size(&fnt->rd->ctext->labels),
     .text    = nv_string_init(0, &nv_allocator_default),
     .fnt     = fnt,
     .obj     = nv_object_create(scene, "Text Label", 0, 0, 0, nv_zero_init(vec2), (vec2){ 1.0f, 1.0f }, NOVA_OBJECT_NO_COLLISION),
   };
   nv_dynarray_push_back(&fnt->rd->ctext->labels, &label);
-  return &(((ctext_label_t*)fnt->rd->ctext->labels.m_data)[fnt->rd->ctext->labels.m_size - 1]);
+  return &(((ctext_label_t*)fnt->rd->ctext->labels.m_data)[nv_dynarray_size(&fnt->rd->ctext->labels) - 1]);
 }
 
 void
@@ -3870,14 +3856,14 @@ nv_vk_create_texture_from_disk(const char* path, u32* width, u32* height, nv_for
 {
   nv_image_t tex = nv_image_load(path);
 
-  nv_assert(tex.data != NULL);
+  nv_assert(tex.m_data != NULL);
 
-  *width    = tex.w;
-  *height   = tex.h;
-  *channels = tex.fmt;
+  *width    = tex.m_width;
+  *height   = tex.m_height;
+  *channels = tex.m_format;
 
-  nv_vk_create_texture_from_memory(tex.data, tex.w, tex.h, *channels, dst, dstMem);
-  return tex.data;
+  nv_vk_create_texture_from_memory(tex.m_data, tex.m_width, tex.m_height, *channels, dst, dstMem);
+  return tex.m_data;
 }
 
 void
@@ -4316,7 +4302,7 @@ nv_gpu_get_texture_size(const nv_gpu_texture* tex, int* w, int* h)
 void
 nv_gpu_create_sampler(const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler** sampler)
 {
-  for (int i = 0; i < (int)g_Samplers.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&g_Samplers); i++)
   {
     nv_gpu_sampler* cache = &((nv_gpu_sampler*)nv_dynarray_data(&g_Samplers))[i];
     if (cache != NULL && cache->filter == pInfo->filter && cache->mipmap_mode == pInfo->mipmap_mode && cache->address_mode == pInfo->address_mode
@@ -4352,7 +4338,7 @@ nv_gpu_create_sampler(const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler** 
   nvvk_result_check(vkCreateSampler(device, &samplerInfo, NOVA_VK_ALLOCATOR, &smap.vksampler));
 
   nv_dynarray_push_back(&g_Samplers, &smap);
-  (*sampler) = &((nv_gpu_sampler*)g_Samplers.m_data)[g_Samplers.m_size - 1];
+  (*sampler) = &((nv_gpu_sampler*)g_Samplers.m_data)[nv_dynarray_size(&g_Samplers) - 1];
 }
 
 void
@@ -4373,7 +4359,7 @@ nv_gpu_write_to_texture(nv_gpu_texture* tex, const nv_image_t* src)
   //     return;
   // }
 
-  nv_vk_stage_image_transfer(tex->image, src->data, src->w, src->h, tex_size);
+  nv_vk_stage_image_transfer(tex->image, src->m_data, src->m_width, src->m_height, tex_size);
 }
 
 VkImage
@@ -4587,7 +4573,7 @@ nv_sprite_load_from_memory(const unsigned char* data, int w, int h, nv_format fm
   nv_gpu_allocate_memory(mem_req.size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE, &spr->mem);
   nv_gpu_bind_texture_to_memory(spr->mem, 0, spr->tex);
 
-  const nv_image_t img = (const nv_image_t){ .w = w, .h = h, .fmt = fmt, .data = (unsigned char*)data };
+  const nv_image_t img = (const nv_image_t){ .m_width = w, .m_height = h, .m_format = fmt, .m_data = (unsigned char*)data };
   nv_gpu_write_to_texture(spr->tex, &img);
 
   nv_gpu_sampler_create_info sampler_info = {
@@ -4633,9 +4619,9 @@ nv_sprite*
 nv_sprite_load_from_disk(const char* path)
 {
   nv_image_t tex = nv_image_load(path);
-  nv_sprite* spr = nv_sprite_load_from_memory(tex.data, tex.w, tex.h, tex.fmt);
+  nv_sprite* spr = nv_sprite_load_from_memory(tex.m_data, tex.m_width, tex.m_height, tex.m_format);
   spr->rcount    = 1;
-  nv_free(tex.data);
+  nv_free(tex.m_data);
   return spr;
 }
 

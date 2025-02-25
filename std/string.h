@@ -62,8 +62,9 @@ extern int nv_bufcompress(const void* NV_RESTRICT input, size_t input_size, void
 
 /*
  *  o_buf must be allocated with atleast o_buz_sz bytes of memory
+ *  @return The number of bytes decompressed
  */
-extern int nv_bufdecompress(const void* NV_RESTRICT compressed_data, size_t compressed_size, void* NV_RESTRICT o_buf, size_t o_buf_sz);
+extern unsigned long nv_bufdecompress(const void* NV_RESTRICT compressed_data, size_t compressed_size, void* NV_RESTRICT o_buf, size_t o_buf_sz);
 
 /*
  *  get the size of the string
@@ -170,9 +171,9 @@ extern size_t nv_strcspn(const char* s, const char* reject);
 extern size_t nv_strspn(const char* s, const char* accept);
 
 /*
-* return a pointer ot the first character in s1 that is in both s1 and s2.
-* 
-*/
+ * return a pointer ot the first character in s1 that is in both s1 and s2.
+ *
+ */
 extern char* nv_strpbrk(const char* s1, const char* s2);
 
 /*

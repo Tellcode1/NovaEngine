@@ -34,7 +34,6 @@ nv_error_queue_init(nv_error_queue_t* dst)
 {
   dst->front = -1;
   dst->back  = -1;
-  nv_memset(dst->errors, 0, sizeof(dst->errors));
 }
 
 inline void
@@ -51,7 +50,7 @@ nv_error_queue_push(nv_error_queue_t* queue)
     const char* overwritten_error = nv_error_queue_pop(queue);
     if (overwritten_error)
     {
-      nv_log_error("queue full: poppd '%s'\n", overwritten_error);
+      nv_printf("queue full: poppd error '%s'\n", overwritten_error);
     }
   }
 
@@ -61,8 +60,9 @@ nv_error_queue_push(nv_error_queue_t* queue)
   }
   queue->back = (queue->back + 1) % NV_MAX_ERRORS;
 
-  nv_memset(queue->errors[queue->back], 0, NV_ERROR_LENGTH);
-  return queue->errors[queue->back];
+  char* ret = queue->errors[queue->back];
+  nv_memset(ret, 0, NV_ERROR_LENGTH);
+  return ret;
 }
 
 inline const char*
@@ -84,7 +84,7 @@ nv_error_queue_pop(nv_error_queue_t* queue)
     queue->front = (queue->front + 1) % NV_MAX_ERRORS;
   }
 
-  return value; // Return the popped value
+  return value; // return the popped value
 }
 
 NOVA_HEADER_END

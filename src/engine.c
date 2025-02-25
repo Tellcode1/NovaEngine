@@ -135,7 +135,7 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
   obj->spr_renderer.tex_coord_multiplier = (vec2f){ 1.0f, 1.0f };
   obj->spr_renderer.color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
 
-  obj->index = scene->objects.m_size;
+  obj->index = nv_dynarray_size(&scene->objects);
 
   bool start_enabled = 1;
   if (flags & NOVA_OBJECT_NO_COLLISION)
@@ -434,7 +434,7 @@ nv_scene_update()
 
   nv_object* objects = scene_main->objects.m_data;
 
-  for (int i = 0; i < (int)scene_main->objects.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&scene_main->objects); i++)
   {
     nv_collider_t* col = objects[i].col;
     if (!col->enabled)
@@ -448,7 +448,7 @@ nv_scene_update()
   }
 
   const flt_t dt = nv_get_delta_time();
-  for (int i = 0; i < (int)scene_main->objects.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&scene_main->objects); i++)
   {
     if (objects[i].update_fn)
     {
@@ -462,7 +462,7 @@ nv_scene_render(nv_renderer_t* rd)
 {
   const nv_object* objects = scene_main->objects.m_data;
 
-  for (int i = 0; i < (int)scene_main->objects.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&scene_main->objects); i++)
   {
     vec2                      pos          = nv_object_get_position(&objects[i]);
     vec2                      siz          = nv_object_get_size(&objects[i]);
@@ -478,7 +478,7 @@ nv_scene_render(nv_renderer_t* rd)
     }
     nv_renderer_render_quad(rd, spr_renderer->spr, spr_renderer->tex_coord_multiplier, (vec3f){ pos.x, pos.y, 0.0f }, (vec3f){ siz.x, siz.y, 0.0f }, spr_renderer->color, 0);
   }
-  for (int i = 0; i < (int)scene_main->objects.m_size; i++)
+  for (int i = 0; i < (int)nv_dynarray_size(&scene_main->objects); i++)
   {
     if (objects[i].render_fn)
     {

@@ -29,7 +29,7 @@ struct nv_option_t
     For strings, pass the buffer instead.
     This CAN be NULL.
   */
-  void*          value;
+  void* value;
 
   // The size of the char buffer when option type is string
   size_t buffer_size;

@@ -1,7 +1,7 @@
 #ifndef __NOVA_RECT_PACK_H__
 #define __NOVA_RECT_PACK_H__
 
-#include "../std/stdafx.h"
+#include "../../std/stdafx.h"
 
 NOVA_HEADER_START
 
@@ -10,16 +10,17 @@ typedef struct nv_skyline_rect_t nv_skyline_rect_t;
 
 struct nv_skyline_rect_t
 {
-  size_t w, h, x, y;
+  size_t width, height, posx, posy;
 };
 
 struct nv_skyline_bin_t
 {
-  size_t*            skyline;
-  nv_skyline_rect_t* rects;
-  size_t             w, h;
-  size_t             allocd_rects;
-  size_t             nrects;
+  unsigned           m_canary;
+  size_t*            m_skyline;
+  nv_skyline_rect_t* m_rects;
+  size_t             m_width, m_height;
+  size_t             m_allocated_rect_count;
+  size_t             m_num_rects;
 };
 
 extern void   nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin);

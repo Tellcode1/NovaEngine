@@ -1,58 +1,77 @@
-# NovaEngine
+## NovaEngine
 
 A Vulkan-based game engine primarily written in **C99**.  
 **Dependencies**: FreeType, SDL, and Vulkan (managed via Git submodules).
 
 ## Installation
 
-1. Clone the project repository:  
-   ```bash
-   git clone https://github.com/Tellcode1/NovaEngine.git
-   ```
+Clone the project repository:
 
-2. Navigate to the project directory and initialize submodules:  
-   ```bash
-   cd NovaEngine
-   git submodule update --init --recursive
-   ```
+Navigate to the project directory and initialize submodules:
 
-3. Create a build directory and build the example:  
-   ```bash
-   mkdir build
-   cd build
-   cmake .. -DNOVA_BUILD_EXAMPLE=1
-   make -j
-   ```
+Create a build directory and build the example:
 
-4. Run the example:  
-   ```bash
-   ./nova_example
-   ```
-
----
+Run the example:
 
 ## Usage
 
 NovaEngine builds a static library (`Nova`) that can be linked with your project.  
+Along with the source project, Nova also provides an example and a test for the string library.
 
-### Using CMake  
-1. Add NovaEngine as a subdirectory in your `CMakeLists.txt`:  
-   ```cmake
-   add_subdirectory(${CMAKE_SOURCE_DIR}/NovaEngine)
-   ```
+### Using CMake
 
-2. Link the library statically:  
-   ```cmake
-   target_link_libraries(${PROJECT_NAME} Nova)
-   ```
+Add NovaEngine as a subdirectory in your `CMakeLists.txt`:
 
-### Using Make  
-1. Build NovaEngine:  
-   ```bash
-   make
-   ```
+Link the library statically:
 
-2. Link statically with your project:  
-   ```bash
-   cc your_project.o -lNova
-   ```
+### Using Make
+
+Build NovaEngine:
+
+Link statically with your project:
+
+```plaintext
+cc your_project.o -lNova
+```
+
+```plaintext
+make
+```
+
+```plaintext
+target_link_libraries(${PROJECT_NAME} Nova)
+```
+
+```plaintext
+add_subdirectory(${CMAKE_SOURCE_DIR}/NovaEngine)
+```
+
+```plaintext
+./nova_example
+```
+
+```plaintext
+mkdir build
+cd build
+cmake .. -DNOVA_BUILD_EXAMPLE=1
+make -j
+```
+
+```plaintext
+cd NovaEngine
+git submodule update --init --recursive
+```
+
+```plaintext
+git clone https://github.com/Tellcode1/NovaEngine.git
+```
+
+### TODO
+
+*   Add support for a glyph table for unicode characters and fast indexing
+*   Add multithreading support for all standard containers
+    *   Also fix inconsistencies of deviating from size\_t
+*   Remove stupid things from the code like ctext labels, err.h, cvar.h or whatever
+*   Add the m\_ prefix to ALL member variables and adopt a good coding standard
+    *   (Possibly?) Add a clang-tidy that doesn't destroy the codebase
+*   Break core.c into two files: core.c and ext.c, the latter containing the common/ sources

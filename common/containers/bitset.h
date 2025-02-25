@@ -21,9 +21,9 @@ nv_bitset_bit nv_bitset_access_bit(nv_bitset_t* set, int bitindex);
 
 struct nv_bitset_t
 {
-  u8*             data;
-  size_t          size;
-  nv_allocator_t* allocator;
+  u8*             m_data;
+  size_t          m_size;
+  nv_allocator_t* m_alloc;
 };
 
 NOVA_HEADER_END

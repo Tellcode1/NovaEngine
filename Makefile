@@ -32,7 +32,7 @@ BUILD_TEST ?= false
 
 CORE_SOURCE = src/core.c
 
-.PHONY: clean clean-all all
+.PHONY: clean clean-all all run
 
 all: $(BUILD_DIR)/nova_example $(NVSM_BINARY) $(FONTC_BINARY)
 	cp -r Assets/ $(BUILD_DIR)
@@ -41,6 +41,7 @@ test: $(BUILD_DIR)/nova_string_test
 	$(BUILD_DIR)/nova_string_test
 
 run: $(BUILD_DIR)/nova_example
+	cd $(BUILD_DIR) && ./nova_example
 	
 $(BUILD_DIR)/nova_example: $(BOX2D_LIB) $(VOLK_LIB) $(PCH) $(CORE) $(OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) -o $@ $(CORE) $(OBJECTS) $(LIBS) $(LIB_FREETYPE) $(LIB_SDL) $(LIB_VULKAN) $(LIBS_MODULE) -DNVSM=1 -DFONTC=1

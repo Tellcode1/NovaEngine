@@ -11,17 +11,18 @@ NOVA_HEADER_START
 typedef struct nv_hashmap_t      nv_hashmap_t;
 typedef struct nv_hashmap_node_t nv_hashmap_node_t;
 
-typedef unsigned (*nv_hashmap_hash_fn)(const void* bytes, int nbytes);
-typedef bool (*nv_hashmap_key_equal_fn)(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, unsigned long keysize);
+typedef unsigned (*nv_hashmap_hash_fn)(const void* bytes, size_t nbytes);
+typedef bool (*nv_hashmap_key_equal_fn)(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, size_t keysize);
 
 static inline unsigned
-nv_hashmap_std_hash(const void* bytes, int nbytes)
+nv_hashmap_std_hash(const void* bytes, size_t nbytes)
 {
-  const unsigned       FNV_PRIME    = 16777619;
-  const unsigned       OFFSET_BASIS = 2166136261;
-  const unsigned char* read         = (unsigned char*)bytes;
-  unsigned             hash         = OFFSET_BASIS;
-  for (int byte = 0; byte < nbytes; byte++)
+  const unsigned FNV_PRIME    = 16777619;
+  const unsigned OFFSET_BASIS = 2166136261;
+
+  const unsigned char* read = (unsigned char*)bytes;
+  unsigned             hash = OFFSET_BASIS;
+  for (size_t byte = 0; byte < nbytes; byte++)
   {
     hash ^= read[byte]; // xor
     hash *= FNV_PRIME;
@@ -30,7 +31,7 @@ nv_hashmap_std_hash(const void* bytes, int nbytes)
 }
 
 static inline bool
-nv_hashmap_std_key_eq(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, unsigned long nbytes)
+nv_hashmap_std_key_eq(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2, size_t nbytes)
 {
   return nv_memcmp(key1, key2, nbytes) == 0;
 }
@@ -39,12 +40,12 @@ nv_hashmap_std_key_eq(const void* NV_RESTRICT key1, const void* NV_RESTRICT key2
     hash_fn may be NULL for the standard FNV-1A function.
     equal_fn may also be NULL for standard memcmp == 0
 */
-extern void
-nv_hashmap_init(int init_size, int keysize, int valuesize, nv_hashmap_hash_fn hash_fn, nv_hashmap_key_equal_fn equal_fn, nv_allocator_t* allocator, nv_hashmap_t* dst);
+extern void nv_hashmap_init(
+    size_t init_size, size_t keysize, size_t valuesize, nv_hashmap_hash_fn hash_fn, nv_hashmap_key_equal_fn equal_fn, nv_allocator_t* allocator, nv_hashmap_t* dst);
 
 extern void nv_hashmap_destroy(nv_hashmap_t* map);
 
-extern void nv_hashmap_resize(nv_hashmap_t* map, int new_size);
+extern void nv_hashmap_resize(nv_hashmap_t* map, size_t new_size);
 
 extern void nv_hashmap_clear(nv_hashmap_t* map);
 
@@ -86,20 +87,18 @@ struct nv_hashmap_node_t
   void* key;
   void* value;
   bool  is_occupied;
-  char  padding[7];
 };
 
 struct nv_hashmap_t
 {
+  unsigned                m_canary;
+  pthread_mutex_t         m_mutex;
   nv_hashmap_node_t**     m_nodes;
   nv_hashmap_hash_fn      m_hash_fn;
   nv_hashmap_key_equal_fn m_equal_fn;
   size_t                  m_entries, m_size;
   size_t                  m_key_size, m_value_size;
-  pthread_mutex_t         m_mutex;
-  nv_allocator_t*         allocator;
-  unsigned                m_canary;
-  char                    padding[4];
+  nv_allocator_t*         m_alloc;
 };
 
 NOVA_HEADER_END

@@ -28,24 +28,24 @@ typedef struct nv_allocator_heap  nv_allocator_heap;
 // stack allocator functions.
 extern void nv_allocator_stack_init(nv_allocator_stack* allocator, unsigned char* buf, size_t available);
 
-extern void* saalloc(nv_allocator_t* parent, size_t alignment, size_t size);
-extern void* sacalloc(nv_allocator_t* parent, size_t alignment, size_t size);
-extern void* sarealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size);
-extern void  safree(nv_allocator_t* parent, void* block);
+extern void* nv_stack_alloc(nv_allocator_t* parent, size_t alignment, size_t size);
+extern void* nv_stack_calloc(nv_allocator_t* parent, size_t alignment, size_t size);
+extern void* nv_stack_realloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size);
+extern void  nv_stack_free(nv_allocator_t* parent, void* block);
 
 // malloc, calloc, realloc, free
-extern void* heapalloc(nv_allocator_t* parent, size_t alignment, size_t size);
-extern void* heapcalloc(nv_allocator_t* parent, size_t alignment, size_t size);
-extern void* heaprealloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size);
-extern void  heapfree(nv_allocator_t* parent, void* block);
+extern void* nv_heap_alloc(nv_allocator_t* parent, size_t alignment, size_t size);
+extern void* nv_heap_calloc(nv_allocator_t* parent, size_t alignment, size_t size);
+extern void* nv_heap_realloc(nv_allocator_t* parent, void* prevblock, size_t alignment, size_t size);
+extern void  nv_heap_free(nv_allocator_t* parent, void* block);
 
 // custom mmap based heap allocator.
 extern void nv_allocator_heap_init(nv_allocator_heap* pool);
 
-extern void* poolmalloc(nv_allocator_t* allocator, size_t alignment, size_t size);
-extern void* poolcalloc(nv_allocator_t* allocator, size_t alignment, size_t size);
-extern void* poolrealloc(nv_allocator_t* allocator, void* prevblock, size_t alignment, size_t size);
-extern void  poolfree(nv_allocator_t* allocator, void* block);
+extern void* nv_pool_malloc(nv_allocator_t* allocator, size_t alignment, size_t size);
+extern void* nv_pool_calloc(nv_allocator_t* allocator, size_t alignment, size_t size);
+extern void* nv_pool_realloc(nv_allocator_t* allocator, void* prevblock, size_t alignment, size_t size);
+extern void  nv_pool_free(nv_allocator_t* allocator, void* block);
 
 typedef void* (*nv_allocator_alloc_fn)(nv_allocator_t* allocator, size_t alignment, size_t size);
 typedef void* (*nv_allocator_calloc_fn)(nv_allocator_t* allocator, size_t alignment, size_t size);
@@ -80,20 +80,20 @@ struct nv_allocator_heap
 static inline void
 nv_allocator_bind_stack_allocator(nv_allocator_t* allocator, nv_allocator_stack* stack)
 {
-  allocator->alloc   = saalloc;
-  allocator->calloc  = sacalloc;
-  allocator->realloc = sarealloc;
-  allocator->free    = safree;
+  allocator->alloc   = nv_stack_alloc;
+  allocator->calloc  = nv_stack_calloc;
+  allocator->realloc = nv_stack_realloc;
+  allocator->free    = nv_stack_free;
   allocator->context = stack;
 }
 
 static inline void
 nv_allocator_bind_heap_allocator(nv_allocator_t* allocator, nv_freelist_t* list)
 {
-  allocator->alloc   = poolmalloc;
-  allocator->calloc  = poolcalloc;
-  allocator->realloc = poolrealloc;
-  allocator->free    = poolfree;
+  allocator->alloc   = nv_pool_malloc;
+  allocator->calloc  = nv_pool_calloc;
+  allocator->realloc = nv_pool_realloc;
+  allocator->free    = nv_pool_free;
   allocator->context = list;
 }
 

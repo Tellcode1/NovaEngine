@@ -14,7 +14,7 @@ struct nv_string_t
   size_t          m_size;
   size_t          m_capacity;
   pthread_mutex_t m_mutex;
-  nv_allocator_t* allocator;
+  nv_allocator_t* m_alloc;
 };
 
 /*

@@ -178,14 +178,14 @@ fontc_read_font(const char* path, fontc_file_t* file)
     goto CLEANUP;
   }
 
-  if (nv_bufdecompress(compressed_glyphs, file->header.glyphs_compressed_sz, file->glyphs, total_glyph_size) < 0)
+  if (nv_bufdecompress(compressed_glyphs, file->header.glyphs_compressed_sz, file->glyphs, total_glyph_size) == 0)
   {
     retcode = FONTC_DECOMPRESSION_FAILED;
     nv_push_error("decompression_failed");
     goto CLEANUP;
   }
 
-  if (nv_bufdecompress(compressed_bitmap, file->header.img_compressed_sz, file->bitmap, bitmap_size) < 0)
+  if (nv_bufdecompress(compressed_bitmap, file->header.img_compressed_sz, file->bitmap, bitmap_size) == 0)
   {
     retcode = FONTC_DECOMPRESSION_FAILED;
     nv_push_error("decompression_failed");
@@ -240,7 +240,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
 
   *out_file = nv_zero_init(fontc_file_t);
   nv_texture_atlas_t atlas;
-  nv_texture_atlas_init(&atlas, init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4);
+  nv_texture_atlas_init(init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4, &atlas);
 
   out_file->header.line_height = -face->size->metrics.height / (flt_t)face->height;
 
@@ -258,7 +258,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   omp_set_num_threads(num_threads);
   nv_log_info("Using %i threads", num_threads);
 
-  faces = nv_malloc(sizeof(FT_Face) * num_threads);
+  faces = nv_calloc(sizeof(FT_Face) * num_threads);
   if (!faces)
   {
     nv_push_error("malloc faces failed");
@@ -313,7 +313,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
       if (buffer)
       {
 #pragma omp critical
-        if (!nv_texture_atlas_add(&atlas, &(nv_image_t){ .w = w, .h = h, .fmt = NOVA_FORMAT_R8, .data = (unsigned char*)buffer }, &x, &y))
+        if (!nv_texture_atlas_add(&atlas, &(nv_image_t){ .m_width = w, .m_height = h, .m_format = NOVA_FORMAT_R8, .m_data = (unsigned char*)buffer }, &x, &y))
         {
           nv_push_error("Atlas error");
 #pragma omp atomic write
@@ -355,11 +355,11 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
     FT_Done_Face(faces[i]);
   }
 
-  nv_log_info("final atlas size w=%i h=%i (uncompressed %b)", atlas.w, atlas.h, atlas.w * atlas.h * nv_format_get_bytes_per_pixel(atlas.fmt));
+  nv_log_info("final atlas size w=%i h=%i (uncompressed %b)", atlas.m_width, atlas.m_height, atlas.m_width * atlas.m_height * nv_format_get_bytes_per_pixel(atlas.m_format));
 
   nv_texture_atlas_finish(&atlas);
 
-  const flt_t atlas_w = atlas.w, atlas_h = atlas.h;
+  const flt_t atlas_w = atlas.m_width, atlas_h = atlas.m_height;
   const flt_t units_per_em = (flt_t)face->units_per_EM;
   if (atlas_w == 0.0 || atlas_h == 0.0)
   {
@@ -388,10 +388,11 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   out_file->header.bmpheight = atlas_h;
   out_file->header.numglyphs = glyph_count;
 
-  size_t image_size                     = atlas.w * atlas.h * nv_format_get_bytes_per_pixel(atlas.fmt);
+  size_t image_size                     = atlas.m_width * atlas.m_height * nv_format_get_bytes_per_pixel(atlas.m_format);
   size_t glyphs_size                    = out_file->header.numglyphs * sizeof(fontc_glyph_t);
   out_file->header.img_compressed_sz    = image_size; // uncompressed size stored here for cache
   out_file->header.glyphs_compressed_sz = glyphs_size;
+  out_file->header.pixel_size           = pixel_size;
 
   out_file->glyphs = glyphs;
   glyphs           = NULL;
@@ -403,7 +404,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
     retcode = FONTC_MEMORY_ALLOCATION_FAILED;
     goto CLEANUP_AND_RETURN;
   }
-  nv_memcpy(atlas_image, atlas.data, image_size);
+  nv_memcpy(atlas_image, atlas.m_data, image_size);
   out_file->bitmap = atlas_image;
 
   out_file->header.magic  = FONTC_MAGIC;
@@ -532,7 +533,7 @@ fontc_clean_font_file(fontc_file_t* file)
 }
 
 fontc_err_t
-fontc_load_font(const char* font_source_path, fontc_file_t* font_file)
+fontc_load_font(const char* font_source_path, int pixel_size, fontc_file_t* font_file)
 {
   nv_assert_and_ret(font_source_path != NULL, FONTC_INVALID_ARGUMENT);
   nv_assert_and_ret(font_file != NULL, FONTC_INVALID_ARGUMENT);
@@ -543,10 +544,10 @@ fontc_load_font(const char* font_source_path, fontc_file_t* font_file)
 
   *font_file = nv_zero_init(fontc_file_t);
 
-  if (fontc_read_font(buf, font_file) != FONTC_SUCCESS)
+  if (fontc_read_font(buf, font_file) != FONTC_SUCCESS || font_file->header.pixel_size != pixel_size)
   {
     nv_log_info("font file %s read failed. baking...", buf);
-    fontc_err_t retcode = fontc_bake_font_to_cache(font_source_path, 256, 1024, 1024, 4, font_file);
+    fontc_err_t retcode = fontc_bake_font_to_cache(font_source_path, pixel_size, 1024, 1024, 8, font_file);
     fontc_write_font_file(buf, font_file);
     return retcode;
   }

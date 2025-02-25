@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")" || exit 1
 
-DIRS=("src" "include" "std" "common")
+DIRS=("src" "include" "std" "common" "ssl")
 EXTS=("*.c" "*.h" "*.cpp" "*.hpp")
 
 for dir in "${DIRS[@]}"; do

@@ -23,6 +23,8 @@
 // Write all the glyph vertices to the GPU
 // Index them and render them as needed...
 
+// why does the above text sound like an andrew tate quote
+
 NOVA_HEADER_START
 
 // DEPRECATE THIS YOU FOOL
@@ -57,15 +59,6 @@ ctext_hash(const void* key, int nbytes)
   (void)nbytes;
   return *(char*)key;
 }
-
-extern ctext_label_t* ctext_create_label(nv_scene_t* scene, cfont_t* fnt);
-extern void           ctext_destroy_label(ctext_label_t* label);
-
-extern nv_object* ctext_label_get_object(const ctext_label_t* label);
-extern void       ctext_label_set_text(ctext_label_t* label, const char* text);
-extern void       ctext_label_set_horizontal_align(ctext_label_t* label, ctext_hori_align h_align);
-extern void       ctext_label_set_vertical_align(ctext_label_t* label, ctext_vert_align v_align);
-extern void       ctext_label_set_text_scale(ctext_label_t* label, flt_t scale);
 
 // Initializes the text renderer for ONLY that renderer
 extern void ctext_init(struct nv_renderer_t* rd);
@@ -141,14 +134,16 @@ struct cfont_t
 static inline ctext_text_render_info_t
 ctext_init_text_render_info()
 {
-  return (ctext_text_render_info_t){ .model         = m4finit(1.0f),
-                                     .horizontal    = CTEXT_HORI_ALIGN_CENTER,
-                                     .vertical      = CTEXT_VERT_ALIGN_CENTER,
-                                     .color         = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
-                                     .position      = (vec3f){ 0.0f, 0.0f, 0.0f },
-                                     .scale         = 1.0f,
-                                     .bbox          = nv_zero_init(vec2),
-                                     .scale_for_fit = 0 };
+  return (ctext_text_render_info_t){
+    .model         = m4finit(1.0f),
+    .horizontal    = CTEXT_HORI_ALIGN_CENTER,
+    .vertical      = CTEXT_VERT_ALIGN_CENTER,
+    .color         = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
+    .position      = (vec3f){ 0.0f, 0.0f, 0.0f },
+    .scale         = 1.0f,
+    .bbox          = nv_zero_init(vec2),
+    .scale_for_fit = 0,
+  };
 }
 
 NOVA_HEADER_END
