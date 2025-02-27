@@ -1,6 +1,6 @@
 CC = clang
 
-CFLAGS = -g -Wall -Wextra -Werror -pthread -std=c99 -Wno-typedef-redefinition
+CFLAGS = -g -Wall -Wextra -Werror -pthread -std=c99 -Wno-typedef-redefinition -fopenmp
 LDFLAGS = -g -std=c99
 
 BUILD_DIR ?= build
@@ -11,8 +11,8 @@ LIB_SDL = $(shell pkg-config --libs sdl2)
 LIB_VULKAN = $(shell pkg-config --libs vulkan)
 
 LIBS_EXTERNAL = freetype2 sdl2 vulkan
-INCL = -include-pch $(PCH) $(shell pkg-config --cflags freetype2 sdl2 vulkan) 
-LIBS = -ljpeg -lpng -lz -lm -lomp
+INCL = -include-pch $(PCH)  $(shell pkg-config --cflags freetype2 sdl2 vulkan) 
+LIBS = -ljpeg -lpng -lz -lm
 LIBS_MODULE = -L$(VOLK_BUILD_DIR) -L$(BOX2D_BUILD_DIR) -lvolk -lbox2d
 CORE = $(BUILD_DIR)/core.o
 
@@ -25,8 +25,8 @@ VOLK_BUILD_DIR = $(BUILD_DIR)/volk
 BOX2D_LIB = $(BOX2D_BUILD_DIR)/libbox2d.a
 VOLK_LIB = $(VOLK_BUILD_DIR)/libvolk.a
 
-SOURCES = src/engine.c src/main.c src/fontc.c src/nvsm.c src/vk.c
-OBJECTS = $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
+SOURCES = src/engine.c src/main.c src/fontc.c src/nvsm.c src/vk.c ssl/ssl.c
+OBJECTS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(SOURCES)))
 
 BUILD_TEST ?= false
 
@@ -43,23 +43,23 @@ test: $(BUILD_DIR)/nova_string_test
 run: $(BUILD_DIR)/nova_example
 	cd $(BUILD_DIR) && ./nova_example
 	
-$(BUILD_DIR)/nova_example: $(BOX2D_LIB) $(VOLK_LIB) $(PCH) $(CORE) $(OBJECTS)
+$(BUILD_DIR)/nova_example: $(PCH) $(BOX2D_LIB) $(VOLK_LIB) $(CORE) $(OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) -o $@ $(CORE) $(OBJECTS) $(LIBS) $(LIB_FREETYPE) $(LIB_SDL) $(LIB_VULKAN) $(LIBS_MODULE) -DNVSM=1 -DFONTC=1
 
 $(BUILD_DIR)/nova_string_test: $(PCH) $(CORE) src/test.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) src/test.c -o $@ $(CORE) $(LIBS)
 
-$(BUILD_DIR)/%.o: src/%.c $(PCH)
-	$(CC) $(CFLAGS) $(INCL) -c $< -o $@
+$(BUILD_DIR)/%.o: $(PCH) $(SOURCES) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCL) -c $(filter %/$*.c, $(SOURCES)) -o $@
 
-$(CORE): $(CORE_SOURCE) $(PCH)
+$(CORE): $(PCH) $(CORE_SOURCE)
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) -c $< -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) -c $(CORE_SOURCE) -o $@
 
-$(NVSM_BINARY): $(CORE) $(PCH) src/nvsm.c
+$(NVSM_BINARY): $(PCH) $(CORE) src/nvsm.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) $(LIBS) $(CORE) src/nvsm.c -DNVSM=1 -DNVSM_EXECUTABLE=1 -o $@
 
-$(FONTC_BINARY): $(CORE) $(PCH) src/fontc.c
+$(FONTC_BINARY): $(PCH) $(CORE) src/fontc.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) $(LIBS) $(LIB_FREETYPE) $(CORE) src/fontc.c -DFONTC=1 -DFONTC_EXECUTABLE=1 -o $@
 
 $(BOX2D_LIB):
@@ -78,9 +78,13 @@ $(PCH): std/stdafx.h
 
 clean:
 	rm -f $(PCH) $(CORE) $(BUILD_DIR)/nvsm $(BUILD_DIR)/fontc $(BUILD_DIR)/nova_example
+	rm -rf $(BUILD_DIR)
 
 clean-all: clean
 	rm -rf $(BUILD_DIR)/volk $(BUILD_DIR)/box2d
 
 format:
 	./format.sh
+
+tidy:
+	./tidy.sh

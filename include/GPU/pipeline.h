@@ -7,6 +7,7 @@
 
 #include "../../std/print.h"
 #include "../../std/stdafx.h"
+#include "../../std/string.h"
 #include "../engine/renderer.h"
 #include "vk.h"
 #include "vkstdafx.h"
@@ -45,7 +46,9 @@ static void
 _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
 {
   if (result == VK_SUCCESS)
+  {
     return;
+  }
 
   struct tm* time = _nv_get_time();
 
@@ -73,9 +76,13 @@ static inline void
 nv_gpu_set_result_check_fn(nv_gpu_result_check_fn func)
 {
   if (func != NULL)
+  {
     _nvvk_result_fn = func;
+  }
   else
-    func = _nvvk_default_result_check_fn;
+  {
+    _nvvk_result_fn = _nvvk_default_result_check_fn;
+  }
 }
 
 extern u32 nv_GPU_vk_flag_register;
@@ -92,19 +99,19 @@ typedef struct nv_gpu_pipeline_blend_state    nv_gpu_pipeline_blend_state;
 
 struct nv_vk_pipeline
 {
-  VkPipeline       pipeline;
-  VkPipelineLayout pipeline_layout;
+  VkPipeline       m_pipeline;
+  VkPipelineLayout m_pipeline_layout;
 
   // The common descriptor set layout.
-  VkDescriptorSetLayout descriptor_layout;
+  VkDescriptorSetLayout m_descriptor_layout;
 };
 
 struct nv_baked_pipelines
 {
-  nv_vk_pipeline Unlit;
-  nv_vk_pipeline Lit;
-  nv_vk_pipeline Ctext;
-  nv_vk_pipeline Line; // Draws lines. Yep.
+  nv_vk_pipeline m_unlit;
+  nv_vk_pipeline m_lit;
+  nv_vk_pipeline m_ctext;
+  nv_vk_pipeline m_line; // Draws lines. Yep.
 };
 extern nv_baked_pipelines g_Pipelines;
 
@@ -121,77 +128,77 @@ typedef enum nv_gpu_pipeline_blend_preset
 
 struct nv_gpu_pipeline_blend_state
 {
-  VkBlendFactor         srcColorBlendFactor;
-  VkBlendFactor         dstColorBlendFactor;
-  VkBlendOp             colorBlendOp;
-  VkBlendFactor         srcAlphaBlendFactor;
-  VkBlendFactor         dstAlphaBlendFactor;
-  VkBlendOp             alphaBlendOp;
-  VkColorComponentFlags colorWriteMask;
+  VkBlendFactor         m_src_color_blend_factor;
+  VkBlendFactor         m_dst_color_blend_factor;
+  VkBlendOp             m_color_blend_op;
+  VkBlendFactor         m_src_alpha_blend_factor;
+  VkBlendFactor         m_dst_alpha_blend_factor;
+  VkBlendOp             m_alpha_blend_op;
+  VkColorComponentFlags m_color_write_mask;
 };
 
 struct nv_gpu_pipeline_create_info
 {
-  VkRenderPass        render_pass;
-  VkPipelineLayout    pipeline_layout;
-  VkExtent2D          extent;
-  nv_format           format;
-  u64                 subpass;
-  VkPipeline          old_pipeline;
-  VkPipelineCache     cache;
-  VkPrimitiveTopology topology;
+  VkRenderPass        m_render_pass;
+  VkPipelineLayout    m_pipeline_layout;
+  VkExtent2D          m_extent;
+  nv_format           m_format;
+  u64                 m_subpass;
+  VkPipeline          m_old_pipeline;
+  VkPipelineCache     m_cache;
+  VkPrimitiveTopology m_topology;
 
   /* EXTENSIONS */
 
   // Ignored if flags does not contain PIPELINE_CREATE_FLAGS_ENABLE_MULTISAMPLING
-  VkSampleCountFlagBits samples;
+  VkSampleCountFlagBits m_samples;
 
   // Ignored if flags does not contain PIPELINE_CREATE_FLAGS_ENABLE_BLEND
-  const nv_gpu_pipeline_blend_state* blend_state;
+  const nv_gpu_pipeline_blend_state* m_blend_state;
 
   //	Array pointers are allowed to be NULL
-  const VkVertexInputAttributeDescription* pAttributeDescriptions;
-  const VkVertexInputBindingDescription*   pBindingDescriptions;
-  const VkDescriptorSetLayout*             pDescriptorLayouts;
-  const VkPushConstantRange*               pPushConstants;
-  const struct nvsm_shader_t* const*       pShaders;
+  const VkVertexInputAttributeDescription* m_p_attribute_descriptions;
+  const VkVertexInputBindingDescription*   m_p_binding_descriptions;
+  const VkDescriptorSetLayout*             m_p_descriptor_layouts;
+  const VkPushConstantRange*               m_p_push_constants;
+  const struct nvsm_shader_t* const*       m_p_shaders;
 
-  int nAttributeDescriptions;
-  int nBindingDescriptions;
-  int nDescriptorLayouts;
-  int nPushConstants;
-  int nShaders;
+  int m_n_attribute_descriptions;
+  int m_n_binding_descriptions;
+  int m_n_descriptor_layouts;
+  int m_n_push_constants;
+  int m_n_shaders;
 };
 
 struct nv_gpu_swapchain_create_info
 {
-  VkExtent2D       extent;
-  VkPresentModeKHR present_mode;
-  u64              image_count;
-  nv_format        format;
-  VkColorSpaceKHR  color_space;
-  VkSwapchainKHR   old_swapchain;
+  VkExtent2D       m_extent;
+  VkPresentModeKHR m_present_mode;
+  u64              m_image_count;
+  nv_format        m_format;
+  VkColorSpaceKHR  m_color_space;
+  VkSwapchainKHR   m_old_swapchain;
 };
 
 struct nv_gpu_render_pass_create_info
 {
-  u64       subpass;
-  nv_format format;
-  nv_format depthBufferFormat;
+  u64       m_subpass;
+  nv_format m_format;
+  nv_format m_depth_buffer_format;
 
   // Ignored if flags does not contain PIPELINE_CREATE_FLAGS_ENABLE_MULTISAMPLING
-  VkSampleCountFlagBits samples;
+  VkSampleCountFlagBits m_samples;
 };
 
-extern nv_gpu_swapchain_create_info nv_gpu_init_swapchain_create_info();
+extern nv_gpu_swapchain_create_info nv_gpu_init_swapchain_create_info(void);
 extern nv_gpu_pipeline_blend_state  nv_gpu_init_pipeline_blend_state(nv_gpu_pipeline_blend_preset preset);
 #define nv_gpu_init_pipeline_create_info()                                                                                                                                    \
-  (nv_gpu_pipeline_create_info) { .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .samples = VK_SAMPLE_COUNT_1_BIT }
+  (nv_gpu_pipeline_create_info) { .m_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .m_samples = VK_SAMPLE_COUNT_1_BIT }
 #define nv_gpu_init_render_pass_create_info()                                                                                                                                 \
-  (nv_gpu_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
+  (nv_gpu_render_pass_create_info) { .m_samples = VK_SAMPLE_COUNT_1_BIT }
 
 extern void nv_vk_bake_global_pipelines(nv_renderer_t* rd);
-extern void nv_vk_destroy_global_pipelines();
+extern void nv_vk_destroy_global_pipelines(void);
 
 extern void nv_gpu_create_graphics_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
 extern void nv_gpu_create_depth_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);

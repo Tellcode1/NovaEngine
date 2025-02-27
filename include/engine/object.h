@@ -7,16 +7,17 @@
 #include "../../std/math/vec4.h"
 #include "collider.h"
 #include "sprite_renderer.h"
+#include "renderer.h"
 
 NOVA_HEADER_START
 
 typedef struct nv_transform
 {
-  vec2 position, size;
-  vec4 rotation;
+  vec2 m_position, m_size;
+  vec4 m_rotation;
 } nv_transform;
 
-typedef void (*nv_object_update_fn)(flt_t dt);
+typedef void (*nv_object_update_fn)(real_t dt);
 typedef void (*nv_object_render_fn)(nv_renderer_t* rd);
 typedef struct nv_object nv_object;
 

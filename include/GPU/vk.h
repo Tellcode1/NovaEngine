@@ -3,9 +3,7 @@
 
 // implementation: vk.c
 
-#include "../../common/containers/dynarray.h"
 #include "../../common/format.h"
-#include "../../common/mem.h"
 #include "../../external/volk/volk.h"
 #include "../../std/stdafx.h"
 
@@ -33,19 +31,19 @@ extern void nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size);
 extern VkCommandBuffer nv_vk_begin_command_buffer_from(VkCommandBuffer src);
 
 /* BeginSingleTimeCommands(new CommandBuffer) */
-extern VkCommandBuffer nv_vk_begin_command_buffer();
+extern VkCommandBuffer nv_vk_begin_command_buffer(void);
 
 /* WARNING: waitForExecution = false implies you take responsibility of freeing the commandBuffer! */
 extern VkResult nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecution);
 
-extern void nv_vk_stage_image_transfer(VkImage dst, const void* data, int width, int height, int image_size);
+extern void nv_vk_stage_image_transfer(VkImage dst, const void* data, size_t width, size_t height, size_t image_size);
 
 extern void nv_vk_create_texture_from_memory(u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern u8* nv_vk_create_texture_from_disk(const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern void nv_vk_create_texture_empty(
-    u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, int* image_size, VkImage* dst, VkDeviceMemory* dstMem);
+    u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, size_t* image_size, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern void nv_vk_transition_texture_layout(
     VkCommandBuffer       cmd,

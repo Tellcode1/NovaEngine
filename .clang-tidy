@@ -1,0 +1,27 @@
+Checks: >
+  -*,
+  clang-analyzer-*,
+  cppcoreguidelines-pro-type-member-init,
+  modernize-loop-convert,
+  modernize-pass-by-value,
+  modernize-return-braced-init-list,
+  performance-for-range-copy,
+  performance-unnecessary-value-param,
+  performance-inefficient-string-concatenation,
+  bugprone-branch-clone,
+  bugprone-narrowing-conversions,
+  bugprone-suspicious-string-compare,
+  readability-identifier-naming,
+  readability-simplify-boolean-expr,
+  readability-braces-around-statements,
+  readability-implicit-bool-conversion,
+  hicpp-special-member-functions,
+  misc-unused-parameters
+
+CheckOptions:
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberPrefix: m_
+  readability-simplify-boolean-expr.IncludeStyle: llvm
+  readability-braces-around-statements.ShortStatementLines: 1
+  modernize-use-auto.MinTypeNameLength: 5
+  modernize-use-override.CheckSpelling: true

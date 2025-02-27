@@ -23,18 +23,18 @@ typedef uint32_t nv_gpu_buffer_type;
 
 typedef struct nv_gpu_buffer_t
 {
-  struct VkBuffer_T* buffer;
-  void*              mapping; // For nv_gpu_write_to_buffer()
-  bool               is_mapped;
+  struct VkBuffer_T* m_buffer;
+  void*              m_mapping; // For nv_gpu_write_to_buffer()
+  bool               m_is_mapped;
   // The size of the buffer
   // Even if there are multiple children, this gives only the size of ONE buffer
-  size_t             size, offset;
-  int                alignment;
-  nv_gpu_memory_t*   memory;
-  nv_gpu_buffer_type type;
+  size_t             m_size, m_offset;
+  size_t             m_alignment;
+  nv_gpu_memory_t*   m_memory;
+  nv_gpu_buffer_type m_type;
 } nv_gpu_buffer_t;
 
-extern void nv_gpu_create_buffer(size_t size, int alignment, uint32_t usage, nv_gpu_buffer_t* dst);
+extern void nv_gpu_create_buffer(size_t size, size_t alignment, uint32_t usage, nv_gpu_buffer_t* dst);
 extern void nv_gpu_destroy_buffer(nv_gpu_buffer_t* buffer);
 
 // Open the buffer for writing.
@@ -52,7 +52,7 @@ extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, const v
 // and then multiplying it with the count.
 extern void nv_gpu_bind_buffer_to_memory(nv_gpu_memory_t* mem, size_t offset, nv_gpu_buffer_t* buffer);
 
-extern int nv_gpu_get_buffer_size(const nv_gpu_buffer_t* buffer);
+extern size_t nv_gpu_get_buffer_size(const nv_gpu_buffer_t* buffer);
 
 // dest must be atleast the size of the buffer
 extern void nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* dest);

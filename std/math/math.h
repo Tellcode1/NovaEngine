@@ -31,21 +31,21 @@ static const real_t NVM_RAD2DEG_CONSTANT = 57.29577951308232;    // 1.0 / DEG2RA
 typedef struct nvm_rect2d
 {
   // The CENTER of the rect
-  vec2 position;
-  vec2 size;
+  vec2 m_position;
+  vec2 m_size;
 } nvm_rect2d;
 
 static inline bool
 nvm_aabb(const nvm_rect2d* r1, const nvm_rect2d* r2)
 {
-  const vec2 r1_half_size = v2muls(r1->size, 0.5f);
-  const vec2 r2_half_size = v2muls(r2->size, 0.5f);
+  const vec2 r1_half_size = v2muls(r1->m_size, 0.5f);
+  const vec2 r2_half_size = v2muls(r2->m_size, 0.5f);
 
-  const vec2 r1_min = v2sub(r1->position, r1_half_size);
-  const vec2 r1_max = v2add(r1->position, r1_half_size);
+  const vec2 r1_min = v2sub(r1->m_position, r1_half_size);
+  const vec2 r1_max = v2add(r1->m_position, r1_half_size);
 
-  const vec2 r2_min = v2sub(r2->position, r2_half_size);
-  const vec2 r2_max = v2add(r2->position, r2_half_size);
+  const vec2 r2_min = v2sub(r2->m_position, r2_half_size);
+  const vec2 r2_max = v2add(r2->m_position, r2_half_size);
 
   const bool overlaps_x = r1_max.x > r2_min.x && r1_min.x < r2_max.x;
   const bool overlaps_y = r1_max.y > r2_min.y && r1_min.y < r2_max.y;
@@ -57,10 +57,10 @@ nvm_aabb(const nvm_rect2d* r1, const nvm_rect2d* r2)
 static inline bool
 nvm_is_point_inside_rect(const vec2* point, const nvm_rect2d* r)
 {
-  const vec2 r_half_size = v2muls(r->size, 0.5f);
+  const vec2 r_half_size = v2muls(r->m_size, 0.5f);
 
-  const vec2 r_min = v2sub(r->position, r_half_size);
-  const vec2 r_max = v2add(r->position, r_half_size);
+  const vec2 r_min = v2sub(r->m_position, r_half_size);
+  const vec2 r_max = v2add(r->m_position, r_half_size);
 
   const bool overlaps_x = r_max.x > point->x && r_min.x < point->x;
   const bool overlaps_y = r_max.y > point->y && r_min.y < point->y;

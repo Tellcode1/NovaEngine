@@ -2,11 +2,7 @@
 #include "../include/engine/ctext.h"
 #include "../include/engine/engine.h"
 #include "../include/engine/input.h"
-// #include "../include/engine/mesh.h"
 #include "../include/engine/shadermanager.h"
-// #include "../ssl/sslang.h"
-// #include "../std/async.h"
-#include "../ssl/ssl.h"
 #include "../std/print.h"
 #include "../std/props.h"
 #include "../std/stdafx.h"
@@ -49,13 +45,13 @@ main(int argc, char* argv[])
     nv_printf("%s\n", error);
   }
 
-  timer tm = timer_begin(0.1);
+  timer tm = nv_timer_begin(0.1);
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
   const nv_extent2d window_size = (nv_extent2d){ window_width, window_height };
 
-  nv_initialize_context(windowname, window_size.width, window_size.height);
+  nv_initialize_context(windowname, (int)window_size.m_width, (int)window_size.m_height);
 
   if (recompile_shaders)
   {
@@ -66,14 +62,14 @@ main(int argc, char* argv[])
     nvsm_compile_updated();
   }
 
-  nv_renderer_config rdconf   = nv_renderer_config_init();
-  rdconf.vsync_enabled        = 1;
-  rdconf.buffer_mode          = NOVA_BUFFER_MODE_TRIPLE_BUFFERED;
-  rdconf.window_resizable     = resizable_window;
-  rdconf.initial_window_size  = window_size;
-  rdconf.multisampling_enable = 0;
-  rdconf.samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
-  nv_renderer_t* rdr          = nv_renderer_init(&rdconf);
+  nv_renderer_config rdconf     = nv_renderer_config_init();
+  rdconf.m_vsync_enabled        = 1;
+  rdconf.m_buffer_mode          = NOVA_BUFFER_MODE_TRIPLE_BUFFERED;
+  rdconf.m_window_resizable     = resizable_window;
+  rdconf.m_initial_window_size  = window_size;
+  rdconf.m_multisampling_enable = 0;
+  rdconf.m_samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
+  nv_renderer_t* rdr            = nv_renderer_init(&rdconf);
 
   // If you're wondering why every Action has a +,
   // I want to create a resource system with info about everything like bindings
@@ -83,25 +79,22 @@ main(int argc, char* argv[])
   // when i get to it
   nv_input_init();
 
-  const flt_t updateTime = 3.0f; // seconds. 1.5f = 1.5 seconds
-  flt_t       totalTime  = 0.0f;
+  const real_t updateTime = 3.0; // seconds. 1.5f = 1.5 seconds
+  real_t       totalTime  = 0.0;
   u32         numFrames  = 0;
 
   cfont_t amongus;
 
   int curr_showing_fps = 0;
 
-  nv_log_info("Initialized in %fs", timer_time_since_start(&tm));
+  nv_log_info("Initialized in %fs", nv_timer_time_since_start(&tm));
 
   ctext_load_font(rdr, "Assets/roboto.ttf", 128, &amongus);
 
-  const char* errors = NULL;
   while (nv_running())
   {
-    while ((errors = nv_pop_error()))
-    {
-      nv_printf("%s\n", errors);
-    }
+    nv_flush_errors();
+
     nv_update();
     const real_t dt = nv_get_delta_time();
 
@@ -119,7 +112,7 @@ main(int argc, char* argv[])
     numFrames++;
     if (totalTime >= updateTime)
     {
-      curr_showing_fps = ceilf(numFrames / totalTime);
+      curr_showing_fps = ceil(numFrames / totalTime);
       nv_log_info("%i FPS %f MS/Frame", curr_showing_fps, (totalTime / (flt_t)(numFrames)));
       numFrames = 0;
       totalTime = 0.0;
@@ -134,10 +127,10 @@ main(int argc, char* argv[])
       size_t      year = time->tm_year + 1900;
 
       ctext_text_render_info_t clock_info = ctext_init_text_render_info();
-      clock_info.scale                    = 1.0;
-      clock_info.bbox                     = (vec2){ camera.ortho_size.x * 2.0f, camera.ortho_size.y * 2.0f };
-      clock_info.scale_for_fit            = 1;
-      ctext_render(&amongus, &clock_info, "%i %s %s %d\n%d:%d:%zu\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
+      clock_info.m_scale                  = 1.0F;
+      clock_info.m_bbox                   = (vec2){ camera.m_ortho_size.x * 2.0f, camera.m_ortho_size.y * 2.0f };
+      clock_info.m_scale_for_fit          = 1;
+      ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
 
       nv_renderer_end(rdr);
     }

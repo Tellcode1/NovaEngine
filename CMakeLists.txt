@@ -51,7 +51,7 @@ target_link_libraries(core jpeg png z OpenMP::OpenMP_C)
 add_executable(shadermanager src/nvsm.c)
 target_compile_definitions(shadermanager PRIVATE NVSM_EXECUTABLE=1)
 target_link_libraries(shadermanager m core)
-target_compile_options(shadermanager PRIVATE --fast-math -Wall -Wextra -pedantic)
+target_compile_options(shadermanager PRIVATE -ffast-math -Wall -Wextra -pedantic)
 
 add_executable(fontc src/fontc.c)
 target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)

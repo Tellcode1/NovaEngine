@@ -26,10 +26,10 @@ typedef enum nv_collider_shape
 
 typedef struct nv_collider_ray_hit
 {
-  const nv_collider_t* host;
-  nv_collider_t*       other;
-  vec2                 point_of_contact;
-  bool                 hit;
+  const nv_collider_t* m_host;
+  nv_collider_t*       m_other;
+  vec2                 m_point_of_contact;
+  bool                 m_hit;
 } nv_collider_ray_hit;
 
 // mask defines the layers that the collider can collide with

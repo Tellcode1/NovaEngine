@@ -13,10 +13,10 @@ NOVA_HEADER_START
 
 typedef struct nvsm_pipeline nvsm_pipeline;
 
-extern void nvsm_compile_updated();
-extern void nvsm_compile_all();
+extern void nvsm_compile_updated(void);
+extern void nvsm_compile_all(void);
 
-extern void nvsm_shutdown();
+extern void nvsm_shutdown(void);
 
 extern void        nvsm_set_list_file(const char* path);
 extern void        nvsm_set_shader_compiler(const char* exec);

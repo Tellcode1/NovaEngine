@@ -42,10 +42,10 @@ extern void  nv_heap_free(nv_allocator_t* parent, void* block);
 // custom mmap based heap allocator.
 extern void nv_allocator_heap_init(nv_allocator_heap* pool);
 
-extern void* nv_pool_malloc(nv_allocator_t* allocator, size_t alignment, size_t size);
-extern void* nv_pool_calloc(nv_allocator_t* allocator, size_t alignment, size_t size);
-extern void* nv_pool_realloc(nv_allocator_t* allocator, void* prevblock, size_t alignment, size_t size);
-extern void  nv_pool_free(nv_allocator_t* allocator, void* block);
+// extern void* nv_pool_malloc(nv_allocator_t* allocator, size_t alignment, size_t size);
+// extern void* nv_pool_calloc(nv_allocator_t* allocator, size_t alignment, size_t size);
+// extern void* nv_pool_realloc(nv_allocator_t* allocator, void* prevblock, size_t alignment, size_t size);
+// extern void  nv_pool_free(nv_allocator_t* allocator, void* block);
 
 typedef void* (*nv_allocator_alloc_fn)(nv_allocator_t* allocator, size_t alignment, size_t size);
 typedef void* (*nv_allocator_calloc_fn)(nv_allocator_t* allocator, size_t alignment, size_t size);
@@ -54,48 +54,48 @@ typedef void (*nv_allocator_free_fn)(nv_allocator_t* allocator, void* block);
 
 struct nv_allocator_t
 {
-  nv_allocator_alloc_fn   alloc;
-  nv_allocator_calloc_fn  calloc;
-  nv_allocator_realloc_fn realloc;
-  nv_allocator_free_fn    free;
-  void*                   context;
-  void*                   user_data;
+  nv_allocator_alloc_fn   m_alloc;
+  nv_allocator_calloc_fn  m_calloc;
+  nv_allocator_realloc_fn m_realloc;
+  nv_allocator_free_fn    m_free;
+  void*                   m_context;
+  void*                   m_user_data;
 };
 
 // malloc, realloc, free
-extern nv_allocator_t nv_allocator_default;
+extern struct nv_allocator_t* nv_allocator_get_default(void);
 
 struct nv_allocator_stack
 {
-  unsigned char* buf;
-  size_t         bufsiz;
-  size_t         bufoffset;
+  unsigned char* m_buf;
+  size_t         m_bufsiz;
+  size_t         m_bufoffset;
 };
 
 struct nv_allocator_heap
 {
-  nv_freelist_t freelist;
+  nv_freelist_t m_freelist;
 };
 
 static inline void
-nv_allocator_bind_stack_allocator(nv_allocator_t* allocator, nv_allocator_stack* stack)
+nv_allocator_bind_stack_allocator(struct nv_allocator_t* allocator, nv_allocator_stack* stack)
 {
-  allocator->alloc   = nv_stack_alloc;
-  allocator->calloc  = nv_stack_calloc;
-  allocator->realloc = nv_stack_realloc;
-  allocator->free    = nv_stack_free;
-  allocator->context = stack;
+  allocator->m_alloc   = nv_stack_alloc;
+  allocator->m_calloc  = nv_stack_calloc;
+  allocator->m_realloc = nv_stack_realloc;
+  allocator->m_free    = nv_stack_free;
+  allocator->m_context = stack;
 }
 
-static inline void
-nv_allocator_bind_heap_allocator(nv_allocator_t* allocator, nv_freelist_t* list)
-{
-  allocator->alloc   = nv_pool_malloc;
-  allocator->calloc  = nv_pool_calloc;
-  allocator->realloc = nv_pool_realloc;
-  allocator->free    = nv_pool_free;
-  allocator->context = list;
-}
+// static inline void
+// nv_allocator_bind_heap_allocator(nv_allocator_t* allocator, nv_freelist_t* list)
+// {
+//   allocator->alloc   = nv_pool_malloc;
+//   allocator->calloc  = nv_pool_calloc;
+//   allocator->realloc = nv_pool_realloc;
+//   allocator->free    = nv_pool_free;
+//   allocator->context = list;
+// }
 
 NOVA_HEADER_END
 

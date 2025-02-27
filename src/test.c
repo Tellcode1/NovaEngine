@@ -82,8 +82,8 @@ main(int argc, char* argv[])
     int         comp_result   = nv_bufcompress(original, original_size, comp_buf, &comp_buf_size);
     nv_assert(comp_result == 0);
 
-    void* decomp_buf    = nv_malloc(original_size);
-    int   decomp_result = nv_bufdecompress(comp_buf, comp_buf_size, decomp_buf, original_size);
+    void*  decomp_buf    = nv_malloc(original_size);
+    size_t decomp_result = nv_bufdecompress(comp_buf, comp_buf_size, decomp_buf, original_size);
     nv_assert((size_t)decomp_result == original_size);
     nv_assert(strcmp(original, (char*)decomp_buf) == 0);
 

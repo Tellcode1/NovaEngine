@@ -11,15 +11,15 @@ NOVA_HEADER_START
 
 typedef struct nv_sprite_renderer
 {
-  nv_sprite* spr;
-  bool       flip_horizontal;
-  bool       flip_vertical;
-  vec2f      tex_coord_multiplier; // This is multiplied with the texture coordinates while rendering.
-  vec4f      color;
+  nv_sprite* m_spr;
+  bool       m_flip_horizontal;
+  bool       m_flip_vertical;
+  vec2f      m_tex_coord_multiplier; // This is multiplied with the texture coordinates while rendering.
+  vec4f      m_color;
 } nv_sprite_renderer;
 
 static inline nv_sprite_renderer
-nv_sprite_renderer_init()
+nv_sprite_renderer_init(void)
 {
   return (nv_sprite_renderer){
     nv_sprite_empty, 0, 0, (vec2f){ 1.0f, 1.0f }, (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },

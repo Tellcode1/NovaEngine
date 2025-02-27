@@ -8,7 +8,6 @@
 #include "../../std/math/vec3.h"
 
 #include "../GPU/buffer.h"
-#include "../engine/input.h"
 #include "renderer.h"
 
 NOVA_HEADER_START
@@ -22,9 +21,9 @@ typedef struct nv_camera_t              nv_camera_t;
 
 struct nv_camera_uniform_buffer
 {
-  mat4f perspective;
-  mat4f ortho;
-  mat4f view;
+  mat4f m_perspective;
+  mat4f m_ortho;
+  mat4f m_view;
 };
 
 struct nv_camera_t
@@ -32,35 +31,35 @@ struct nv_camera_t
   // If you draw a quad with this width, it'll cover the whole screen
   // oh, and this should technically be HALVED when you're rendering quads as they generally take HALF size
   // that's just to say this is the FULL width along each direction.
-  vec2 ortho_size;
+  vec2 m_ortho_size;
 
   // TODO: move to uniform buffer with data like current app time, delta time, etc.
   // To be honest i dont know what delta time is supposed to be
   // doing on the GPU except for particle simulations but you ought to
   // use something like push constants for that. Not my fault ;D
-  mat4 perspective;
-  mat4 ortho;
-  mat4 view;
+  mat4 m_perspective;
+  mat4 m_ortho;
+  mat4 m_view;
 
   // This reduces "choppiness" created by moving the camera if the camera has moved after transferring to the uniform buffer
   // position is the position occupied by the camera when it was sent to the uniform buffer
   // actual pos is the real time position of the camera.
-  vec3  position;
-  vec3  actual_pos;
-  vec3  front;
-  vec3  up;
-  vec3  right;
-  flt_t yaw;
-  flt_t pitch;
+  vec3  m_position;
+  vec3  m_actual_pos;
+  vec3  m_front;
+  vec3  m_up;
+  vec3  m_right;
+  flt_t m_yaw;
+  flt_t m_pitch;
 
-  flt_t fov;
-  flt_t near_clip;
-  flt_t far_clip;
+  flt_t m_fov;
+  flt_t m_near_clip;
+  flt_t m_far_clip;
 
-  nv_gpu_buffer_t           ub;
-  nv_gpu_memory_t*          mem;
-  nv_descriptor_set_t*      sets;
-  nv_camera_uniform_buffer* mem_mapped;
+  nv_gpu_buffer_t           m_ub;
+  nv_gpu_memory_t*          m_mem;
+  nv_descriptor_set_t*      m_sets;
+  nv_camera_uniform_buffer* m_mem_mapped;
 
   // nv_gpu_texture *render_texture;
   // VkFramebuffer framebuffer;

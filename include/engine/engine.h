@@ -10,8 +10,8 @@ union SDL_Event;
 
 typedef struct NVTime
 {
-  f64 time;
-  u64 last_frame_time;
+  f64 m_time;
+  u64 m_last_frame_time;
 
 } NVTime;
 
@@ -29,43 +29,40 @@ extern bool nv_window_framebuffer_resized;
 extern bool nv_application_running;
 
 static inline bool
-nv_running()
+nv_running(void)
 {
   return nv_application_running;
 }
 
 static inline void
-_nv_reset_frame_buffer_resized()
+_nv_reset_frame_buffer_resized(void)
 {
   nv_window_framebuffer_resized = false;
 }
 
 static inline bool
-nv_get_frame_buffer_resized()
+nv_get_frame_buffer_resized(void)
 {
   return nv_window_framebuffer_resized;
 }
 
 static inline u8
-nv_get_current_frame()
+nv_get_current_frame(void)
 {
   return nv_current_frame;
 }
 
 static inline real_t
-nv_get_delta_time()
+nv_get_delta_time(void)
 {
   return nv_delta_time;
 }
 
-static inline real_t
-nv_get_last_frame_time()
-{
-  return nv_last_frame_time;
-}
+extern real_t
+nv_get_last_frame_time(void);
 
 static inline real_t
-nv_get_time()
+nv_get_time(void)
 {
   return nv_time;
 }
@@ -77,7 +74,7 @@ static const u32    NV_FIXED_FRAME_RATE = 60;
 static const real_t NV_FIXED_TICK_RATE  = 1000.0 / (real_t)NV_FIXED_FRAME_RATE; // 1000 milliseconds
 
 extern void nv_consume_event(const union SDL_Event* event);
-extern void nv_update();
+extern void nv_update(void);
 
 NOVA_HEADER_END
 

@@ -3,6 +3,7 @@
 
 #include "../../std/stdafx.h"
 #include "../mem.h"
+#include <pthread.h>
 
 NOVA_HEADER_START
 
@@ -24,6 +25,7 @@ struct nv_bitset_t
   u8*             m_data;
   size_t          m_size;
   nv_allocator_t* m_alloc;
+  pthread_mutex_t m_mutex;
 };
 
 NOVA_HEADER_END

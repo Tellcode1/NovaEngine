@@ -22,37 +22,37 @@ extern int                   nshaders;
 
 struct nvsm_shader_t
 {
-  char              name[128];
-  VkShaderModule_T* shader_module; // the vk shader handle
-  unsigned          stage;
+  char              m_name[128];
+  VkShaderModule_T* m_shader_module; // the vk shader handle
+  unsigned          m_stage;
 };
 
 struct nvsm_shader_entry_t
 {
-  char path[256];
-  char output_path[256];
-  char name[128];
-  char stage[4];
-  long last_modified;
+  char m_path[256];
+  char m_output_path[256];
+  char m_name[128];
+  char m_stage[4];
+  long m_last_modified;
 };
 
 struct nvsm_shader_cache_entry_t
 {
-  char path[256];
-  char output_path[256];
-  char name[128];
-  long last_modified;
+  char m_path[256];
+  char m_output_path[256];
+  char m_name[128];
+  long m_last_modified;
 };
 
 // how the NVSM shader is stored on the disk
 struct nvsm_shader_disk_t
 {
-  char name[128];
-  char path[128];
-  long last_modified;
+  char m_name[128];
+  char m_path[128];
+  long m_last_modified;
 };
 
-extern void _nvsm_create_shader(VkDevice_T* __restrict vkdevice, const unsigned* __restrict bytes, int nbytes, struct nvsm_shader_t* __restrict out);
+extern void _nvsm_create_shader(VkDevice_T* __restrict vkdevice, const unsigned* __restrict bytes, size_t nbytes, struct nvsm_shader_t* __restrict out);
 extern void nvsm_register_all_shaders(VkDevice device, nvsm_shader_entry_t* entries, int nentries);
 
 NOVA_HEADER_END

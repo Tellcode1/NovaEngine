@@ -68,6 +68,13 @@ NOVA_HEADER_START
 #  endif
 #endif
 
+/* [fallthrough] is a C23 extension. I get it now. Shut up please. */
+#if defined(__GNUC__) && __GNUC__ >= 7 || defined(__clang__) && __clang_major__ >= 12
+#  define NV_FALLTHROUGH __attribute__((fallthrough))
+#else
+#  define NV_FALLTHROUGH /* fallthrough */
+#endif
+
 #ifndef real_t
 #  define real_t double
 #endif
@@ -97,6 +104,36 @@ NOVA_HEADER_START
 #  define nv_zero_init(TYPE) (TYPE){ 0 }
 #endif
 
+/* https://stackoverflow.com/a/11172679 */
+/* Stupid fix to , ##__VA_ARGS__ being a GNU extension */
+/* Only supports up to 10 arguments! However, increasing the limit is easy */
+/* Go to _GNUC_HELP_ME_PLEASE_SELECT_10TH and just add more variables and set the define to the last one */
+
+#define _GNUC_HELP_ME_PLEASE_FIRST(...) _GNUC_HELP_ME_PLEASE_FIRST_HELPER(__VA_ARGS__, throwaway)
+#define _GNUC_HELP_ME_PLEASE_FIRST_HELPER(first, ...) first
+
+/*
+ * if there's only one argument, expands to nothing.  if there is more
+ * than one argument, expands to a comma followed by everything but
+ * the first argument.  only supports up to 9 arguments but can be
+ * trivially expanded.
+ */
+#define _GNUC_HELP_ME_PLEASE_REST(...) _GNUC_HELP_ME_PLEASE_REST_HELPER(_GNUC_HELP_ME_PLEASE_NUM(__VA_ARGS__), __VA_ARGS__)
+#define _GNUC_HELP_ME_PLEASE_REST_HELPER(qty, ...) _GNUC_HELP_ME_PLEASE_REST_HELPER2(qty, __VA_ARGS__)
+#define _GNUC_HELP_ME_PLEASE_REST_HELPER2(qty, ...) _GNUC_HELP_ME_PLEASE_REST_HELPER_##qty(__VA_ARGS__)
+#define _GNUC_HELP_ME_PLEASE_REST_HELPER_ONE(first)
+#define _GNUC_HELP_ME_PLEASE_REST_HELPER_TWOORMORE(first, ...) , __VA_ARGS__
+#define _GNUC_HELP_ME_PLEASE_NUM(...)                                                                                                                                         \
+  _GNUC_HELP_ME_PLEASE_SELECT_10TH(__VA_ARGS__, TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE, ONE, throwaway)
+#define _GNUC_HELP_ME_PLEASE_SELECT_10TH(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, ...) a10
+
+#define nv_push_error(...) _nv_push_error(__func__, (_nv_get_time()), _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
+
+extern const char* nv_pop_error(void);
+
+/* Print all error messages in the queue and clean it */
+extern void nv_flush_errors(void);
+
 #ifndef NDEBUG
 #  define nv_assert_and_ret(expr, retval)                                                                                                                                     \
     if (!((bool)(expr)))                                                                                                                                                      \
@@ -119,23 +156,23 @@ NOVA_HEADER_START
 
 // puts but with formatting and with the preceder "error". does not stop
 // execution of program if you want that, use nv_log_and_abort instead.
-#define nv_log_error(err, ...) _nv_log_error(__func__, err, ##__VA_ARGS__)
+#define nv_log_error(...) _nv_log_error(__func__, _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
 
 // formats the string, puts() it with the preceder "fatal error" and then aborts
 // the program
-#define nv_log_and_abort(err, ...) _nv_log_and_abort(__func__, err, ##__VA_ARGS__)
+#define nv_log_and_abort(...) _nv_log_and_abort(__func__, _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
 
 // puts but with formatting and with the preceder "warning"
-#define nv_log_warning(err, ...) _nv_log_warning(__func__, err, ##__VA_ARGS__)
+#define nv_log_warning(...) _nv_log_warning(__func__, _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
 
 // puts but with formatting and with the preceder "info"
-#define nv_log_info(err, ...) _nv_log_info(__func__, err, ##__VA_ARGS__)
+#define nv_log_info(...) _nv_log_info(__func__, _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
 
 // puts but with formatting and with the preceder "debug"
-#define nv_log_debug(err, ...) _nv_log_debug(__func__, err, ##__VA_ARGS__)
+#define nv_log_debug(...) _nv_log_debug(__func__, _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
 
 // puts but with formatting and with a custom preceder
-#define nv_log_custom(preceder, err, ...) _nv_log_custom(__func__, preceder, err, ##__VA_ARGS__)
+#define nv_log_custom(preceder, ...) _nv_log_custom(__func__, preceder, _GNUC_HELP_ME_PLEASE_FIRST(__VA_ARGS__) _GNUC_HELP_ME_PLEASE_REST(__VA_ARGS__))
 
 extern void _nv_log_error(const char* func, const char* fmt, ...);
 extern void _nv_log_and_abort(const char* func, const char* fmt, ...);
@@ -147,13 +184,11 @@ extern void _nv_log_custom(const char* func, const char* preceder, const char* f
 extern void _nv_log(va_list args, const char* fn, const char* succeeder, const char* preceder, const char* str, unsigned char err);
 
 extern void _nv_push_error(const char* func, struct tm* time, const char* fmt, ...);
-#define nv_push_error(fmt, ...) _nv_push_error(__func__, (_nv_get_time()), (fmt), ##__VA_ARGS__)
-
-extern const char* nv_pop_error();
 
 #define _nv_time_wrapper1(x, y) NV_CONCAT(x, y)
 
 // May god never have a look at this define. I will not be spared.
+/* And I thought this was bad. How innocent I was. */
 #define _nv_time_function(func, LINE)                                                                                                                                         \
   const size_t _nv_time_wrapper1(__COUNTER_BEGIN__, __LINE__) = SDL_GetTicks64();                                                                                             \
   func; /* Call the function*/                                                                                                                                                \
@@ -161,7 +196,7 @@ extern const char* nv_pop_error();
 #define nv_time_function(func) _nv_time_function(func, __LINE__)
 
 static inline struct tm*
-_nv_get_time()
+_nv_get_time(void)
 {
   time_t     now;
   struct tm* tm;

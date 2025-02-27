@@ -8,7 +8,6 @@
 #include "../../std/stdafx.h"
 #include "../engine/renderer.h"
 #include "memory.h"
-#include "vkstdafx.h"
 
 NOVA_HEADER_START
 
@@ -29,25 +28,25 @@ typedef enum nv_gpu_texture_usage
 
 typedef struct nv_gpu_texture_create_info
 {
-  nv_format            format;
-  nv_sample_count      samples;
-  uint32_t             type;
-  nv_gpu_texture_usage usage;
-  nv_extent3D          extent;
-  int                  arraylayers;
-  int                  miplevels;
+  nv_format            m_format;
+  nv_sample_count      m_samples;
+  uint32_t             m_type;
+  nv_gpu_texture_usage m_usage;
+  nv_extent3D          m_extent;
+  int                  m_arraylayers;
+  int                  m_miplevels;
 } nv_gpu_texture_create_info;
 
 typedef struct nv_gpu_sampler_create_info
 {
-  /* VkFilter */ uint32_t             filter;
-  /* VkSamplerMipmapMode */ uint32_t  mipmap_mode;
-  /* VkSamplerAddressMode */ uint32_t address_mode;
-  flt_t                               max_anisotropy;
-  flt_t                               mip_lod_bias, min_lod, max_lod;
+  /* VkFilter */ uint32_t             m_filter;
+  /* VkSamplerMipmapMode */ uint32_t  m_mipmap_mode;
+  /* VkSamplerAddressMode */ uint32_t m_address_mode;
+  flt_t                               m_max_anisotropy;
+  flt_t                               m_mip_lod_bias, m_min_lod, m_max_lod;
 } nv_gpu_sampler_create_info;
 
-extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, int* w, int* h);
+extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, size_t* w, size_t* h);
 
 extern void nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** tex);
 

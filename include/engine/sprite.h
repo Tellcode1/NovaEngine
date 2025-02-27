@@ -19,7 +19,7 @@ typedef struct nv_sprite nv_sprite;
 
 extern nv_sprite* nv_sprite_empty;
 
-extern nv_sprite* nv_sprite_load_from_memory(const unsigned char* data, int w, int h, nv_format fmt);
+extern nv_sprite* nv_sprite_load_from_memory(const unsigned char* data, size_t w, size_t h, nv_format fmt);
 extern nv_sprite* nv_sprite_load_from_disk(const char* path);
 
 // force destroy
@@ -29,7 +29,7 @@ extern void nv_sprite_destroy(nv_sprite* spr);
 extern void nv_sprite_lock(nv_sprite* spr);
 extern void nv_sprite_release(nv_sprite* spr);
 
-extern void            nv_sprite_get_dimensions(const nv_sprite* spr, int* w, int* h);
+extern void            nv_sprite_get_dimensions(const nv_sprite* spr, size_t* w, size_t* h);
 extern VkImage         nv_sprite_get_vk_image(const nv_sprite* spr);
 extern VkImageView     nv_sprite_get_vk_image_view(const nv_sprite* spr);
 extern VkDescriptorSet nv_sprite_get_descriptor_set(const nv_sprite* spr);

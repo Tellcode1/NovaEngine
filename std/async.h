@@ -17,13 +17,13 @@ typedef void* (*nv_async_task_fn)(void* user_data);
 
 struct nv_async_task_t
 {
-  unsigned         canary; // = 0xDEADBEEF
-  pthread_t        thread;
-  nv_async_task_fn func;
-  void*            user_data; // Argument to function fn
-  void*            result;
-  bool             _completed; // MUST NOT BE ACCESSED DIRECTLY
-  pthread_mutex_t  lock;
+  unsigned         m_canary; // = 0xDEADBEEF
+  pthread_t        m_thread;
+  nv_async_task_fn m_func;
+  void*            m_user_data; // Argument to function fn
+  void*            m_result;
+  bool             m_completed; // MUST NOT BE ACCESSED DIRECTLY
+  pthread_mutex_t  m_lock;
 };
 
 /**

@@ -6,6 +6,7 @@
 #include "../../std/math/vec4.h"
 #include "object.h"
 #include "sprite.h"
+#include "renderer.h"
 
 NOVA_HEADER_START
 
@@ -19,39 +20,39 @@ extern struct nvui_context nv_ui_ctx;
 
 struct nvui_button
 {
-  nv_transform         transform;
-  vec4f                color;
-  nvui_button_on_hover on_hover;
-  nvui_button_on_click on_click;
-  nv_sprite*           spr;
-  bool                 was_hovered; // was it being hovered in this frame?
-  bool                 was_clicked; // was the button pressed?
+  nv_transform         m_transform;
+  vec4f                m_color;
+  nvui_button_on_hover m_on_hover;
+  nvui_button_on_click m_on_click;
+  nv_sprite*           m_spr;
+  bool                 m_was_hovered; // was it being hovered in this frame?
+  bool                 m_was_clicked; // was the button pressed?
 };
 
 struct nvui_slider
 {
-  nv_transform transform;
-  vec4f        bg_color, slider_color;
-  nv_sprite *  bg_sprite, *slider_sprite;
-  flt_t        min, max, value;
-  bool         moved;        // was the slider's handle moved
-  bool         interactable; // whether this slider can be controlled by the mouse.
-                             // default off
+  nv_transform m_transform;
+  vec4f        m_bg_color, m_slider_color;
+  nv_sprite *  m_bg_sprite, *m_slider_sprite;
+  flt_t        m_min, m_max, m_value;
+  bool         m_moved;        // was the slider's handle moved
+  bool         m_interactable; // whether this slider can be controlled by the mouse.
+                               // default off
 };
 
-extern void nvui_init();
-extern void nvui_shutdown();
+extern void nvui_init(void);
+extern void nvui_shutdown(void);
 
-extern nvui_button* nvui_create_button(struct nv_sprite* spr);
+extern nvui_button* nvui_create_button(nv_sprite* spr);
 
-extern nvui_slider* nvui_create_slider();
+extern nvui_slider* nvui_create_slider(void);
 
 extern void nvui_destroy_button(nvui_button* obj);
 extern void nvui_destroy_slider(nvui_slider* obj);
 
 extern void nvui_render(nv_renderer_t* rd);
 
-extern void nvui_update();
+extern void nvui_update(void);
 
 NOVA_HEADER_END
 

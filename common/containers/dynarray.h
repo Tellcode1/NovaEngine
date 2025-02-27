@@ -10,13 +10,13 @@ NOVA_HEADER_START
 
 typedef struct nv_dynarray_t
 {
-  unsigned        m_canary;
-  size_t          m_size;
-  size_t          m_capacity;
-  size_t          m_typesize;
-  void*           m_data;
-  pthread_mutex_t m_mutex;
-  nv_allocator_t* m_alloc;
+  unsigned               m_canary;
+  size_t                 m_size;
+  size_t                 m_capacity;
+  size_t                 m_typesize;
+  void*                  m_data;
+  pthread_mutex_t        m_mutex;
+  struct nv_allocator_t* m_alloc;
 } nv_dynarray_t;
 typedef int (*nv_dynarray_compare_fn)(const void* obj1, const void* obj2);
 

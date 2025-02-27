@@ -9,10 +9,8 @@
 
 // I strive for a world where I do not have to call vulkan functions myself again
 
-#include "sprite_renderer.h"
-
 #include "../GPU/descriptors.h"
-#include "../GPU/vkstdafx.h"
+#include "sprite.h"
 
 #include "../../std/math/vec2.h"
 #include "../../std/math/vec3.h"
@@ -72,23 +70,23 @@ typedef unsigned nv_sample_count;
 
 typedef struct nv_extent2d
 {
-  int width, height;
+  size_t m_width, m_height;
 } nv_extent2d;
 
 typedef struct nv_extent3D
 {
-  int width, height, depth;
+  size_t m_width, m_height, m_depth;
 } nv_extent3D;
 
 // Move ownership to camera VV
 typedef struct nv_renderer_frame_render_info
 {
-  nv_gpu_texture* sc_image; // sc -> swapchain owned
-  nv_gpu_texture* depth_image;
-  VkFramebuffer   color_framebuffer;
-  VkSemaphore     image_available_semaphore;
-  VkSemaphore     render_finish_semaphore;
-  VkFence         in_flight_fence;
+  nv_gpu_texture* m_sc_image; // sc -> swapchain owned
+  nv_gpu_texture* m_depth_image;
+  VkFramebuffer   m_color_framebuffer;
+  VkSemaphore     m_image_available_semaphore;
+  VkSemaphore     m_render_finish_semaphore;
+  VkFence         m_in_flight_fence;
 } nv_renderer_frame_render_info;
 
 typedef enum nv_renderer_flag_bits
@@ -100,25 +98,25 @@ typedef enum nv_renderer_flag_bits
 
 typedef struct nv_renderer_config
 {
-  nv_sample_count samples;
-  nv_buffer_mode  buffer_mode;
-  nv_extent2d     initial_window_size;
-  int             exit_key;
-  bool            multisampling_enable;
-  bool            window_resizable;
-  nv_window_vsync vsync_enabled;
+  nv_sample_count m_samples;
+  nv_buffer_mode  m_buffer_mode;
+  nv_extent2d     m_initial_window_size;
+  int             m_exit_key;
+  bool            m_multisampling_enable;
+  bool            m_window_resizable;
+  nv_window_vsync m_vsync_enabled;
 } nv_renderer_config;
 
 static inline nv_renderer_config
-nv_renderer_config_init()
+nv_renderer_config_init(void)
 {
   return (nv_renderer_config){
-    .samples              = NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES,
-    .buffer_mode          = NOVA_BUFFER_MODE_DOUBLE_BUFFERED,
-    .initial_window_size  = { 800, 600 },
-    .multisampling_enable = 0,
-    .window_resizable     = 0,
-    .vsync_enabled        = 1,
+    .m_samples              = NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES,
+    .m_buffer_mode          = NOVA_BUFFER_MODE_DOUBLE_BUFFERED,
+    .m_initial_window_size  = { 800, 600 },
+    .m_multisampling_enable = 0,
+    .m_window_resizable     = 0,
+    .m_vsync_enabled        = 1,
   };
 }
 
@@ -132,16 +130,16 @@ extern void nv_renderer_end(struct nv_renderer_t* rd);
 
 extern void nv_renderer_set_clear_color(struct nv_renderer_t* rd, vec4 col);
 
-extern int                       nv_renderer_get_frame(const struct nv_renderer_t* rd);
+extern u32                       nv_renderer_get_frame(const struct nv_renderer_t* rd);
+extern u32                       nv_renderer_get_max_frames_in_flight(const struct nv_renderer_t* rd);
 extern struct VkCommandBuffer_T* nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
 extern struct VkRenderPass_T*    nv_renderer_get_render_pass(const nv_renderer_t* rd);
 extern struct nv_extent2d        nv_renderer_get_render_extent(const nv_renderer_t* rd);
-extern int                       nv_renderer_get_max_frames_in_flight(const struct nv_renderer_t* rd);
 
 extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
 extern void nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, int layer);
 
-extern nv_extent2d nv_get_window_size();
+extern nv_extent2d nv_get_window_size(void);
 
 NOVA_HEADER_END
 
