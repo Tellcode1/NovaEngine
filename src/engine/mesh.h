@@ -1,0 +1,118 @@
+#ifndef __NOVA_MESH_H__
+#define __NOVA_MESH_H__
+
+#include "../GPU/buffer.h"
+#include "../GPU/memory.h"
+#include "../GPU/pipeline.h"
+#include "../GPU/vkstdafx.h"
+#include "../engine/camera.h"
+#include "../engine/renderer.h"
+#include "../engine/sprite.h"
+#include "../std/math/mat.h"
+#include "../std/math/vec2.h"
+#include "../std/math/vec3.h"
+#include "../std/stdafx.h"
+
+NOVA_HEADER_START
+
+typedef struct nv_mesh_t   nv_mesh_t;
+typedef struct nv_vertex_t nv_vertex_t;
+
+struct nv_mesh_t
+{
+  nv_gpu_buffer_t m_buf;
+  nv_gpu_memory_t m_mem;
+  size_t          m_nvertices, m_nindices;
+  size_t          m_indices_offset;
+};
+
+struct nv_vertex_t
+{
+  vec3 m_position;
+  vec3 m_normal;
+  vec2 m_tex_coord;
+};
+
+static const nv_vertex_t cube_vertices[] = {
+  { { -1.0f, -1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },  { { 1.0f, -1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+  { { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },    { { -1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+
+  { { 1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } }, { { -1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f } },
+  { { -1.0f, 1.0f, -1.0f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } }, { { 1.0f, 1.0f, -1.0f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f } },
+};
+
+static const uint32_t cube_indices[] = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 5, 0, 3, 3, 6, 5, 1, 4, 7, 7, 2, 1, 3, 2, 7, 7, 6, 3, 5, 4, 1, 1, 0, 5 };
+
+static inline void
+nv_mesh_init(const nv_vertex_t* vertices, size_t nvertices, const u32* indices, size_t nindices, nv_mesh_t* dst)
+{
+  nv_gpu_create_buffer(sizeof(nv_vertex_t) * nvertices + sizeof(u32) * nindices, 1, NOVA_GPU_BUFFER_USAGE_VERTEX_BUFFER | NOVA_GPU_BUFFER_USAGE_INDEX_BUFFER, &dst->m_buf);
+  nv_gpu_allocate_memory(
+      sizeof(nv_vertex_t) * nvertices + sizeof(u32) * nindices,
+      NOVA_GPU_MEMORY_USAGE_GPU_LOCAL | NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE | NOVA_GPU_MEMORY_USAGE_CPU_WRITEABLE,
+      &dst->m_mem);
+  nv_gpu_bind_buffer_to_memory(&dst->m_mem, 0, &dst->m_buf);
+
+  nv_gpu_map_buffer(&dst->m_buf);
+  nv_gpu_write_to_buffer(&dst->m_buf, sizeof(nv_vertex_t) * nvertices, vertices, 0);
+  nv_gpu_write_to_buffer(&dst->m_buf, sizeof(u32) * nindices, indices, sizeof(nv_vertex_t) * nvertices);
+  nv_gpu_unmap_buffer(&dst->m_buf);
+
+  dst->m_nvertices      = nvertices;
+  dst->m_nindices       = nindices;
+  dst->m_indices_offset = nvertices * sizeof(nv_vertex_t);
+}
+
+static inline void
+nv_mesh_render(nv_renderer_t* rd, nv_sprite* spr, nv_mesh_t* mesh)
+{
+  VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
+
+  VkDeviceSize offsets[1] = { 0 };
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.m_lit.m_pipeline);
+
+  struct lit_push_constants
+  {
+    mat4f m_model;
+    vec4f m_color;
+    vec3f m_light_position;
+    float m_padding;
+    vec3f m_view_position;
+    float m_padding2;
+    vec2f m_tex_multiplier;
+    vec2f m_padding3;
+  } pc;
+
+  const VkDescriptorSet camera_set = camera.m_sets->m_set;
+
+  mat4f scale         = m4finit(1.0f);
+  mat4f rotate        = m4finit(1.0f);
+  mat4f translate     = m4finit(1.0f);
+  pc.m_model          = m4fmul(translate, m4fmul(rotate, scale));
+  pc.m_color          = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
+  pc.m_tex_multiplier = (vec2f){ 1.0f, 1.0f };
+  pc.m_light_position = (vec3f){ camera.m_position.x, camera.m_position.y, camera.m_position.z };
+  pc.m_view_position  = (vec3f){ camera.m_position.x, camera.m_position.y, camera.m_position.z };
+  vkCmdPushConstants(cmd, g_Pipelines.m_lit.m_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct lit_push_constants), &pc);
+
+  VkDescriptorSet       sprite_set = nv_sprite_get_descriptor_set(spr);
+  const VkDescriptorSet sets[]     = { camera_set, sprite_set };
+
+  const uint32_t camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
+  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.m_lit.m_pipeline_layout, 0, 2, sets, 1, &camera_ub_offset);
+  vkCmdBindVertexBuffers(cmd, 0, 1, &mesh->m_buf.m_buffer, offsets);
+  vkCmdBindIndexBuffer(cmd, mesh->m_buf.m_buffer, mesh->m_indices_offset, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexed(cmd, mesh->m_nindices, 1, 0, 0, 0);
+  // vkCmdDraw(cmd, mesh->nvertices, 1, 0, 0);
+}
+
+static inline void
+nv_mesh_destroy(nv_mesh_t* mesh)
+{
+  nv_gpu_destroy_buffer(&mesh->m_buf);
+  nv_gpu_free_memory(&mesh->m_mem);
+}
+
+NOVA_HEADER_END
+
+#endif //__NOVA_MESH_H__

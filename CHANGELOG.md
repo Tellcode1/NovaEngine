@@ -2,9 +2,21 @@
 
 *   Add a render spec that contains all the data about rendering which the user can fetch at runtime.
 *   Move the renderer struct to the stack.
+*   Add support for things like NOVA_GPU_BUFFER_USAGE_SINGLE_TIME, etc. Basically, make an abstraction over the vulkan type.
+*   Add more error checking to vulkan functions.
 
-## \[UNRELEASED\]
+## \[Version 0.1.0\]
+### Changes
+*   nv_gpu_buffer_type is now *_usage as it more reflects the purpose
+*   Renamed dynarray.h to list.h, much easier to type, more clear what the hell it is.
+*   We will now be using SDL_mutex instead of pthread for compatibility and because SDL is of superior intellect.
 
+### Fixed
+*   Fixed incorrect calculating of highest power of input in itoa.
+*   init_size in list.h has now been replaced with init_capacity, same purpose, better name.
+*   Fixed program options stupidly using opt->m_type instead of opt->m_value.
+
+## \[Version 0.0.1\]
 ### Added
 
 *   “type” system in ssl. Currenlty just a keyword or identifier or whatever you call that.

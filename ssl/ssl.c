@@ -1,8 +1,8 @@
 #include "ssl.h"
-#include "../common/containers/dynarray.h"
-#include "../std/print.h"
-#include "../std/strconv.h"
-#include "../std/string.h"
+#include "../src/containers/list.h"
+#include "../src/std/print.h"
+#include "../src/std/strconv.h"
+#include "../src/std/string.h"
 #include <ctype.h>
 
 static inline bool
@@ -105,8 +105,8 @@ ssl(char* input)
     "string",
   };
 
-  nv_dynarray_t toks;
-  nv_dynarray_init(sizeof(ss_tok_t), 16, nv_allocator_get_default(), &toks);
+  nv_list_t toks;
+  nv_list_init(sizeof(ss_tok_t), 16, nv_allocator_get_default(), &toks);
 
   size_t line   = 1;
   size_t column = 1;
@@ -145,7 +145,7 @@ ssl(char* input)
       ss_tok_t tok;
       tok.m_type       = SS_TOK_TYPE_SYMBOL;
       tok.m_value.m_op = PEEK();
-      nv_dynarray_push_back(&toks, &tok);
+      nv_list_push_back(&toks, &tok);
       ADVANCE();
       continue;
     }
@@ -155,7 +155,7 @@ ssl(char* input)
       ss_tok_t tok;
       tok.m_type       = SS_TOK_TYPE_OPERATOR;
       tok.m_value.m_op = PEEK();
-      nv_dynarray_push_back(&toks, &tok);
+      nv_list_push_back(&toks, &tok);
       ADVANCE();
       continue;
     }
@@ -180,7 +180,7 @@ ssl(char* input)
       ss_tok_t tok;
       tok.m_type      = SS_TOK_TYPE_STRING;
       tok.m_value.m_s = nv_substr(start, 0, iter - start);
-      nv_dynarray_push_back(&toks, &tok);
+      nv_list_push_back(&toks, &tok);
 
       ADVANCE();
 
@@ -216,7 +216,7 @@ ssl(char* input)
       PEEK() = temp;
 
       tok.m_value.m_s = nv_substr(start, 0, iter - start);
-      nv_dynarray_push_back(&toks, &tok);
+      nv_list_push_back(&toks, &tok);
 
       continue;
     }
@@ -228,10 +228,7 @@ ssl(char* input)
         ADVANCE();
       }
 
-      char temp    = PEEK();
-      PEEK()       = 0;
-      double value = nv_atof(start);
-      PEEK()       = temp;
+      double value = nv_atof(start, iter - start);
 
       ss_tok_t tok;
 
@@ -246,7 +243,7 @@ ssl(char* input)
         tok.m_value.m_d = value;
       }
 
-      nv_dynarray_push_back(&toks, &tok);
+      nv_list_push_back(&toks, &tok);
       continue;
     }
     else
@@ -256,9 +253,9 @@ ssl(char* input)
     }
   }
 
-  for (size_t i = 0; i < nv_dynarray_size(&toks); i++)
+  for (size_t i = 0; i < nv_list_size(&toks); i++)
   {
-    ss_tok_t* tk = (ss_tok_t*)nv_dynarray_get(&toks, i);
+    ss_tok_t* tk = (ss_tok_t*)nv_list_get(&toks, i);
 
     switch (tk->m_type)
     {
@@ -274,9 +271,9 @@ ssl(char* input)
     }
   }
 
-  for (size_t i = 0; i < nv_dynarray_size(&toks); i++)
+  for (size_t i = 0; i < nv_list_size(&toks); i++)
   {
-    ss_tok_t* tk = (ss_tok_t*)nv_dynarray_get(&toks, i);
+    ss_tok_t* tk = (ss_tok_t*)nv_list_get(&toks, i);
     if (tk->m_type == SS_TOK_TYPE_STRING || tk->m_type == SS_TOK_TYPE_KEYWORD || tk->m_type == SS_TOK_TYPE_IDENTIFIER || tk->m_type == SS_TOK_TYPE_TYPE)
     {
       nv_free(tk->m_value.m_s);
@@ -284,7 +281,7 @@ ssl(char* input)
   }
 
   nv_free(in_allocation);
-  nv_dynarray_destroy(&toks);
+  nv_list_destroy(&toks);
 
   return 0;
 }

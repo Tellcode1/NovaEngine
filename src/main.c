@@ -1,14 +1,17 @@
-#include "../include/engine/camera.h"
-#include "../include/engine/ctext.h"
-#include "../include/engine/engine.h"
-#include "../include/engine/input.h"
-#include "../include/engine/shadermanager.h"
-#include "../std/print.h"
-#include "../std/props.h"
-#include "../std/stdafx.h"
-#include "../std/timer.h"
+#include "GPU/vk.h"
+#include "engine/camera.h"
+#include "engine/ctext.h"
+#include "engine/engine.h"
+#include "engine/input.h"
+#include "engine/shadermanager.h"
+#include "std/print.h"
+#include "std/props.h"
+#include "std/stdafx.h"
+#include "std/timer.h"
 
-#include <sys/stat.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 static inline const char*
 get_day_str(const struct tm* t)
@@ -25,6 +28,9 @@ get_month_str(const struct tm* t)
 int
 main(int argc, char* argv[])
 {
+  /* We clean the error queue at exit to notify the user of any errors */
+  atexit(nv_flush_errors);
+
   char        windowname[64]    = "clocker";
   int         window_width      = 800;
   int         window_height     = 600;
@@ -45,13 +51,14 @@ main(int argc, char* argv[])
     nv_printf("%s\n", error);
   }
 
-  timer tm = nv_timer_begin(0.1);
+  nv_timer_t tm = nv_timer_begin(0.1);
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
   const nv_extent2d window_size = (nv_extent2d){ window_width, window_height };
 
   nv_initialize_context(windowname, (int)window_size.m_width, (int)window_size.m_height);
+  nvvk_context_initialize(&nvvk_context);
 
   if (recompile_shaders)
   {
@@ -81,13 +88,13 @@ main(int argc, char* argv[])
 
   const real_t updateTime = 3.0; // seconds. 1.5f = 1.5 seconds
   real_t       totalTime  = 0.0;
-  u32         numFrames  = 0;
+  u32          numFrames  = 0;
 
   cfont_t amongus;
 
   int curr_showing_fps = 0;
 
-  nv_log_info("Initialized in %fs", nv_timer_time_since_start(&tm));
+  nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
 
   ctext_load_font(rdr, "Assets/roboto.ttf", 128, &amongus);
 
@@ -113,7 +120,7 @@ main(int argc, char* argv[])
     if (totalTime >= updateTime)
     {
       curr_showing_fps = ceil(numFrames / totalTime);
-      nv_log_info("%i FPS %f MS/Frame", curr_showing_fps, (totalTime / (flt_t)(numFrames)));
+      nv_log_info("%i FPS %f MS/Frame\n", curr_showing_fps, (totalTime / (flt_t)(numFrames)));
       numFrames = 0;
       totalTime = 0.0;
     }
@@ -138,7 +145,6 @@ main(int argc, char* argv[])
 
   nv_input_shutdown();
 
-  vkDeviceWaitIdle(device);
   ctext_destroy_font(&amongus);
   nv_renderer_destroy(rdr);
 }

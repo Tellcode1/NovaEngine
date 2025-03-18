@@ -1,5 +1,5 @@
-#include "../std/stdafx.h"
-#include "../std/string.h"
+#include "std/stdafx.h"
+#include "std/string.h"
 
 #include <errno.h>
 
@@ -8,18 +8,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../include/engine/fontc.h"
+#include "engine/fontc.h"
 
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
-#include "../common/containers/atlas.h"
+#include "containers/atlas.h"
 
 #if defined(FONTC_EXECUTABLE)
-#  include "../std/print.h"
-#  include "../std/props.h"
-#  include "../std/timer.h"
+#  include "std/print.h"
+#  include "std/props.h"
+#  include "std/timer.h"
 
 int
 main(int argc, char* argv[])
@@ -57,18 +57,18 @@ main(int argc, char* argv[])
     return 0;
   }
 
-  nv_log_info("read:  %s", input);
-  nv_log_info("write: %s", output);
-  nv_log_info("pixel size: %i", pixel_size);
-  nv_log_info("atlas size: w=%i h=%i", atlas_w, atlas_h);
+  nv_log_info("read:  %s\n", input);
+  nv_log_info("write: %s\n", output);
+  nv_log_info("pixel size: %i\n", pixel_size);
+  nv_log_info("atlas size: w=%i h=%i\n", atlas_w, atlas_h);
 
-  timer tm = nv_timer_begin(__FLT_MAX__);
+  nv_timer_t tm = nv_timer_begin(__FLT_MAX__);
 
   fontc_file_t font_file = nv_zero_init(fontc_file_t);
   fontc_bake_font_to_cache(input, pixel_size, atlas_w, atlas_h, num_threads, &font_file);
   fontc_write_font_file(output, &font_file);
   fontc_clean_font_file(&font_file);
-  nv_log_info("finished in %.m_2f s", nv_timer_time_since_start(&tm));
+  nv_log_info("finished in %.m_2f s\n", nv_timer_time_since_start(&tm));
   return 0;
 }
 
@@ -194,7 +194,7 @@ fontc_read_font(const char* path, fontc_file_t* file)
 CLEANUP:
   if (f)
   {
-    nv_safecall_c_fn(fclose(f));
+    NOVA_CALL_FILE_FN(fclose(f));
   }
   if (compressed_glyphs)
   {
@@ -261,7 +261,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
   int glyph_count = 0;
 
   omp_set_num_threads(num_threads);
-  nv_log_info("Using %i threads", num_threads);
+  nv_log_info("Using %i threads\n", num_threads);
 
   faces = nv_calloc(sizeof(FT_Face) * num_threads);
   if (!faces)
@@ -361,7 +361,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
     FT_Done_Face(faces[i]);
   }
 
-  nv_log_info("final atlas size w=%i h=%i (uncompressed %b)", atlas.m_width, atlas.m_height, atlas.m_width * atlas.m_height * nv_format_get_bytes_per_pixel(atlas.m_format));
+  nv_log_info("final atlas size w=%i h=%i (uncompressed %b)\n", atlas.m_width, atlas.m_height, atlas.m_width * atlas.m_height * nv_format_get_bytes_per_pixel(atlas.m_format));
 
   nv_texture_atlas_finish(&atlas);
 
@@ -390,7 +390,7 @@ fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w
     glyph->m_t /= atlas_h;
     glyph->m_advance /= units_per_em;
   }
-  nv_log_info("%i glyphs processed", glyph_count);
+  nv_log_info("%i glyphs processed\n", glyph_count);
 
   out_file->m_header.m_bmpwidth  = (int)atlas.m_width;
   out_file->m_header.m_bmpheight = (int)atlas.m_height;
@@ -504,12 +504,12 @@ fontc_write_font_file(const char* out, fontc_file_t* file)
     goto CLEANUP_AND_RETURN;
   }
 
-  nv_log_info("wrotebaked font to %s", out);
+  nv_log_info("wrotebaked font to %s\n", out);
 
 CLEANUP_AND_RETURN:
   if (f)
   {
-    nv_safecall_c_fn(fclose(f));
+    NOVA_CALL_FILE_FN(fclose(f));
   }
   if (compressed_image)
   {
@@ -554,7 +554,7 @@ fontc_load_font(const char* font_source_path, int pixel_size, fontc_file_t* font
 
   if (fontc_read_font(buf, font_file) != FONTC_SUCCESS || font_file->m_header.m_pixel_size != pixel_size)
   {
-    nv_log_info("font file %s read failed. baking...", buf);
+    nv_log_info("font file %s read failed. baking...\n", buf);
     fontc_err_t retcode = fontc_bake_font_to_cache(font_source_path, pixel_size, 1024, 1024, 8, font_file);
     fontc_write_font_file(buf, font_file);
     return retcode;

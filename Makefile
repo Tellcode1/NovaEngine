@@ -1,6 +1,6 @@
 CC = clang
 
-CFLAGS = -g -Wall -Wextra -Werror -pthread -std=c99 -Wno-typedef-redefinition -fopenmp
+CFLAGS = -g -Wall -Wextra -Werror -std=c99 -Wno-typedef-redefinition -fopenmp $(shell pkg-config --cflags freetype2 sdl2 vulkan) 
 LDFLAGS = -g -std=c99
 
 BUILD_DIR ?= build
@@ -25,12 +25,12 @@ VOLK_BUILD_DIR = $(BUILD_DIR)/volk
 BOX2D_LIB = $(BOX2D_BUILD_DIR)/libbox2d.a
 VOLK_LIB = $(VOLK_BUILD_DIR)/libvolk.a
 
-SOURCES = src/engine.c src/main.c src/fontc.c src/nvsm.c src/vk.c ssl/ssl.c
+SOURCES = src/engine.c src/main.c src/fontc.c src/nvsm.c src/vk.c ssl/ssl.c src/common.c
 OBJECTS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(SOURCES)))
 
 BUILD_TEST ?= false
 
-CORE_SOURCE = src/core.c
+CORE_SOURCE = src/std/core.c
 
 .PHONY: clean clean-all all run
 
@@ -60,7 +60,7 @@ $(NVSM_BINARY): $(PCH) $(CORE) src/nvsm.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) $(LIBS) $(CORE) src/nvsm.c -DNVSM=1 -DNVSM_EXECUTABLE=1 -o $@
 
 $(FONTC_BINARY): $(PCH) $(CORE) src/fontc.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) $(LIBS) $(LIB_FREETYPE) $(CORE) src/fontc.c -DFONTC=1 -DFONTC_EXECUTABLE=1 -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(INCL) $(LIBS) $(LIB_FREETYPE) $(LIB_SDL) $(CORE) src/fontc.c src/common.c -DFONTC=1 -DFONTC_EXECUTABLE=1 -o $@
 
 $(BOX2D_LIB):
 	mkdir -p $(BUILD_DIR)/box2d
@@ -72,7 +72,7 @@ $(VOLK_LIB):
 	set -e; cmake -S external/volk -B $(BUILD_DIR)/volk
 	$(MAKE) -C $(BUILD_DIR)/volk -j$(shell nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-$(PCH): std/stdafx.h
+$(PCH): src/std/stdafx.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -x c-header $< -o $@
 

@@ -1,4 +1,4 @@
-#include "../std/string.h"
+#include "std/string.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,18 +99,18 @@ main(int argc, char* argv[])
 
   /*nv_strcpy*/
   {
-    char  dest[50] = { 0 };
-    char* ret      = nv_strcpy(dest, "Copy this");
-    nv_assert(ret == dest);
-    nv_assert(strcmp(dest, "Copy this") == 0);
+    char  dst[50] = { 0 };
+    char* ret     = nv_strcpy(dst, "Copy this");
+    nv_assert(ret == dst);
+    nv_assert(strcmp(dst, "Copy this") == 0);
   }
 
   /*nv_strncpy*/
   {
-    char dest[50] = { 0 };
-    nv_strncpy(dest, "HelloWorld", 5);
-    dest[5] = '\0'; // ensure termination
-    nv_assert(strcmp(dest, "Hello") == 0);
+    char dst[50] = { 0 };
+    nv_strncpy(dst, "HelloWorld", 5);
+    dst[5] = '\0'; // ensure termination
+    nv_assert(strcmp(dst, "Hello") == 0);
   }
 
   /*nv_strcat*/
@@ -131,25 +131,23 @@ main(int argc, char* argv[])
 
   /*nv_strcat_max*/
   {
-    char  buffer[10] = "12345";
-    char* ret        = nv_strcat_max(buffer, "6789", sizeof(buffer));
-    nv_assert(ret == buffer);
+    char buffer[10] = "12345";
+    nv_strcat_max(buffer, "6789", sizeof(buffer));
     nv_assert(strcmp(buffer, "123456789") == 0);
 
-    // If dest is already too large, nothing should change.
+    // If dst is already too large, nothing should change.
     char buffer2[10] = "12345678";
-    ret              = nv_strcat_max(buffer2, "9", sizeof(buffer2));
-    nv_assert(ret == buffer2);
+    nv_strcat_max(buffer2, "9", sizeof(buffer2));
     nv_assert(strcmp(buffer2, "123456789") == 0);
   }
 
   /*nv_strncpy2*/
   {
-    char   dest[50] = { 0 };
-    size_t copied   = nv_strncpy2(dest, "abcdef", 4);
-    dest[copied]    = '\0';
+    char   dst[50] = { 0 };
+    size_t copied  = nv_strncpy2(dst, "abcdef", 4);
+    dst[copied]    = '\0';
     nv_assert(copied == 4);
-    nv_assert(strcmp(dest, "abcd") == 0);
+    nv_assert(strcmp(dst, "abcd") == 0);
   }
 
   /*nv_strncmp*/
@@ -198,10 +196,10 @@ main(int argc, char* argv[])
 
   /*nv_strcpy2*/
   {
-    char   dest[50] = { 0 };
-    size_t copied   = nv_strcpy2(dest, "Hello again");
+    char   dst[50] = { 0 };
+    size_t copied  = nv_strcpy2(dst, "Hello again");
     nv_assert(copied == nv_strlen("Hello again"));
-    nv_assert(strcmp(dest, "Hello again") == 0);
+    nv_assert(strcmp(dst, "Hello again") == 0);
   }
 
   /*nv_strcmp*/
@@ -232,15 +230,16 @@ main(int argc, char* argv[])
 
   /*nv_strtok*/
   {
-    char buf[50];
+    char  buf[50];
+    char* strtok_context = NULL;
     strcpy(buf, "obama-care-gaming");
-    char* token = nv_strtok(buf, "-");
+    char* token = nv_strtok(buf, "-", &strtok_context);
     nv_assert(token && strcmp(token, "obama") == 0);
-    token = nv_strtok(NULL, "-");
+    token = nv_strtok(NULL, "-", &strtok_context);
     nv_assert(token && strcmp(token, "care") == 0);
-    token = nv_strtok(NULL, "-");
+    token = nv_strtok(NULL, "-", &strtok_context);
     nv_assert(token && strcmp(token, "gaming") == 0);
-    token = nv_strtok(NULL, "-");
+    token = nv_strtok(NULL, "-", &strtok_context);
     nv_assert(token == NULL);
   }
 
