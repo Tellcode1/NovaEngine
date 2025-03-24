@@ -102,9 +102,9 @@ struct cfont_t
 
   // nv_async_task_t load_task;
 
-  nv_gpu_texture* m_texture;
+  nv_gpu_texture m_texture;
   nv_gpu_memory_t m_texture_mem;
-  nv_gpu_sampler* m_sampler;
+  nv_gpu_sampler m_sampler;
 
   size_t          m_allocated_size;
   nv_gpu_buffer_t m_buffer;

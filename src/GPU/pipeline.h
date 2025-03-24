@@ -90,14 +90,14 @@ extern u32 nv_GPU_vk_flag_register;
 /*
  *	FORWARD DECLARATIONS
  */
-typedef struct nv_vk_pipeline                 nv_vk_pipeline;
+typedef struct nv_vk_pipeline_t                 nv_vk_pipeline_t;
 typedef struct nv_baked_pipelines             nv_baked_pipelines;
 typedef struct nv_gpu_pipeline_create_info    nv_gpu_pipeline_create_info;
 typedef struct nv_gpu_swapchain_create_info   nv_gpu_swapchain_create_info;
 typedef struct nv_gpu_render_pass_create_info nv_gpu_render_pass_create_info;
 typedef struct nv_gpu_pipeline_blend_state    nv_gpu_pipeline_blend_state;
 
-struct nv_vk_pipeline
+struct nv_vk_pipeline_t
 {
   VkPipeline       m_pipeline;
   VkPipelineLayout m_pipeline_layout;
@@ -108,10 +108,10 @@ struct nv_vk_pipeline
 
 struct nv_baked_pipelines
 {
-  nv_vk_pipeline m_unlit;
-  nv_vk_pipeline m_lit;
-  nv_vk_pipeline m_ctext;
-  nv_vk_pipeline m_line; // Draws lines. Yep.
+  nv_vk_pipeline_t m_unlit;
+  nv_vk_pipeline_t m_lit;
+  nv_vk_pipeline_t m_ctext;
+  nv_vk_pipeline_t m_line; // Draws lines. Yep.
 };
 extern nv_baked_pipelines g_Pipelines;
 

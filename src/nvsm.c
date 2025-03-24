@@ -1,3 +1,5 @@
+#include "common/mem.h"
+#include "containers/list.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -146,7 +148,7 @@ find_shader(const char* m_name)
 {
   struct nvsm_shader_t shader = nv_zero_init(struct nvsm_shader_t);
 
-  nv_strncpy(shader.m_name, m_name, sizeof(shader.m_name) - 1);
+  nv_strlcpy(shader.m_name, m_name, sizeof(shader.m_name));
   shader.m_name[sizeof(shader.m_name) - 1] = '\0';
 
   return (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
@@ -168,7 +170,7 @@ nvsm_load_shader(const char* m_name, struct nvsm_shader_t** out)
 
   struct nvsm_shader_t shader = nv_zero_init(struct nvsm_shader_t);
 
-  nv_strncpy(shader.m_name, m_name, sizeof(shader.m_name) - 1);
+  nv_strlcpy(shader.m_name, m_name, sizeof(shader.m_name));
   shader.m_name[sizeof(shader.m_name) - 1] = '\0';
 
   struct nvsm_shader_t* shaderptr = (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
@@ -292,37 +294,37 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
   int index = 0;
   for (int i = 0; i < nentries; i++)
   {
+    nvsm_shader_t* shader = &shader_map[nshaders + index];
     if (nv_strncmp(entries[i].m_stage, "vert", 4) == 0)
     {
-      shader_map[nshaders + index].m_stage = VK_SHADER_STAGE_VERTEX_BIT;
+      shader->m_stage = VK_SHADER_STAGE_VERTEX_BIT;
     }
     else if (nv_strncmp(entries[i].m_stage, "frag", 4) == 0)
     {
-      shader_map[nshaders + index].m_stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+      shader->m_stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     }
     else if (nv_strncmp(entries[i].m_stage, "tese", 4) == 0)
     {
-      shader_map[nshaders + index].m_stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+      shader->m_stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
     }
     else if (nv_strncmp(entries[i].m_stage, "tesc", 4) == 0)
     {
-      shader_map[nshaders + index].m_stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+      shader->m_stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     }
     else if (nv_strncmp(entries[i].m_stage, "geom", 4) == 0)
     {
-      shader_map[nshaders + index].m_stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+      shader->m_stage = VK_SHADER_STAGE_GEOMETRY_BIT;
     }
     else if (nv_strncmp(entries[i].m_stage, "comp", 4) == 0)
     {
-      shader_map[nshaders + index].m_stage = VK_SHADER_STAGE_COMPUTE_BIT;
+      shader->m_stage = VK_SHADER_STAGE_COMPUTE_BIT;
     }
     else
     {
       nv_push_error("Invalid m_stage for shader \"%s\". It will not be added.", entries[i].m_name);
       continue;
     }
-    nv_strncpy(shader_map[nshaders + index].m_name, entries[i].m_name, 127);
-    shader_map[nshaders + index].m_name[127] = '\0';
+    nv_strlcpy(shader->m_name, entries[i].m_name, sizeof(shader->m_name));
 
     unsigned* spirv     = NULL;
     size_t    spirvsize = 0;
@@ -399,8 +401,9 @@ load_cache(int* count)
   nvsm_shader_cache_entry_t* entries = nv_calloc(*count * sizeof(nvsm_shader_cache_entry_t));
   for (int i = 0; i < (*count); i++)
   {
-    nv_strncpy(entries[i].m_name, write[i].m_name, 128);
-    nv_strncpy(entries[i].m_path, write[i].m_path, 128);
+    entries[i].m_canary = 0xDEADBEEF;
+    nv_strlcpy(entries[i].m_name, write[i].m_name, sizeof(entries[i].m_name));
+    nv_strlcpy(entries[i].m_path, write[i].m_path, sizeof(entries[i].m_path));
     entries[i].m_last_modified = write[i].m_last_modified;
   }
 
@@ -420,19 +423,25 @@ update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count)
     return;
   }
 
-  nvsm_shader_disk_t* write = nv_malloc(sizeof(nvsm_shader_disk_t) * count);
+  nv_list_t write_list;
+  nv_list_init(sizeof(nvsm_shader_disk_t), count, nv_allocator_get_default(), &write_list);
 
   for (int i = 0; i < count; i++)
   {
-    nv_strncpy(write[i].m_name, entries[i].m_name, 128);
-    nv_strncpy(write[i].m_path, entries[i].m_path, 128);
-    write[i].m_last_modified = entries[i].m_last_modified;
+    if (entries[i].m_canary != 0xDEADBEEF)
+    {
+      continue;
+    }
+    nvsm_shader_disk_t* write = (nvsm_shader_disk_t*)nv_list_push_empty(&write_list);
+    nv_strlcpy(write->m_name, entries[i].m_name, sizeof(write->m_name));
+    nv_strlcpy(write->m_path, entries[i].m_path, sizeof(write->m_path));
+    write->m_last_modified = entries[i].m_last_modified;
   }
 
   nv_assert(fwrite(&count, sizeof(int), 1, f) == 1);
-  nv_assert(fwrite(write, sizeof(nvsm_shader_disk_t), count, f) == (size_t)count);
+  nv_assert(fwrite(nv_list_data(&write_list), sizeof(nvsm_shader_disk_t), nv_list_size(&write_list), f) == nv_list_size(&write_list));
 
-  nv_free(write);
+  nv_list_destroy(&write_list);
 
   NOVA_CALL_FILE_FN(fclose(f));
 }
@@ -457,8 +466,8 @@ write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
   {
     const char* m_name = entries[i].m_name;
     const char* m_path = entries[i].m_path;
-    nv_strncpy(write[i].m_name, m_name, nv_strlen(m_name));
-    nv_strncpy(write[i].m_path, m_path, nv_strlen(m_path));
+    nv_strlcpy(write[i].m_name, m_name, sizeof(write[i].m_name));
+    nv_strlcpy(write[i].m_path, m_path, sizeof(write[i].m_path));
     write[i].m_last_modified = entries[i].m_last_modified;
   }
 
@@ -562,7 +571,7 @@ load_all_entries(const char* shader_list_file_path, int* count)
     entries[*count]            = nv_zero_init(nvsm_shader_entry_t);
     nvsm_shader_entry_t* entry = &entries[*count];
 
-    nv_strncpy(entry->m_path, line, 256);
+    nv_strlcpy(entry->m_path, line, sizeof(entry->m_path));
 
     // to get m_stage + verify that it exists
     FILE* shader_file = fopen(entry->m_path, "r");
@@ -647,8 +656,7 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
   // }
 
   char copy[256];
-  nv_strncpy(copy, entry->m_output_path, sizeof(copy) - 1);
-  copy[sizeof(copy) - 1] = '\0';
+  nv_strlcpy(copy, entry->m_output_path, sizeof(copy));
 
   create_parent_dirs(copy);
 
@@ -683,22 +691,22 @@ nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_
   {
     for (int j = 0; j < cachecount; j++)
     {
-      if (nv_strcmp(cacheentries[j].m_path, entries[i].m_path) == 0)
+      if (nv_strcmp(cacheentries[j].m_path, entries[i].m_path) != 0)
       {
-        if (cacheentries[j].m_last_modified != entries[i].m_last_modified)
-        {
-          if (compile_shader(&entries[i]) != 0)
-          {
-            nv_push_error("Error while compiling shader \"%s\".", entries[i].m_path);
-          }
-          else
-          {
-            compiled++;
-          }
-          cacheentries[j].m_last_modified = entries[i].m_last_modified;
-        }
-        break;
+        continue;
       }
+      if (cacheentries[j].m_last_modified == entries[i].m_last_modified)
+      {
+        continue;
+      }
+      if (compile_shader(&entries[i]) != 0)
+      {
+        nv_push_error("Error while compiling shader \"%s\".", entries[i].m_path);
+        continue;
+      }
+      compiled++;
+      cacheentries[j].m_last_modified = entries[i].m_last_modified;
+      break;
     }
   }
   return compiled;
@@ -713,11 +721,9 @@ nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries)
     if (compile_shader(&entries[i]) != 0)
     {
       nv_push_error("Error while compiling shader \"%s\".", entries[i].m_path);
+      continue;
     }
-    else
-    {
-      compiled++;
-    }
+    compiled++;
   }
   return compiled;
 }

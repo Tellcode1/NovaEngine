@@ -3,12 +3,15 @@
 #include "engine/ctext.h"
 #include "engine/engine.h"
 #include "engine/input.h"
+#include "engine/renderer.h"
 #include "engine/shadermanager.h"
 #include "std/print.h"
 #include "std/props.h"
+#include "std/rover.h"
 #include "std/stdafx.h"
 #include "std/timer.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -76,7 +79,14 @@ main(int argc, char* argv[])
   rdconf.m_initial_window_size  = window_size;
   rdconf.m_multisampling_enable = 0;
   rdconf.m_samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
-  nv_renderer_t* rdr            = nv_renderer_init(&rdconf);
+
+  nv_renderer_t rdr;
+  if (nv_renderer_init(&rdconf, &rdr) != 0)
+  {
+    nv_push_error("Error in initializing renderer");
+    nv_flush_errors();
+    return -1;
+  }
 
   // If you're wondering why every Action has a +,
   // I want to create a resource system with info about everything like bindings
@@ -96,7 +106,7 @@ main(int argc, char* argv[])
 
   nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
 
-  ctext_load_font(rdr, "Assets/roboto.ttf", 128, &amongus);
+  ctext_load_font(&rdr, "Assets/roboto.ttf", 128, &amongus);
 
   while (nv_running())
   {
@@ -108,7 +118,7 @@ main(int argc, char* argv[])
     SDL_Event event;
     nv_input_update();
 
-    nv_camera_update(&camera, rdr);
+    nv_camera_update(&camera, &rdr);
 
     while (SDL_PollEvent(&event))
     {
@@ -125,7 +135,7 @@ main(int argc, char* argv[])
       totalTime = 0.0;
     }
 
-    if (nv_renderer_begin(rdr))
+    if (nv_renderer_begin(&rdr, (vec4){ 0.0F, 0.0F, 0.0F, 1.0F }))
     {
       struct tm* time = _nv_get_time();
 
@@ -139,12 +149,21 @@ main(int argc, char* argv[])
       clock_info.m_scale_for_fit          = 1;
       ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
 
-      nv_renderer_end(rdr);
+      nv_renderer_render_quad(
+          &rdr,
+          nv_sprite_empty,
+          (vec2f){ 1.0f, 1.0f },
+          (vec3f){ sinf((float)_nv_timer_get_currtime()), 0.0f, 0.0f },
+          (vec3f){ 1.0f, 1.0f, 1.0f },
+          (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
+          0);
+
+      nv_renderer_end(&rdr);
     }
   }
 
   nv_input_shutdown();
 
   ctext_destroy_font(&amongus);
-  nv_renderer_destroy(rdr);
+  nv_renderer_destroy(&rdr);
 }

@@ -1,9 +1,10 @@
 ## \[TODO\]
 
-*   Add a render spec that contains all the data about rendering which the user can fetch at runtime.
-*   Move the renderer struct to the stack.
-*   Add support for things like NOVA_GPU_BUFFER_USAGE_SINGLE_TIME, etc. Basically, make an abstraction over the vulkan type.
-*   Add more error checking to vulkan functions.
+*   [ ] Add a render spec that contains all the data about rendering which the user can fetch at runtime.
+*   [x] Move the renderer struct to the stack.
+*   [ ] Add support for things like NOVA_GPU_BUFFER_USAGE_SINGLE_TIME, etc. Basically, make an abstraction over the vulkan type.
+*   [ ] Add more error checking to vulkan functions.
+*   [ ] Need to really change the renderer. It should be more akin to the ctext renderer.
 
 ## \[Version 0.1.0\]
 ### Changes
@@ -15,6 +16,7 @@
 *   Fixed incorrect calculating of highest power of input in itoa.
 *   init_size in list.h has now been replaced with init_capacity, same purpose, better name.
 *   Fixed program options stupidly using opt->m_type instead of opt->m_value.
+*   Fixed the debug messenger creation function using nvvk_context.instance which is not initialized by the time the function is called.
 
 ## \[Version 0.0.1\]
 ### Added

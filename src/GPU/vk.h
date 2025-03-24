@@ -80,7 +80,7 @@ extern u8* nv_vk_create_texture_from_disk(const char* path, u32* width, u32* hei
 extern void nv_vk_create_texture_empty(
     u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, size_t* image_size, VkImage* dst, VkDeviceMemory* dstMem);
 
-extern void nv_vk_transition_texture_layout(
+extern void nv_vk_insert_texture_layout_transition(
     VkCommandBuffer       cmd,
     VkImage               image,
     u32                   mipLevels,

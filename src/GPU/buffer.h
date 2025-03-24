@@ -50,6 +50,13 @@ extern void nv_gpu_unmap_buffer(nv_gpu_buffer_t* buffer);
 
 extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* data, size_t offset);
 
+extern void nv_gpu_resize_buffer(nv_gpu_buffer_t* buffer, nv_gpu_memory_t* memory, size_t new_size);
+
+/**
+ * @brief Copy the contents of a buffer to the other
+ */
+extern void nv_gpu_copy_buffer(nv_gpu_buffer_t* dst, const nv_gpu_buffer_t* src);
+
 // Note: Memory must be able to hold all the buffers!
 // You can get the size of the memory by just looking up the size of one buffer
 // and then multiplying it with the count.

@@ -10,11 +10,6 @@ NOVA_HEADER_START
 
 // Renderable sprite
 
-NVVK_FORWARD_DECLARE(VkImage)
-NVVK_FORWARD_DECLARE(VkImageView)
-NVVK_FORWARD_DECLARE(VkDescriptorSet)
-NVVK_FORWARD_DECLARE(VkSampler)
-
 struct nv_renderer_t;
 
 typedef struct nv_sprite nv_sprite;

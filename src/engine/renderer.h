@@ -16,77 +16,31 @@
 #include "../std/math/vec3.h"
 #include "../std/math/vec4.h"
 
+#include "../GPU/buffer.h"
+#include "../GPU/fbf.h"
+#include "../GPU/texture.h"
+#include "../GPU/types.h"
+
 NOVA_HEADER_START
 
-NVVK_FORWARD_DECLARE(VkFramebuffer)
-NVVK_FORWARD_DECLARE(VkSemaphore)
-NVVK_FORWARD_DECLARE(VkFence)
-
-typedef struct nv_gpu_texture nv_gpu_texture;
+typedef struct nv_ctext_module     nv_ctext_module;
+typedef struct nv_quad_draw_call_t nv_quad_draw_call_t;
+typedef struct nv_line_draw_call_t nv_line_draw_call_t;
+typedef struct nv_draw_call_t      nv_draw_call_t;
+typedef struct nv_renderer_t       nv_renderer_t;
 
 extern nv_descriptor_pool_t g_pool;
 extern struct nv_camera_t   camera;
 
-typedef enum nv_window_flag_bits
-{
-  NOVA_WINDOW_VSYNC         = 1 << 0,
-  NOVA_WINDOW_RESIZABLE     = 1 << 1,
-  NOVA_WINDOW_BORDERLESS    = 1 << 2,
-  NOVA_WINDOW_FULLSCREEN    = 1 << 3,
-  NOVA_WINDOW_MAXIMIZED     = 1 << 4,
-  NOVA_WINDOW_MINIMIZED     = 1 << 5,
-  NOVA_WINDOW_HIDDEN        = 1 << 6,
-  NOVA_WINDOW_HIGH_DPI      = 1 << 7,
-  NOVA_WINDOW_ALWAYS_ON_TOP = 1 << 8,
-} nv_window_flag_bits;
-
-typedef enum nv_window_v_sync_bits
-{
-  NOVA_WINDOW_VSYNC_DISABLED = 0,
-  NOVA_WINDOW_VSYNC_ENABLED  = 1
-} nv_window_v_sync_bits;
-typedef bool nv_window_vsync;
-
-typedef enum nv_buffer_mode_bits
-{
-  NOVA_BUFFER_MODE_SINGLE_BUFFERED = 0,
-  NOVA_BUFFER_MODE_DOUBLE_BUFFERED = 1,
-  NOVA_BUFFER_MODE_TRIPLE_BUFFERED = 2,
-} nv_buffer_mode_bits;
-typedef unsigned nv_buffer_mode;
-
-typedef enum nv_sample_count_bits
-{
-  NOVA_SAMPLE_COUNT_MAX_SUPPORTED    = 0x7FFFFFFF,
-  NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES = 1,
-  NOVA_SAMPLE_COUNT_1_SAMPLES        = 1,
-  NOVA_SAMPLE_COUNT_2_SAMPLES        = 2,
-  NOVA_SAMPLE_COUNT_4_SAMPLES        = 4,
-  NOVA_SAMPLE_COUNT_8_SAMPLES        = 8,
-  NOVA_SAMPLE_COUNT_16_SAMPLES       = 16,
-  NOVA_SAMPLE_COUNT_32_SAMPLES       = 32,
-} nv_sample_count_bits;
-typedef unsigned nv_sample_count;
-
-typedef struct nv_extent2d
-{
-  size_t m_width, m_height;
-} nv_extent2d;
-
-typedef struct nv_extent3D
-{
-  size_t m_width, m_height, m_depth;
-} nv_extent3D;
-
 // Move ownership to camera VV
 typedef struct nv_renderer_frame_render_info
 {
-  nv_gpu_texture* m_sc_image; // sc -> swapchain owned
-  nv_gpu_texture* m_depth_image;
-  VkFramebuffer   m_color_framebuffer;
-  VkSemaphore     m_image_available_semaphore;
-  VkSemaphore     m_render_finish_semaphore;
-  VkFence         m_in_flight_fence;
+  nv_gpu_texture       m_sc_image; // sc -> swapchain owned
+  nv_gpu_texture       m_depth_image;
+  nv_gpu_framebuffer_t m_color_framebuffer;
+  VkSemaphore          m_image_available_semaphore;
+  VkSemaphore          m_render_finish_semaphore;
+  VkFence              m_in_flight_fence;
 } nv_renderer_frame_render_info;
 
 typedef enum nv_renderer_flag_bits
@@ -120,18 +74,96 @@ nv_renderer_config_init(void)
   };
 }
 
-typedef struct nv_renderer_t nv_renderer_t;
+struct nv_ctext_module
+{
+  nv_list_t            m_fonts;
+  nv_list_t            m_labels;
+  nv_descriptor_set_t* m_desc_set;
+  unsigned             m_flags;
+};
 
-extern nv_renderer_t* nv_renderer_init(const nv_renderer_config* conf);
-extern void           nv_renderer_destroy(struct nv_renderer_t* rd);
+struct nv_quad_draw_call_t
+{
+  nv_sprite* m_spr;
+  vec3f      m_siz, m_pos;
+  vec2f      m_tex_multiplier;
+  vec4f      m_col;
+};
 
-extern bool nv_renderer_begin(struct nv_renderer_t* rd);
-extern void nv_renderer_end(struct nv_renderer_t* rd);
+struct nv_line_draw_call_t
+{
+  vec2f m_begin, m_end;
+  vec4f m_col;
+};
 
-extern void nv_renderer_set_clear_color(struct nv_renderer_t* rd, vec4 col);
+typedef enum nv_draw_call_type
+{
+  NOVA_DRAWCALL_QUAD    = 0,
+  NOVA_DRAWCALL_LINE    = 1,
+  NOVA_DRAWCALL_INVALID = 0x7fffffff
+} nv_draw_call_type;
 
-extern u32                       nv_renderer_get_frame(const struct nv_renderer_t* rd);
-extern u32                       nv_renderer_get_max_frames_in_flight(const struct nv_renderer_t* rd);
+struct nv_draw_call_t
+{
+  nv_draw_call_type m_type;
+  int               m_layer;
+  union nv_DrawCallData
+  {
+    nv_line_draw_call_t m_line;
+    nv_quad_draw_call_t m_quad;
+  } m_drawcall;
+};
+
+struct nv_renderer_t
+{
+  unsigned       m_flags;
+  nv_buffer_mode m_buffer_mode;
+
+  VkRenderPass m_render_pass;
+  nv_extent2d  m_render_extent;
+
+  VkSwapchainKHR m_swapchain;
+  VkCommandPool  m_command_pool;
+
+  u32 m_attachment_count;
+  u32 m_frame;
+  u32 m_image_index;
+
+  size_t m_shadow_image_size; // the size of ONE depth texture. Multiply by
+                              // SwapchainImageCount to get total size
+  nv_gpu_memory_t m_depth_image_memory;
+
+  nv_gpu_texture  m_color_image;
+  nv_gpu_memory_t m_color_image_memory;
+
+  VkFormat m_depth_buffer_format;
+
+  nv_list_t m_render_data;
+  nv_list_t m_draw_cmd_buffers;
+
+  /* stored to avoid creating one for literally every texture. nv_gpu_sampler** */
+  nv_list_t m_samplers;
+
+  nv_list_t m_drawcalls;
+
+  nv_ctext_module* m_ctext;
+
+  // These are used to render all the sprites in the game (quad based sprites
+  // that is)
+  nv_gpu_buffer_t m_quad_vb;
+  nv_gpu_memory_t m_quad_memory;
+
+  void* m_mapped;
+};
+
+extern int  nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst);
+extern void nv_renderer_destroy(nv_renderer_t* rd);
+
+extern bool nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
+extern void nv_renderer_end(nv_renderer_t* rd);
+
+extern u32                       nv_renderer_get_frame(const nv_renderer_t* rd);
+extern u32                       nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
 extern struct VkCommandBuffer_T* nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
 extern struct VkRenderPass_T*    nv_renderer_get_render_pass(const nv_renderer_t* rd);
 extern struct nv_extent2d        nv_renderer_get_render_extent(const nv_renderer_t* rd);

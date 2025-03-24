@@ -1410,7 +1410,7 @@ nv_string_substring(const nv_string_t* str, size_t start, size_t length, nv_allo
 
   nv_string_t substr = nv_string_init(length + 1, new_allocator);
 
-  nv_strncpy(substr.m_data, str->m_data + start, length);
+  nv_strlcpy(substr.m_data, str->m_data + start, length + 1);
   substr.m_data[length] = 0;
   substr.m_size         = length;
   return substr;
@@ -2725,7 +2725,8 @@ nv_freelist_free(nv_freelist_t* list, void* block)
 
   if (!node->m_in_use)
   {
-    nv_push_error("real_t free");
+    /* real_t free, yeah */
+    nv_push_error("double free");
     return;
   }
 

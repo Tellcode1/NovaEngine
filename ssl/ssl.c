@@ -1,9 +1,9 @@
 #include "ssl.h"
 #include "../src/containers/list.h"
+#include "../src/std/chrclass.h"
 #include "../src/std/print.h"
 #include "../src/std/strconv.h"
 #include "../src/std/string.h"
-#include <ctype.h>
 
 static inline bool
 isquote(char chr)
@@ -14,19 +14,19 @@ isquote(char chr)
 bool
 isfloatchar(char chr)
 {
-  return isdigit(chr) || chr == '.' || chr == 'E' || chr == 'e' || chr == 'F' || chr == 'f';
+  return nv_chr_isdigit(chr) || chr == '.' || chr == 'E' || chr == 'e' || chr == 'F' || chr == 'f';
 }
 
 bool
 ischar(char chr)
 {
-  return isalpha(chr) || chr == '_';
+  return nv_chr_isalpha(chr) || chr == '_';
 }
 
 bool
 isident(char chr, bool first)
 {
-  return first ? ischar(chr) : (ischar(chr) || isdigit(chr));
+  return first ? ischar(chr) : (ischar(chr) || nv_chr_isdigit(chr));
 }
 
 bool
@@ -115,7 +115,7 @@ ssl(char* input)
 
   while (PEEK())
   {
-    while (PEEK() && isspace(PEEK()))
+    while (PEEK() && nv_chr_isspace(PEEK()))
     {
       ADVANCE();
     }

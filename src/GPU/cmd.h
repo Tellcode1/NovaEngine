@@ -26,7 +26,7 @@ struct nv_command_buffer_t
   VkCommandBuffer    m_handle;
   nv_command_pool_t* m_parent;
 
-  nv_vk_pipeline*     m_bound_pipeline;
+  nv_vk_pipeline_t*     m_bound_pipeline;
   VkPipelineBindPoint m_bound_pipeline_point;
 
   nv_descriptor_set_t* m_bound_descriptor_sets[NV_COMMAND_BUFFER_MAX_BOUND_DESCRIPTOR_SETS];
@@ -118,7 +118,7 @@ nv_gpu_bind_index_buffer(nv_command_buffer_t* cmd, nv_gpu_buffer_t* buffer, size
 }
 
 static inline void
-nv_gpu_bind_pipeline(nv_command_buffer_t* cmd, VkPipelineBindPoint bind_point, nv_vk_pipeline* pipeline)
+nv_gpu_bind_pipeline(nv_command_buffer_t* cmd, VkPipelineBindPoint bind_point, nv_vk_pipeline_t* pipeline)
 {
   cmd->m_bound_pipeline       = pipeline;
   cmd->m_bound_pipeline_point = bind_point;

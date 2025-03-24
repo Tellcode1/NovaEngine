@@ -15,6 +15,9 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 
 find_package(OpenMP REQUIRED)
 
+set(CMAKE_C_FLAGS -g)
+set(CMAKE_CXX_FLAGS -g)
+
 set(NOVA_BUILD_EXAMPLE false CACHE BOOL "Enable example build" )
 
 # The name of the output
@@ -53,7 +56,7 @@ set(LIBS
     OpenMP::OpenMP_C
 )
 
-add_executable(shadermanager src/nvsm.c)
+add_executable(shadermanager src/nvsm.c src/common.c)
 target_compile_definitions(shadermanager PRIVATE NVSM_EXECUTABLE=1)
 target_link_libraries(shadermanager ${LIBS})
 target_compile_options(shadermanager PRIVATE -ffast-math -Wall -Wextra -pedantic)

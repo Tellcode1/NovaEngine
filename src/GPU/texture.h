@@ -5,13 +5,17 @@
 
 #include "../common/format.h"
 #include "../common/image.h"
-#include "../engine/renderer.h"
 #include "../std/stdafx.h"
 #include "memory.h"
+#include "types.h"
 
 NOVA_HEADER_START
 
+/* TODO: redo, this is severely out of date and hacky */
+
 typedef struct nv_gpu_sampler nv_gpu_sampler;
+typedef struct nv_gpu_texture nv_gpu_texture;
+struct nv_renderer_t;
 
 typedef enum nv_gpu_texture_usage
 {
@@ -39,23 +43,52 @@ typedef struct nv_gpu_texture_create_info
 
 typedef struct nv_gpu_sampler_create_info
 {
-  /* VkFilter */ uint32_t             m_filter;
-  /* VkSamplerMipmapMode */ uint32_t  m_mipmap_mode;
-  /* VkSamplerAddressMode */ uint32_t m_address_mode;
-  flt_t                               m_max_anisotropy;
-  flt_t                               m_mip_lod_bias, m_min_lod, m_max_lod;
+  VkFilter             m_filter;
+  VkSamplerMipmapMode  m_mipmap_mode;
+  VkSamplerAddressMode m_address_mode;
+  flt_t                m_max_anisotropy;
+  flt_t                m_mip_lod_bias, m_min_lod, m_max_lod;
 } nv_gpu_sampler_create_info;
+
+struct nv_gpu_texture
+{
+  nv_gpu_memory_t* m_memory;
+  size_t           m_size, m_offset;
+
+  VkImageLayout      m_layout;
+  VkImageAspectFlags m_aspect;
+  VkImageType        m_type;
+  VkImageUsageFlags  m_usage;
+
+  VkImage         m_image;
+  VkImageView     m_view;
+  VkExtent3D      m_extent;
+  int             m_miplevels, m_arraylayers;
+  nv_format       m_format;
+  nv_sample_count m_samples;
+};
+
+struct nv_gpu_sampler
+{
+  VkFilter             m_filter;
+  VkSamplerMipmapMode  m_mipmap_mode;
+  VkSamplerAddressMode m_address_mode;
+  flt_t                m_max_anisotropy;
+  flt_t                m_mip_lod_bias, m_min_lod, m_max_lod;
+  VkSampler            m_vksampler;
+};
 
 extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, size_t* w, size_t* h);
 
-extern void nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture** tex);
+extern void nv_gpu_create_texture(const nv_gpu_texture_create_info* pInfo, nv_gpu_texture* dst);
 
 extern void nv_gpu_texture_attach_view(nv_gpu_texture* tex, VkImageView view);
 
 extern void nv_gpu_bind_texture_to_memory(nv_gpu_memory_t* mem, size_t offset, nv_gpu_texture* tex);
 extern void nv_gpu_destroy_texture(nv_gpu_texture* tex);
 
-extern void nv_gpu_create_sampler(nv_renderer_t* rd, const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler** sampler);
+/* TODO: Make render device struct. Who the FFKJSLDKFJKSLDJFKLJ passes the entire renderer to create a sampler */
+extern void nv_gpu_create_sampler(struct nv_renderer_t* rd, const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler* sampler);
 
 extern void nv_gpu_write_to_texture(nv_gpu_texture* tex, const nv_image_t* src);
 
