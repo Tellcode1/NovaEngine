@@ -9,7 +9,6 @@ typedef struct nv_gpu_texture_layout nv_gpu_texture_layout;
 
 struct nv_gpu_texture_layout
 {
-    
 };
 
 #endif //__NOVA_GPU_TEXTURE_LAYOUTS_H__

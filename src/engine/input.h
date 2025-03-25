@@ -40,11 +40,11 @@ typedef enum nv_input_mouse_button
 
 struct nv_input_action_t
 {
-  SDL_Scancode                m_key;
-  SDL_Scancode                m_key2;
-  uint8_t                     m_mouse;
-  nv_input_action_response_fn m_response;
-  bool                        m_this_frame, m_last_frame;
+  SDL_Scancode                key;
+  SDL_Scancode                key2;
+  uint8_t                     mouse;
+  nv_input_action_response_fn response;
+  bool                        this_frame, last_frame;
 };
 
 extern void nv_input_init(void);

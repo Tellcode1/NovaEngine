@@ -10,13 +10,13 @@ NOVA_HEADER_START
 
 typedef struct nv_list_t
 {
-  unsigned               m_canary;
-  size_t                 m_size;
-  size_t                 m_capacity;
-  size_t                 m_typesize;
-  void*                  m_data;
-  SDL_mutex*             m_mutex;
-  struct nv_allocator_t* m_alloc;
+  unsigned               canary;
+  size_t                 size;
+  size_t                 capacity;
+  size_t                 typesize;
+  void*                  data;
+  SDL_mutex*             mutex;
+  struct nv_allocator_t* alloc;
 } nv_list_t;
 typedef int (*nv_list_compare_fn)(const void* obj1, const void* obj2);
 
@@ -36,15 +36,15 @@ nv_list_is_initialized(const nv_list_t* arr)
   {
     return -1;
   }
-  if (arr->m_canary != CONT_CANARY)
+  if (arr->canary != CONT_CANARY)
   {
     return -1;
   }
-  if (arr->m_capacity > 0 && arr->m_data == NULL)
+  if (arr->capacity > 0 && arr->data == NULL)
   {
     return -1;
   }
-  if (arr->m_typesize <= 0)
+  if (arr->typesize <= 0)
   {
     return -1;
   }

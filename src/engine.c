@@ -89,41 +89,41 @@ nv_update(void)
 
 struct nv_collider_t
 {
-  b2BodyId          m_body;
-  vec2              m_position;
-  vec2              m_size;
-  b2WorldId         m_world;
-  b2ShapeId         m_shape;
-  nv_scene_t*       m_scene;
-  nv_collider_shape m_shape_type;
-  nv_collider_type  m_type;
-  bool              m_enabled;
-  uint32_t          m_layer, m_mask;
+  b2BodyId          body;
+  vec2              position;
+  vec2              size;
+  b2WorldId         world;
+  b2ShapeId         shape;
+  nv_scene_t*       scene;
+  nv_collider_shape shape_type;
+  nv_collider_type  type;
+  bool              enabled;
+  uint32_t          layer, mask;
 };
 
 struct nv_object
 {
-  nv_transform        m_transform;
-  nv_scene_t*         m_scene;
-  const char*         m_name;
-  nv_collider_t*      m_col;
-  size_t              m_index;
-  nv_object_update_fn m_update_fn;
-  nv_object_render_fn m_render_fn;
-  nv_sprite_renderer  m_spr_renderer;
+  nv_transform        transform;
+  nv_scene_t*         scene;
+  const char*         name;
+  nv_collider_t*      col;
+  size_t              index;
+  nv_object_update_fn update_fn;
+  nv_object_render_fn render_fn;
+  nv_sprite_renderer  spr_renderer;
 };
 
 struct nv_scene_t
 {
-  nv_list_t m_objects; // the child objects
+  nv_list_t objects; // the child objects
 
-  const char* m_scene_name;
-  bool        m_active; // whether the scene is active or not
+  const char* scene_name;
+  bool        active; // whether the scene is active or not
 
-  b2WorldId m_world;
+  b2WorldId world;
 
-  nv_scene_load_fn   m_load;
-  nv_scene_unload_fn m_unload;
+  nv_scene_load_fn   load;
+  nv_scene_unload_fn unload;
 };
 
 #define VEC2_TO_BVEC2(vec) ((b2Vec2){ vec.x, vec.y })
@@ -132,27 +132,27 @@ struct nv_scene_t
 nv_object*
 nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type, uint64_t layer, uint64_t mask, vec2 position, vec2 size, unsigned flags)
 {
-  nv_object* obj = nv_list_push_empty(&scene->m_objects);
-  obj->m_name    = name;
-  obj->m_scene   = scene;
+  nv_object* obj = nv_list_push_empty(&scene->objects);
+  obj->name      = name;
+  obj->scene     = scene;
 
-  obj->m_transform.m_position = position;
-  obj->m_transform.m_size     = size;
-  obj->m_transform.m_rotation = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
+  obj->transform.position = position;
+  obj->transform.size     = size;
+  obj->transform.rotation = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
 
-  obj->m_spr_renderer                        = nv_zero_init(nv_sprite_renderer);
-  obj->m_spr_renderer.m_spr                  = nv_sprite_empty;
-  obj->m_spr_renderer.m_tex_coord_multiplier = (vec2f){ 1.0f, 1.0f };
-  obj->m_spr_renderer.m_color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
+  obj->spr_renderer                      = nv_zero_init(nv_sprite_renderer);
+  obj->spr_renderer.spr                  = nv_sprite_empty;
+  obj->spr_renderer.tex_coord_multiplier = (vec2f){ 1.0f, 1.0f };
+  obj->spr_renderer.color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
 
-  obj->m_index = nv_list_size(&scene->m_objects);
+  obj->index = nv_list_size(&scene->objects);
 
   bool start_enabled = 1;
   if (flags & NOVA_OBJECT_NO_COLLISION)
   {
     start_enabled = 0;
   }
-  obj->m_col = nv_collider_init(scene, position, size, col_type, NOVA_COLLIDER_SHAPE_RECT, layer, mask, start_enabled);
+  obj->col = nv_collider_init(scene, position, size, col_type, NOVA_COLLIDER_SHAPE_RECT, layer, mask, start_enabled);
 
   return obj;
 }
@@ -165,24 +165,24 @@ nv_object_destroy(nv_object* obj)
     return;
   }
 
-  if (obj->m_col)
+  if (obj->col)
   {
-    b2DestroyBody(obj->m_col->m_body);
-    b2DestroyShape(obj->m_col->m_shape, 0);
+    b2DestroyBody(obj->col->body);
+    b2DestroyShape(obj->col->shape, 0);
   }
-  nv_list_remove(&obj->m_scene->m_objects, obj->m_index);
+  nv_list_remove(&obj->scene->objects, obj->index);
 }
 
 void
 nv_object_assign_on_update_fn(nv_object* obj, nv_object_update_fn fn)
 {
-  obj->m_update_fn = fn;
+  obj->update_fn = fn;
 }
 
 void
 nv_object_assign_on_render_fn(nv_object* obj, nv_object_render_fn fn)
 {
-  obj->m_render_fn = fn;
+  obj->render_fn = fn;
 }
 
 void
@@ -194,60 +194,60 @@ nv_object_move(nv_object* obj, vec2 add)
 vec2
 nv_object_get_position(const nv_object* obj)
 {
-  return obj->m_transform.m_position;
+  return obj->transform.position;
 }
 
 void
 nv_object_set_position(nv_object* obj, vec2 to)
 {
-  obj->m_transform.m_position = to;
-  if (obj->m_col && obj->m_col->m_enabled)
+  obj->transform.position = to;
+  if (obj->col && obj->col->enabled)
   {
-    nv_collider_set_position(obj->m_col, to);
+    nv_collider_set_position(obj->col, to);
   }
 }
 
 vec2
 nv_object_get_size(const nv_object* obj)
 {
-  return obj->m_transform.m_size;
+  return obj->transform.size;
 }
 
 void
 nv_object_set_size(nv_object* obj, vec2 to)
 {
-  obj->m_transform.m_size = to;
-  nv_collider_set_size(obj->m_col, to);
+  obj->transform.size = to;
+  nv_collider_set_size(obj->col, to);
 }
 
 nv_transform*
 nv_object_get_transform(nv_object* obj)
 {
-  return &obj->m_transform;
+  return &obj->transform;
 }
 
 nv_sprite_renderer*
 nv_object_get_sprite_renderer(nv_object* obj)
 {
-  return &obj->m_spr_renderer;
+  return &obj->spr_renderer;
 }
 
 nv_collider_t*
 nv_object_get_collider(nv_object* obj)
 {
-  return obj->m_col;
+  return obj->col;
 }
 
 const char*
 nv_object_get_name(nv_object* obj)
 {
-  return obj->m_name;
+  return obj->name;
 }
 
 void
 nv_object_set_name(nv_object* obj, const char* name)
 {
-  obj->m_name = name;
+  obj->name = name;
 }
 
 b2BodyId
@@ -273,7 +273,7 @@ _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_sha
   }
 
   body_def.position = VEC2_TO_BVEC2(pos);
-  b2BodyId body_id  = b2CreateBody(scene->m_world, &body_def);
+  b2BodyId body_id  = b2CreateBody(scene->world, &body_def);
 
   b2ShapeDef shape_def          = b2DefaultShapeDef();
   shape_def.density             = 5.0f;
@@ -310,16 +310,16 @@ nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type t
 {
   nv_collider_t* col = nv_calloc(sizeof(nv_collider_t));
 
-  col->m_body       = _nv_collider_body_init(scene, type, shape, position, size, layer, mask, start_enabled);
-  col->m_position   = position;
-  col->m_size       = size;
-  col->m_scene      = scene;
-  col->m_shape_type = shape;
-  col->m_type       = type;
-  col->m_world      = scene->m_world;
-  col->m_enabled    = start_enabled;
-  col->m_layer      = layer;
-  col->m_mask       = mask;
+  col->body       = _nv_collider_body_init(scene, type, shape, position, size, layer, mask, start_enabled);
+  col->position   = position;
+  col->size       = size;
+  col->scene      = scene;
+  col->shape_type = shape;
+  col->type       = type;
+  col->world      = scene->world;
+  col->enabled    = start_enabled;
+  col->layer      = layer;
+  col->mask       = mask;
 
   return col;
 }
@@ -327,9 +327,9 @@ nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type t
 void
 nv_collider_destroy(nv_collider_t* col)
 {
-  if (col && col->m_enabled)
+  if (col && col->enabled)
   {
-    b2DestroyBody(col->m_body);
+    b2DestroyBody(col->body);
     nv_free(col);
   }
 }
@@ -339,7 +339,7 @@ nv_collider_get_position(const nv_collider_t* col)
 {
   if (col)
   {
-    return col->m_position;
+    return col->position;
   }
   else
   {
@@ -350,37 +350,37 @@ nv_collider_get_position(const nv_collider_t* col)
 void
 nv_collider_set_position(nv_collider_t* col, vec2 to)
 {
-  col->m_position = to;
-  if (col->m_enabled)
+  col->position = to;
+  if (col->enabled)
   {
-    b2Body_SetTransform(col->m_body, VEC2_TO_BVEC2(to), b2MakeRot(0.0f));
-    b2Body_SetAwake(col->m_body, 1); // wake the bodty
+    b2Body_SetTransform(col->body, VEC2_TO_BVEC2(to), b2MakeRot(0.0f));
+    b2Body_SetAwake(col->body, 1); // wake the bodty
   }
 }
 
 vec2
 nv_collider_get_size(const nv_collider_t* col)
 {
-  return col->m_size;
+  return col->size;
 }
 
 void
 nv_collider_set_size(nv_collider_t* col, vec2 to)
 {
-  col->m_size = to;
-  if (col->m_enabled)
+  col->size = to;
+  if (col->enabled)
   {
-    b2DestroyBody(col->m_body);
+    b2DestroyBody(col->body);
 
-    col->m_body = _nv_collider_body_init(col->m_scene, col->m_type, col->m_shape_type, col->m_position, col->m_size, col->m_layer, col->m_mask, 1);
+    col->body = _nv_collider_body_init(col->scene, col->type, col->shape_type, col->position, col->size, col->layer, col->mask, 1);
   }
 }
 
 typedef struct ray_cast_context
 {
-  b2ShapeId            m_raycaster;
-  nv_collider_ray_hit* m_hit;
-  bool                 m_has_hit;
+  b2ShapeId            raycaster;
+  nv_collider_ray_hit* hit;
+  bool                 has_hit;
 } ray_cast_context;
 
 float
@@ -391,12 +391,12 @@ cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, v
   (void)fraction;
 
   ray_cast_context* ctx = context;
-  if (nv_memcmp(&shapeId, &ctx->m_raycaster, sizeof(b2ShapeId)) == 0)
+  if (nv_memcmp(&shapeId, &ctx->raycaster, sizeof(b2ShapeId)) == 0)
   {
     return -1.0f;
   }
-  ctx->m_hit->m_hit              = 1;
-  ctx->m_hit->m_point_of_contact = BVEC2_TO_VEC2(point);
+  ctx->hit->hit              = 1;
+  ctx->hit->point_of_contact = BVEC2_TO_VEC2(point);
   return 0.0f;
 }
 
@@ -404,17 +404,17 @@ nv_collider_ray_hit
 nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask)
 {
   nv_collider_ray_hit hit = nv_zero_init(nv_collider_ray_hit);
-  hit.m_host              = col;
+  hit.host                = col;
 
   ray_cast_context ctx = nv_zero_init(ray_cast_context);
-  ctx.m_raycaster      = col->m_shape;
-  ctx.m_hit            = &hit;
+  ctx.raycaster        = col->shape;
+  ctx.hit              = &hit;
 
   b2QueryFilter filter = b2DefaultQueryFilter();
   filter.categoryBits  = layer;
   filter.maskBits      = mask;
 
-  b2World_CastRay(col->m_scene->m_world, VEC2_TO_BVEC2(orig), VEC2_TO_BVEC2(dir), filter, cast_result_fn, &ctx);
+  b2World_CastRay(col->scene->world, VEC2_TO_BVEC2(orig), VEC2_TO_BVEC2(dir), filter, cast_result_fn, &ctx);
 
   return hit;
 }
@@ -428,8 +428,8 @@ nv_scene_init(void)
 
   b2WorldDef world_def = b2DefaultWorldDef();
   world_def.gravity    = (b2Vec2){ 0.0f, -9.8f };
-  scn->m_world         = b2CreateWorld(&world_def);
-  nv_list_init(sizeof(nv_object), 4, nv_allocator_get_default(), &scn->m_objects);
+  scn->world           = b2CreateWorld(&world_def);
+  nv_list_init(sizeof(nv_object), 4, nv_allocator_get_default(), &scn->objects);
 
   if (!scene_main)
   {
@@ -444,29 +444,29 @@ nv_scene_update(void)
   const int   substeps = 4;
   const flt_t timeStep = 1.0F / 60.0F;
 
-  b2World_Step(scene_main->m_world, timeStep, substeps);
+  b2World_Step(scene_main->world, timeStep, substeps);
 
-  nv_object* objects = scene_main->m_objects.m_data;
+  nv_object* objects = scene_main->objects.data;
 
-  for (int i = 0; i < (int)nv_list_size(&scene_main->m_objects); i++)
+  for (int i = 0; i < (int)nv_list_size(&scene_main->objects); i++)
   {
-    nv_collider_t* col = objects[i].m_col;
-    if (!col->m_enabled)
+    nv_collider_t* col = objects[i].col;
+    if (!col->enabled)
     {
       continue;
     }
 
-    b2Vec2 pos                        = b2Body_GetPosition(col->m_body);
-    objects[i].m_transform.m_position = BVEC2_TO_VEC2(pos);
-    objects[i].m_col->m_position      = BVEC2_TO_VEC2(pos);
+    b2Vec2 pos                    = b2Body_GetPosition(col->body);
+    objects[i].transform.position = BVEC2_TO_VEC2(pos);
+    objects[i].col->position      = BVEC2_TO_VEC2(pos);
   }
 
   const real_t dt = nv_get_delta_time();
-  for (int i = 0; i < (int)nv_list_size(&scene_main->m_objects); i++)
+  for (int i = 0; i < (int)nv_list_size(&scene_main->objects); i++)
   {
-    if (objects[i].m_update_fn)
+    if (objects[i].update_fn)
     {
-      objects[i].m_update_fn(dt);
+      objects[i].update_fn(dt);
     }
   }
 }
@@ -474,30 +474,29 @@ nv_scene_update(void)
 void
 nv_scene_render(nv_renderer_t* rd)
 {
-  const nv_object* objects = scene_main->m_objects.m_data;
+  const nv_object* objects = scene_main->objects.data;
 
-  for (int i = 0; i < (int)nv_list_size(&scene_main->m_objects); i++)
+  for (int i = 0; i < (int)nv_list_size(&scene_main->objects); i++)
   {
     vec2                      pos          = nv_object_get_position(&objects[i]);
     vec2                      siz          = nv_object_get_size(&objects[i]);
-    const nv_sprite_renderer* spr_renderer = &objects[i].m_spr_renderer;
-    vec2f                     texmul       = spr_renderer->m_tex_coord_multiplier;
-    if (spr_renderer->m_flip_horizontal)
+    const nv_sprite_renderer* spr_renderer = &objects[i].spr_renderer;
+    vec2f                     texmul       = spr_renderer->tex_coord_multiplier;
+    if (spr_renderer->flip_horizontal)
     {
       texmul.x *= -1.0f;
     }
-    if (spr_renderer->m_flip_vertical)
+    if (spr_renderer->flip_vertical)
     {
       texmul.y *= -1.0f;
     }
-    nv_renderer_render_quad(
-        rd, spr_renderer->m_spr, spr_renderer->m_tex_coord_multiplier, (vec3f){ pos.x, pos.y, 0.0f }, (vec3f){ siz.x, siz.y, 0.0f }, spr_renderer->m_color, 0);
+    nv_renderer_render_quad(rd, spr_renderer->spr, spr_renderer->tex_coord_multiplier, (vec3f){ pos.x, pos.y, 0.0f }, (vec3f){ siz.x, siz.y, 0.0f }, spr_renderer->color, 0);
   }
-  for (int i = 0; i < (int)nv_list_size(&scene_main->m_objects); i++)
+  for (int i = 0; i < (int)nv_list_size(&scene_main->objects); i++)
   {
-    if (objects[i].m_render_fn)
+    if (objects[i].render_fn)
     {
-      objects[i].m_render_fn(rd);
+      objects[i].render_fn(rd);
     }
   }
 }
@@ -510,21 +509,21 @@ nv_scene_destroy(nv_scene_t* scene)
   {
     return;
   }
-  b2DestroyWorld(scene->m_world);
-  nv_list_destroy(&scene->m_objects);
+  b2DestroyWorld(scene->world);
+  nv_list_destroy(&scene->objects);
   nv_free(scene);
 }
 
 void
 nv_scene_assign_load_fn(nv_scene_t* scene, nv_scene_load_fn fn)
 {
-  scene->m_load = fn;
+  scene->load = fn;
 }
 
 void
 nv_scene_assign_unload_fn(nv_scene_t* scene, nv_scene_unload_fn fn)
 {
-  scene->m_unload = fn;
+  scene->unload = fn;
 }
 
 void
@@ -534,14 +533,14 @@ nv_scene_change_to_scene(nv_scene_t* scene)
   {
     return;
   }
-  if (scene_main && scene_main->m_unload)
+  if (scene_main && scene_main->unload)
   {
-    scene_main->m_unload(scene);
+    scene_main->unload(scene);
     nv_scene_destroy(scene_main);
   }
-  if (scene->m_load)
+  if (scene->load)
   {
-    scene->m_load(scene);
+    scene->load(scene);
   }
   scene_main = scene;
 }
@@ -549,10 +548,10 @@ nv_scene_change_to_scene(nv_scene_t* scene)
 // nvui
 typedef struct nvui_context
 {
-  nv_list_t m_btons;
-  nv_list_t m_sliders;
-  void*     m_ubmapped;
-  bool      m_active;
+  nv_list_t btons;
+  nv_list_t sliders;
+  void*     ubmapped;
+  bool      active;
 } nvui_context;
 
 nvui_context nvui_ctx;
@@ -560,61 +559,61 @@ nvui_context nvui_ctx;
 void
 nvui_init(void)
 {
-  nvui_ctx.m_active = 1;
-  nv_list_init(sizeof(nvui_button), 4, nv_allocator_get_default(), &nvui_ctx.m_btons);
-  nv_list_init(sizeof(nvui_slider), 4, nv_allocator_get_default(), &nvui_ctx.m_sliders);
+  nvui_ctx.active = 1;
+  nv_list_init(sizeof(nvui_button), 4, nv_allocator_get_default(), &nvui_ctx.btons);
+  nv_list_init(sizeof(nvui_slider), 4, nv_allocator_get_default(), &nvui_ctx.sliders);
 }
 
 void
 nvui_shutdown(void)
 {
-  if (!nvui_ctx.m_active)
+  if (!nvui_ctx.active)
   {
     return;
   }
-  nv_list_destroy(&nvui_ctx.m_btons);
-  nv_list_destroy(&nvui_ctx.m_sliders);
-  nvui_ctx.m_active = 0;
+  nv_list_destroy(&nvui_ctx.btons);
+  nv_list_destroy(&nvui_ctx.sliders);
+  nvui_ctx.active = 0;
 }
 
 nvui_button*
 nvui_create_button(nv_sprite* spr)
 {
-  if (!nvui_ctx.m_active)
+  if (!nvui_ctx.active)
   {
     nv_push_error("nvui not initialized");
     return NULL;
   }
-  nvui_button bton            = nv_zero_init(nvui_button);
-  bton.m_transform.m_position = nv_zero_init(vec2);
-  bton.m_transform.m_size     = (vec2){ 0.5f, 0.5f };
-  bton.m_color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
-  bton.m_spr                  = spr;
-  nv_list_push_back(&nvui_ctx.m_btons, &bton);
-  return &((nvui_button*)nv_list_data(&nvui_ctx.m_btons))[nv_list_size(&nvui_ctx.m_btons) - 1];
+  nvui_button bton        = nv_zero_init(nvui_button);
+  bton.transform.position = nv_zero_init(vec2);
+  bton.transform.size     = (vec2){ 0.5f, 0.5f };
+  bton.color              = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
+  bton.spr                = spr;
+  nv_list_push_back(&nvui_ctx.btons, &bton);
+  return &((nvui_button*)nv_list_data(&nvui_ctx.btons))[nv_list_size(&nvui_ctx.btons) - 1];
 }
 
 nvui_slider*
 nvui_create_slider(void)
 {
-  if (!nvui_ctx.m_active)
+  if (!nvui_ctx.active)
   {
     nv_push_error("nvui not initialized");
     return NULL;
   }
-  nvui_slider slider            = nv_zero_init(nvui_slider);
-  slider.m_transform.m_position = nv_zero_init(vec2);
-  slider.m_transform.m_size     = (vec2){ 0.5f, 1.5f };
-  slider.m_min                  = 0.0f;
-  slider.m_max                  = 1.0f;
-  slider.m_value                = 0.0f;
-  slider.m_bg_color             = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
-  slider.m_slider_color         = (vec4f){ 1.0f, 0.0f, 0.0f, 1.0f };
-  slider.m_bg_sprite            = nv_sprite_empty;
-  slider.m_slider_sprite        = nv_sprite_empty;
-  slider.m_interactable         = 0;
-  nv_list_push_back(&nvui_ctx.m_sliders, &slider);
-  return (nvui_slider*)nv_list_get(&nvui_ctx.m_sliders, nv_list_size(&nvui_ctx.m_sliders) - 1);
+  nvui_slider slider        = nv_zero_init(nvui_slider);
+  slider.transform.position = nv_zero_init(vec2);
+  slider.transform.size     = (vec2){ 0.5f, 1.5f };
+  slider.min                = 0.0f;
+  slider.max                = 1.0f;
+  slider.value              = 0.0f;
+  slider.bg_color           = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
+  slider.slider_color       = (vec4f){ 1.0f, 0.0f, 0.0f, 1.0f };
+  slider.bg_sprite          = nv_sprite_empty;
+  slider.slider_sprite      = nv_sprite_empty;
+  slider.interactable       = 0;
+  nv_list_push_back(&nvui_ctx.sliders, &slider);
+  return (nvui_slider*)nv_list_get(&nvui_ctx.sliders, nv_list_size(&nvui_ctx.sliders) - 1);
 }
 
 void
@@ -624,7 +623,7 @@ nvui_destroy_button(nvui_button* obj)
   {
     return;
   }
-  nv_sprite_release(obj->m_spr);
+  nv_sprite_release(obj->spr);
 }
 
 void
@@ -634,52 +633,51 @@ nvui_destroy_slider(nvui_slider* obj)
   {
     return;
   }
-  nv_sprite_release(obj->m_slider_sprite);
-  nv_sprite_release(obj->m_bg_sprite);
+  nv_sprite_release(obj->slider_sprite);
+  nv_sprite_release(obj->bg_sprite);
 }
 
 void
 nvui_render(nv_renderer_t* rd)
 {
-  if (!nvui_ctx.m_active)
+  if (!nvui_ctx.active)
   {
     return;
   }
-  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.m_btons); i++)
+  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.btons); i++)
   {
-    const nvui_button* bton = (nvui_button*)nv_list_get(&nvui_ctx.m_btons, i);
+    const nvui_button* bton = (nvui_button*)nv_list_get(&nvui_ctx.btons, i);
 
-    const nv_transform* t = &bton->m_transform;
+    const nv_transform* t = &bton->transform;
 
-    nv_renderer_render_quad(
-        rd, bton->m_spr, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->m_position.x, t->m_position.y, 0.0f }, (vec3f){ t->m_size.x, t->m_size.y, 1.0f }, bton->m_color, 0);
+    nv_renderer_render_quad(rd, bton->spr, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x, t->position.y, 0.0f }, (vec3f){ t->size.x, t->size.y, 1.0f }, bton->color, 0);
   }
 
-  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.m_sliders); i++)
+  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.sliders); i++)
   {
-    const nvui_slider* slider = (nvui_slider*)nv_list_get(&nvui_ctx.m_sliders, i);
+    const nvui_slider* slider = (nvui_slider*)nv_list_get(&nvui_ctx.sliders, i);
 
-    if (slider->m_max == slider->m_min)
+    if (slider->max == slider->min)
     {
       nv_push_error("Slider %i has equal min and max", i);
       continue;
     }
 
-    const nv_transform* t = &slider->m_transform;
+    const nv_transform* t = &slider->transform;
 
     nv_renderer_render_quad(
-        rd, slider->m_bg_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->m_position.x, t->m_position.y, 0.0f }, (vec3f){ t->m_size.x, t->m_size.y, 1.0f }, slider->m_bg_color, 0);
+        rd, slider->bg_sprite, (vec2f){ 1.0f, 1.0f }, (vec3f){ t->position.x, t->position.y, 0.0f }, (vec3f){ t->size.x, t->size.y, 1.0f }, slider->bg_color, 0);
 
-    flt_t pcent = ((slider->m_value - slider->m_min) / (slider->m_max - slider->m_min));
+    flt_t pcent = ((slider->value - slider->min) / (slider->max - slider->min));
     pcent       = NVM_CLAMP(pcent, 0.0f, 1.0f);
 
     nv_renderer_render_quad(
         rd,
-        slider->m_slider_sprite,
+        slider->slider_sprite,
         (vec2f){ 1.0f, 1.0f },
-        (vec3f){ t->m_position.x + 0.5f * t->m_size.x * (pcent - 1.0f), t->m_position.y, 0.0f },
-        (vec3f){ t->m_size.x * pcent, t->m_size.y, 1.0f },
-        slider->m_slider_color,
+        (vec3f){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
+        (vec3f){ t->size.x * pcent, t->size.y, 1.0f },
+        slider->slider_color,
         1);
   }
 }
@@ -690,52 +688,52 @@ nvui_update(void)
   const bool mouse_pressed  = nv_input_is_mouse_just_signalled(SDL_BUTTON_LEFT);
   const vec2 mouse_position = nv_camera_get_global_mouse_position(&camera);
 
-  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.m_btons); i++)
+  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.btons); i++)
   {
-    nvui_button*        bton = (nvui_button*)nv_list_get(&nvui_ctx.m_btons, i);
-    const nv_transform* t    = &bton->m_transform;
+    nvui_button*        bton = (nvui_button*)nv_list_get(&nvui_ctx.btons, i);
+    const nv_transform* t    = &bton->transform;
 
-    const nvm_rect2d bton_rect = (nvm_rect2d){ .m_position = t->m_position, .m_size = v2muls(t->m_size, 2.0f) };
+    const nvm_rect2d bton_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
     if (nvm_is_point_inside_rect(&mouse_position, &bton_rect))
     {
-      bton->m_was_hovered = 1;
-      if (mouse_pressed && bton->m_on_click)
+      bton->was_hovered = 1;
+      if (mouse_pressed && bton->on_click)
       {
-        bton->m_was_clicked = 1;
-        bton->m_on_click(bton);
+        bton->was_clicked = 1;
+        bton->on_click(bton);
       }
-      else if (bton->m_on_hover)
+      else if (bton->on_hover)
       {
-        bton->m_was_clicked = 0;
-        bton->m_on_hover(bton);
+        bton->was_clicked = 0;
+        bton->on_hover(bton);
       }
     }
     else
     {
-      bton->m_was_hovered = 0;
-      bton->m_was_clicked = 0;
+      bton->was_hovered = 0;
+      bton->was_clicked = 0;
     }
   }
 
-  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.m_sliders); i++)
+  for (int i = 0; i < (int)nv_list_size(&nvui_ctx.sliders); i++)
   {
-    nvui_slider*        slider = (nvui_slider*)nv_list_get(&nvui_ctx.m_sliders, i);
-    const nv_transform* t      = &slider->m_transform;
+    nvui_slider*        slider = (nvui_slider*)nv_list_get(&nvui_ctx.sliders, i);
+    const nv_transform* t      = &slider->transform;
 
-    const nvm_rect2d slider_rect = (nvm_rect2d){ .m_position = t->m_position, .m_size = v2muls(t->m_size, 2.0f) };
-    if (slider->m_interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
+    const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
+    if (slider->interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
     {
       if (nv_input_is_mouse_signalled(NOVA_MOUSE_BUTTON_LEFT))
       {
-        flt_t rel_mx     = mouse_position.x - (t->m_position.x - t->m_size.x * 0.5f);
-        flt_t clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->m_size.x);
-        flt_t percentage = clamped_mx / t->m_size.x;
-        slider->m_value  = slider->m_min + (percentage * (slider->m_max - slider->m_min));
-        slider->m_moved  = 1;
+        flt_t rel_mx     = mouse_position.x - (t->position.x - t->size.x * 0.5f);
+        flt_t clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->size.x);
+        flt_t percentage = clamped_mx / t->size.x;
+        slider->value    = slider->min + (percentage * (slider->max - slider->min));
+        slider->moved    = 1;
       }
       else
       {
-        slider->m_moved = 0;
+        slider->moved = 0;
       }
     }
   }
@@ -768,10 +766,10 @@ nv_input_signal_action(const char* action)
   {
     return -1;
   }
-  ia->m_this_frame = 1;
-  if (ia->m_response)
+  ia->this_frame = 1;
+  if (ia->response)
   {
-    ia->m_response(action, ia);
+    ia->response(action, ia);
   }
   return 0;
 }
@@ -906,8 +904,8 @@ nv_input_update(void)
   g_nv_input_last_frame_mouse_state = g_nv_input_mouse_state;
   g_nv_input_mouse_state            = SDL_GetMouseState(&mx, &my);
 
-  const flt_t width  = (flt_t)nv_get_window_size().m_width;
-  const flt_t height = (flt_t)nv_get_window_size().m_height;
+  const flt_t width  = (flt_t)nv_get_window_size().width;
+  const flt_t height = (flt_t)nv_get_window_size().height;
 
   g_nv_input_last_frame_mouse_position = g_nv_input_mouse_position;
   g_nv_input_mouse_position.x          = ((flt_t)mx / width) * 2.0f - 1.0f;
@@ -927,31 +925,31 @@ nv_input_update(void)
   nv_hashmap_node_t* node;
   while ((node = nv_hashmap_iterate(&g_nv_input_action_mapping, &__i)) != NULL)
   {
-    nv_input_action_t* ia = (nv_input_action_t*)node->m_value;
+    nv_input_action_t* ia = (nv_input_action_t*)node->value;
 
-    ia->m_last_frame = ia->m_this_frame;
+    ia->last_frame = ia->this_frame;
 
-    if (ia->m_key != 0)
+    if (ia->key != 0)
     { // key2 is not checked, most ia's won't have one
-      ia->m_this_frame = sdl_kb_state[ia->m_key] || sdl_kb_state[ia->m_key2];
-      if (ia->m_response)
+      ia->this_frame = sdl_kb_state[ia->key] || sdl_kb_state[ia->key2];
+      if (ia->response)
       {
-        ia->m_response((const char*)node->m_key, ia);
+        ia->response((const char*)node->key, ia);
       }
     }
-    // ia->m_mouse is checked independently
-    if (ia->m_mouse != 255)
+    // ia->mouse is checked independently
+    if (ia->mouse != 255)
     {
-      // it's or'd with ia->m_this_frame so that we can call the response multiple times, as expected.
-      ia->m_this_frame = ia->m_this_frame || (mouse_state & SDL_BUTTON(ia->m_mouse)) != 0;
-      if (ia->m_response)
+      // it's or'd with ia->this_frame so that we can call the response multiple times, as expected.
+      ia->this_frame = ia->this_frame || (mouse_state & SDL_BUTTON(ia->mouse)) != 0;
+      if (ia->response)
       {
-        ia->m_response((const char*)node->m_key, ia);
+        ia->response((const char*)node->key, ia);
       }
     }
     else
     {
-      ia->m_this_frame = 0;
+      ia->this_frame = 0;
     }
   }
 }
@@ -964,7 +962,7 @@ nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn
   {
     return;
   }
-  ia->m_response = response;
+  ia->response = response;
 }
 
 void
@@ -973,18 +971,18 @@ nv_input_bind_key_to_action(SDL_Scancode key, const char* action)
   nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
   if (!ia)
   {
-    nv_input_action_t w = { .m_key = key };
+    nv_input_action_t w = { .key = key };
     nv_hashmap_insert(&g_nv_input_action_mapping, action, &w, NULL);
   }
   else
   {
-    if (ia->m_key != SDL_SCANCODE_UNKNOWN)
+    if (ia->key != SDL_SCANCODE_UNKNOWN)
     {
-      ia->m_key2 = key;
+      ia->key2 = key;
     }
     else
     {
-      ia->m_key = key;
+      ia->key = key;
     }
   }
 }
@@ -993,7 +991,7 @@ void
 nv_input_bind_mouse_to_action(int bton, const char* action)
 {
   nv_input_action_t ia = nv_zero_init(nv_input_action_t);
-  ia.m_mouse           = bton;
+  ia.mouse             = bton;
   nv_hashmap_insert(&g_nv_input_action_mapping, action, &ia, NULL);
 }
 
@@ -1005,10 +1003,10 @@ nv_input_unbind_action(const char* action)
   {
     return;
   }
-  ia->m_key      = SDL_SCANCODE_UNKNOWN;
-  ia->m_key2     = SDL_SCANCODE_UNKNOWN;
-  ia->m_mouse    = 255;
-  ia->m_response = NULL;
+  ia->key      = SDL_SCANCODE_UNKNOWN;
+  ia->key2     = SDL_SCANCODE_UNKNOWN;
+  ia->mouse    = 255;
+  ia->response = NULL;
 }
 
 bool
@@ -1019,7 +1017,7 @@ nv_input_is_action_signalled(const char* action)
   {
     return false;
   }
-  return ia->m_this_frame && ia->m_last_frame;
+  return ia->this_frame && ia->last_frame;
 }
 
 bool
@@ -1030,7 +1028,7 @@ nv_input_is_action_just_signalled(const char* action)
   {
     return false;
   }
-  return ia->m_this_frame && !ia->m_last_frame;
+  return ia->this_frame && !ia->last_frame;
 }
 
 bool
@@ -1041,7 +1039,7 @@ nv_input_is_action_unsignalled(const char* action)
   {
     return false;
   }
-  return !ia->m_this_frame && !ia->m_last_frame;
+  return !ia->this_frame && !ia->last_frame;
 }
 
 bool
@@ -1052,5 +1050,5 @@ nv_input_is_action_just_unsignalled(const char* action)
   {
     return false;
   }
-  return !ia->m_this_frame && ia->m_last_frame;
+  return !ia->this_frame && ia->last_frame;
 }

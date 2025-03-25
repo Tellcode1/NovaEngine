@@ -18,28 +18,28 @@ typedef struct nv_descriptor_pool_t    nv_descriptor_pool_t;
 
 struct nv_descriptor_pool_size
 {
-  uint32_t m_type;
-  int      m_capacity;
-  int      m_numchilds; // how many are being used
+  uint32_t type;
+  int      capacity;
+  int      numchilds; // how many are being used
 };
 
 struct nv_descriptor_pool_t
 {
-  VkDescriptorPool        m_pool;
-  int                     m_max_child_sets;
-  nv_descriptor_pool_size m_descriptors[11];
-  nv_descriptor_set_t**   m_sets;
-  int                     m_nsets;
+  VkDescriptorPool        pool;
+  int                     max_child_sets;
+  nv_descriptor_pool_size descriptors[11];
+  nv_descriptor_set_t**   sets;
+  int                     nsets;
 };
 
 struct nv_descriptor_set_t
 {
-  int                          m_canary;
-  VkDescriptorSetLayout        m_layout;
-  VkDescriptorSet              m_set;
-  nv_descriptor_pool_t*        m_pool;
-  struct VkWriteDescriptorSet* m_writes;
-  int                          m_nwrites;
+  int                          canary;
+  VkDescriptorSetLayout        layout;
+  VkDescriptorSet              set;
+  nv_descriptor_pool_t*        pool;
+  struct VkWriteDescriptorSet* writes;
+  int                          nwrites;
 };
 
 extern int  nv_descriptor_set_submit_write(nv_descriptor_set_t* set, const VkWriteDescriptorSet* write);

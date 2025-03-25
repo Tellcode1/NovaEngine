@@ -32,50 +32,50 @@ typedef enum nv_gpu_texture_usage
 
 typedef struct nv_gpu_texture_create_info
 {
-  nv_format            m_format;
-  nv_sample_count      m_samples;
-  uint32_t             m_type;
-  nv_gpu_texture_usage m_usage;
-  nv_extent3D          m_extent;
-  int                  m_arraylayers;
-  int                  m_miplevels;
+  nv_format            format;
+  nv_sample_count      samples;
+  uint32_t             type;
+  nv_gpu_texture_usage usage;
+  nv_extent3D          extent;
+  int                  arraylayers;
+  int                  miplevels;
 } nv_gpu_texture_create_info;
 
 typedef struct nv_gpu_sampler_create_info
 {
-  VkFilter             m_filter;
-  VkSamplerMipmapMode  m_mipmap_mode;
-  VkSamplerAddressMode m_address_mode;
-  flt_t                m_max_anisotropy;
-  flt_t                m_mip_lod_bias, m_min_lod, m_max_lod;
+  VkFilter             filter;
+  VkSamplerMipmapMode  mipmap_mode;
+  VkSamplerAddressMode address_mode;
+  flt_t                max_anisotropy;
+  flt_t                mip_lod_bias, min_lod, max_lod;
 } nv_gpu_sampler_create_info;
 
 struct nv_gpu_texture
 {
-  nv_gpu_memory_t* m_memory;
-  size_t           m_size, m_offset;
+  nv_gpu_memory_t* memory;
+  size_t           size, offset;
 
-  VkImageLayout      m_layout;
-  VkImageAspectFlags m_aspect;
-  VkImageType        m_type;
-  VkImageUsageFlags  m_usage;
+  VkImageLayout      layout;
+  VkImageAspectFlags aspect;
+  VkImageType        type;
+  VkImageUsageFlags  usage;
 
-  VkImage         m_image;
-  VkImageView     m_view;
-  VkExtent3D      m_extent;
-  int             m_miplevels, m_arraylayers;
-  nv_format       m_format;
-  nv_sample_count m_samples;
+  VkImage         image;
+  VkImageView     view;
+  VkExtent3D      extent;
+  int             miplevels, arraylayers;
+  nv_format       format;
+  nv_sample_count samples;
 };
 
 struct nv_gpu_sampler
 {
-  VkFilter             m_filter;
-  VkSamplerMipmapMode  m_mipmap_mode;
-  VkSamplerAddressMode m_address_mode;
-  flt_t                m_max_anisotropy;
-  flt_t                m_mip_lod_bias, m_min_lod, m_max_lod;
-  VkSampler            m_vksampler;
+  VkFilter             filter;
+  VkSamplerMipmapMode  mipmap_mode;
+  VkSamplerAddressMode address_mode;
+  flt_t                max_anisotropy;
+  flt_t                mip_lod_bias, min_lod, max_lod;
+  VkSampler            vksampler;
 };
 
 extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, size_t* w, size_t* h);

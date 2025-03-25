@@ -37,30 +37,30 @@ typedef enum fontc_err_t
 
 struct fontc_file_header_t
 {
-  int       m_magic;
-  version_t m_version;
-  int       m_pixel_size;
-  int       m_float_size;
-  flt_t     m_line_height, m_space_width;
-  int       m_bmpwidth, m_bmpheight;
-  int       m_img_compressed_sz, m_glyphs_compressed_sz;
-  int       m_numglyphs;
-  int       m_magic2;
+  int       magic;
+  version_t version;
+  int       pixel_size;
+  int       float_size;
+  flt_t     line_height, space_width;
+  int       bmpwidth, bmpheight;
+  int       img_compressed_sz, glyphs_compressed_sz;
+  int       numglyphs;
+  int       magic2;
 };
 
 struct fontc_glyph_t
 {
-  u32   m_codepoint;
-  flt_t m_advance;
-  flt_t m_x0, m_x1, m_y0, m_y1;
-  flt_t m_l, m_b, m_r, m_t;
+  u32   codepoint;
+  flt_t advance;
+  flt_t x0, x1, y0, y1;
+  flt_t l, b, r, t;
 };
 
 struct fontc_file_t
 {
-  fontc_file_header_t m_header;
-  fontc_glyph_t*      m_glyphs; // numglyphs is in header.
-  unsigned char*      m_bitmap;
+  fontc_file_header_t header;
+  fontc_glyph_t*      glyphs; // numglyphs is in header.
+  unsigned char*      bitmap;
 };
 
 extern fontc_err_t fontc_read_font(const char* path, fontc_file_t* file);

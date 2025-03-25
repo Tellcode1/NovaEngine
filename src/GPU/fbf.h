@@ -15,12 +15,12 @@ typedef struct nv_gpu_framebuffer_create_info_t nv_gpu_framebuffer_create_info_t
 
 struct nv_gpu_framebuffer_t
 {
-  nv_gpu_texture** m_attachments;
-  size_t           m_num_attachments;
-  VkRenderPass     m_pass;
-  nv_extent2d      m_extent;
-  size_t           m_num_layers;
-  VkFramebuffer    m_handle;
+  nv_gpu_texture** attachments;
+  size_t           num_attachments;
+  VkRenderPass     pass;
+  nv_extent2d      extent;
+  size_t           num_layers;
+  VkFramebuffer    handle;
 };
 
 struct nv_gpu_framebuffer_create_info_t
@@ -28,11 +28,11 @@ struct nv_gpu_framebuffer_create_info_t
   /* how to know if attachment has been destroyed? oh no. */
   /* maybe we can use an index or something instead of a pointer */
   /* I hate my life. I hate my life. I hate my life. */
-  nv_gpu_texture**  m_attachments;
-  size_t           m_num_attachments;
-  VkRenderPass     m_pass;
-  nv_extent2d      m_extent;
-  size_t           m_num_layers;
+  nv_gpu_texture** attachments;
+  size_t           num_attachments;
+  VkRenderPass     pass;
+  nv_extent2d      extent;
+  size_t           num_layers;
 };
 
 extern int nv_gpu_create_framebuffer(const nv_gpu_framebuffer_create_info_t* pCreateInfo, nv_gpu_framebuffer_t* dst);

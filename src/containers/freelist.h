@@ -40,31 +40,31 @@ extern void nv_freelist_check_circle(const nv_freelist_t* list);
 
 struct nv_chunk_t
 {
-  void* m_mapping;
+  void* mapping;
   // available is here for easy querying by the freelist
-  size_t     m_mapping_size, m_mapping_offset, m_available;
-  nv_node_t* m_root;
+  size_t     mapping_size, mapping_offset, available;
+  nv_node_t* root;
 };
 
 struct nv_node_t
 {
-  struct nv_node_t* m_next;
-  nv_chunk_t*       m_chunk;
-  void*             m_payload;
-  void*             m_mapping;
-  size_t            m_mapping_size;
-  size_t            m_size; // allocated size
-  unsigned          m_canary;
-  bool              m_in_use;
+  struct nv_node_t* next;
+  nv_chunk_t*       chunk;
+  void*             payload;
+  void*             mapping;
+  size_t            mapping_size;
+  size_t            size; // allocated size
+  unsigned          canary;
+  bool              in_use;
 };
 
 struct nv_freelist_t
 {
-  unsigned             m_canary;
-  nv_node_t*           m_root;
-  nv_freelist_alloc_fn m_alloc_fn;
-  nv_freelist_free_fn  m_free_fn;
-  SDL_mutex*           m_mutex;
+  unsigned             canary;
+  nv_node_t*           root;
+  nv_freelist_alloc_fn alloc_fn;
+  nv_freelist_free_fn  free_fn;
+  SDL_mutex*           mutex;
 };
 
 NOVA_HEADER_END

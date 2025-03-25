@@ -30,20 +30,20 @@ extern void nv_texture_atlas_destroy(nv_texture_atlas_t* atlas);
 
 struct nv_texture_atlas_t
 {
-  unsigned  m_canary; // = 0xDEADBEEF
-  int       m_padding;
-  nv_format m_format;
+  unsigned  canary; // = 0xDEADBEEF
+  int       padding;
+  nv_format format;
 
-  nv_allocator_t* m_alloc;
+  nv_allocator_t* alloc;
 
-  SDL_mutex* m_mutex;
+  SDL_mutex* mutex;
 
-  unsigned char* m_data;
+  unsigned char* data;
 
-  size_t m_width;
-  size_t m_height;
+  size_t width;
+  size_t height;
 
-  nv_skyline_bin_t m_bin;
+  nv_skyline_bin_t bin;
 };
 
 NOVA_HEADER_END

@@ -11,18 +11,18 @@ typedef struct nv_skyline_rect_t nv_skyline_rect_t;
 
 struct nv_skyline_rect_t
 {
-  size_t m_width, m_height, m_posx, m_posy;
+  size_t width, height, posx, posy;
 };
 
 struct nv_skyline_bin_t
 {
-  unsigned           m_canary;
-  size_t*            m_skyline;
-  nv_skyline_rect_t* m_rects;
-  size_t             m_width, m_height;
-  size_t             m_allocated_rect_count;
-  size_t             m_num_rects;
-  SDL_mutex*         m_mutex;
+  unsigned           canary;
+  size_t*            skyline;
+  nv_skyline_rect_t* rects;
+  size_t             width, height;
+  size_t             allocated_rect_count;
+  size_t             num_rects;
+  SDL_mutex*         mutex;
 };
 
 extern void   nv_skyline_bin_init(size_t w, size_t h, nv_skyline_bin_t* bin);

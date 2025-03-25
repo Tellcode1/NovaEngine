@@ -21,35 +21,35 @@ extern int                   nshaders;
 
 struct nvsm_shader_t
 {
-  char           m_name[128];
-  VkShaderModule m_shader_module; // the vk shader handle
-  unsigned       m_stage;
+  char           name[128];
+  VkShaderModule shader_module; // the vk shader handle
+  unsigned       stage;
 };
 
 struct nvsm_shader_entry_t
 {
-  char m_path[256];
-  char m_output_path[256];
-  char m_name[128];
-  char m_stage[4];
-  long m_last_modified;
+  char path[256];
+  char output_path[256];
+  char name[128];
+  char stage[4];
+  long last_modified;
 };
 
 struct nvsm_shader_cache_entry_t
 {
-  uint32_t m_canary; // == 0xDEADBEEF
-  char     m_path[256];
-  char     m_output_path[256];
-  char     m_name[128];
-  long     m_last_modified;
+  uint32_t canary; // == 0xDEADBEEF
+  char     path[256];
+  char     output_path[256];
+  char     name[128];
+  long     last_modified;
 };
 
 // how the NVSM shader is stored on the disk
 struct nvsm_shader_disk_t
 {
-  char m_name[128];
-  char m_path[128];
-  long m_last_modified;
+  char name[128];
+  char path[128];
+  long last_modified;
 };
 
 extern void _nvsm_create_shader(VkDevice vkdevice, const u32* bytes, size_t nbytes, struct nvsm_shader_t* out);

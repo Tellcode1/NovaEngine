@@ -2,7 +2,6 @@
 #define __NOVA_POOL_H__
 
 #include "../std/stdafx.h"
-#include "../std/string.h"
 
 NOVA_HEADER_START
 
@@ -26,12 +25,12 @@ extern void nv_pool_free(nv_pool_t* pool, void* object);
 
 struct nv_pool_t
 {
-  size_t     m_type_size;
-  size_t     m_capacity;
-  size_t     m_free_count;
-  void*      m_free_list;
-  void*      m_allocation;
-  SDL_mutex* m_mutex;
+  size_t     type_size;
+  size_t     capacity;
+  size_t     free_count;
+  void*      free_list;
+  void*      allocation;
+  SDL_mutex* mutex;
 };
 
 NOVA_HEADER_END

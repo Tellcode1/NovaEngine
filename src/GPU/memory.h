@@ -21,18 +21,18 @@ typedef enum nv_gpu_memory_usage_bits
 {
   NOVA_GPU_MEMORY_USAGE_GPU_LOCAL        = 1,
   NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE      = 2,  // VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-  NOVA_GPU_MEMORY_USAGE_CPU_WRITEABLE    = 4,  // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+  NOVA_GPU_MEMORY_USAGE_CPU_COHERENT     = 4,  // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
   NOVA_GPU_MEMORY_USAGE_LAZILY_ALLOCATED = 16, // VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT
 } nv_gpu_memory_usage_bits;
 typedef unsigned nv_gpu_memory_usage;
 
 struct nv_gpu_memory_t
 {
-  VkDeviceMemory      m_memory;
-  void*               m_mapped;
-  size_t              m_map_size, m_map_offset; // if mapped, the mapping size and offset
-  nv_gpu_memory_usage m_usage;
-  size_t              m_size;
+  VkDeviceMemory      memory;
+  void*               mapped;
+  size_t              map_size, map_offset; // if mapped, the mapping size and offset
+  nv_gpu_memory_usage usage;
+  size_t              size;
 };
 
 // I think we should make like a cgfx_err_t enum
@@ -41,6 +41,9 @@ extern void nv_gpu_free_memory(nv_gpu_memory_t* mem);
 
 extern void nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** out);
 extern void nv_gpu_unmap_memory(nv_gpu_memory_t* memory);
+
+/* Warning: src must not be mapped when this function is called. */
+extern void nv_gpu_copy_memory(nv_gpu_memory_t* dst, nv_gpu_memory_t* src, size_t size, size_t dst_offset, size_t src_offset);
 
 NOVA_HEADER_END
 

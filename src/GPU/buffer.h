@@ -26,15 +26,15 @@ typedef uint32_t nv_gpu_buffer_usage;
 
 typedef struct nv_gpu_buffer_t
 {
-  struct VkBuffer_T* m_buffer;
-  void*              m_mapping; // For nv_gpu_write_to_buffer()
-  bool               m_is_mapped;
+  struct VkBuffer_T* buffer;
+  void*              mapping; // For nv_gpu_write_to_buffer()
+  bool               is_mapped;
   // The size of the buffer
   // Even if there are multiple children, this gives only the size of ONE buffer
-  size_t              m_size, m_offset;
-  size_t              m_alignment;
-  nv_gpu_memory_t*    m_memory;
-  nv_gpu_buffer_usage m_usage;
+  size_t              size, offset;
+  size_t              alignment;
+  nv_gpu_memory_t*    memory;
+  nv_gpu_buffer_usage usage;
 } nv_gpu_buffer_t;
 
 extern void nv_gpu_create_buffer(size_t size, size_t alignment, nv_gpu_buffer_usage usage, nv_gpu_buffer_t* dst);

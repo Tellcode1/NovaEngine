@@ -35,12 +35,12 @@ extern struct nv_camera_t   camera;
 // Move ownership to camera VV
 typedef struct nv_renderer_frame_render_info
 {
-  nv_gpu_texture       m_sc_image; // sc -> swapchain owned
-  nv_gpu_texture       m_depth_image;
-  nv_gpu_framebuffer_t m_color_framebuffer;
-  VkSemaphore          m_image_available_semaphore;
-  VkSemaphore          m_render_finish_semaphore;
-  VkFence              m_in_flight_fence;
+  nv_gpu_texture       sc_image; // sc -> swapchain owned
+  nv_gpu_texture       depth_image;
+  nv_gpu_framebuffer_t color_framebuffer;
+  VkSemaphore          image_available_semaphore;
+  VkSemaphore          render_finish_semaphore;
+  VkFence              in_flight_fence;
 } nv_renderer_frame_render_info;
 
 typedef enum nv_renderer_flag_bits
@@ -52,48 +52,48 @@ typedef enum nv_renderer_flag_bits
 
 typedef struct nv_renderer_config
 {
-  nv_sample_count m_samples;
-  nv_buffer_mode  m_buffer_mode;
-  nv_extent2d     m_initial_window_size;
-  int             m_exit_key;
-  bool            m_multisampling_enable;
-  bool            m_window_resizable;
-  nv_window_vsync m_vsync_enabled;
+  nv_sample_count samples;
+  nv_buffer_mode  buffer_mode;
+  nv_extent2d     initial_window_size;
+  int             exit_key;
+  bool            multisampling_enable;
+  bool            window_resizable;
+  nv_window_vsync vsync_enabled;
 } nv_renderer_config;
 
 static inline nv_renderer_config
 nv_renderer_config_init(void)
 {
   return (nv_renderer_config){
-    .m_samples              = NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES,
-    .m_buffer_mode          = NOVA_BUFFER_MODE_DOUBLE_BUFFERED,
-    .m_initial_window_size  = { 800, 600 },
-    .m_multisampling_enable = false,
-    .m_window_resizable     = false,
-    .m_vsync_enabled        = true,
+    .samples              = NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES,
+    .buffer_mode          = NOVA_BUFFER_MODE_DOUBLE_BUFFERED,
+    .initial_window_size  = { 800, 600 },
+    .multisampling_enable = false,
+    .window_resizable     = false,
+    .vsync_enabled        = true,
   };
 }
 
 struct nv_ctext_module
 {
-  nv_list_t            m_fonts;
-  nv_list_t            m_labels;
-  nv_descriptor_set_t* m_desc_set;
-  unsigned             m_flags;
+  nv_list_t            fonts;
+  nv_list_t            labels;
+  nv_descriptor_set_t* desc_set;
+  unsigned             flags;
 };
 
 struct nv_quad_draw_call_t
 {
-  nv_sprite* m_spr;
-  vec3f      m_siz, m_pos;
-  vec2f      m_tex_multiplier;
-  vec4f      m_col;
+  nv_sprite* spr;
+  vec3f      siz, pos;
+  vec2f      tex_multiplier;
+  vec4f      col;
 };
 
 struct nv_line_draw_call_t
 {
-  vec2f m_begin, m_end;
-  vec4f m_col;
+  vec2f begin, end;
+  vec4f col;
 };
 
 typedef enum nv_draw_call_type
@@ -105,55 +105,55 @@ typedef enum nv_draw_call_type
 
 struct nv_draw_call_t
 {
-  nv_draw_call_type m_type;
-  int               m_layer;
+  nv_draw_call_type type;
+  int               layer;
   union nv_DrawCallData
   {
-    nv_line_draw_call_t m_line;
-    nv_quad_draw_call_t m_quad;
-  } m_drawcall;
+    nv_line_draw_call_t line;
+    nv_quad_draw_call_t quad;
+  } drawcall;
 };
 
 struct nv_renderer_t
 {
-  unsigned       m_flags;
-  nv_buffer_mode m_buffer_mode;
+  unsigned       flags;
+  nv_buffer_mode buffer_mode;
 
-  VkRenderPass m_render_pass;
-  nv_extent2d  m_render_extent;
+  VkRenderPass render_pass;
+  nv_extent2d  render_extent;
 
-  VkSwapchainKHR m_swapchain;
-  VkCommandPool  m_command_pool;
+  VkSwapchainKHR swapchain;
+  VkCommandPool  command_pool;
 
-  u32 m_attachment_count;
-  u32 m_frame;
-  u32 m_image_index;
+  u32 attachment_count;
+  u32 frame;
+  u32 image_index;
 
-  size_t m_shadow_image_size; // the size of ONE depth texture. Multiply by
-                              // SwapchainImageCount to get total size
-  nv_gpu_memory_t m_depth_image_memory;
+  size_t shadow_image_size; // the size of ONE depth texture. Multiply by
+                            // SwapchainImageCount to get total size
+  nv_gpu_memory_t depth_image_memory;
 
-  nv_gpu_texture  m_color_image;
-  nv_gpu_memory_t m_color_image_memory;
+  nv_gpu_texture  color_image;
+  nv_gpu_memory_t color_image_memory;
 
-  VkFormat m_depth_buffer_format;
+  VkFormat depth_buffer_format;
 
-  nv_list_t m_render_data;
-  nv_list_t m_draw_cmd_buffers;
+  nv_list_t render_data;
+  nv_list_t draw_cmd_buffers;
 
   /* stored to avoid creating one for literally every texture. nv_gpu_sampler** */
-  nv_list_t m_samplers;
+  nv_list_t samplers;
 
-  nv_list_t m_drawcalls;
+  nv_list_t drawcalls;
 
-  nv_ctext_module* m_ctext;
+  nv_ctext_module* ctext;
 
   // These are used to render all the sprites in the game (quad based sprites
   // that is)
-  nv_gpu_buffer_t m_quad_vb;
-  nv_gpu_memory_t m_quad_memory;
+  nv_gpu_buffer_t quad_vb;
+  nv_gpu_memory_t quad_memory;
 
-  void* m_mapped;
+  void* mapped;
 };
 
 extern int  nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst);

@@ -11,9 +11,7 @@ cd "$(dirname "$0")" || exit 1
 
 DIRECTORIES=(
     "src"
-    "include"
-    "std"
-    "common"
+    "src/std"
     "ssl"
 )
 
@@ -35,7 +33,7 @@ for TARGET_DIR in "${DIRECTORIES[@]}"; do
         continue
     fi
 
-    FILES=$(find "$TARGET_DIR" -type f \( -name "*.cpp" -o -name "*.c" \))
+    FILES=$(find "$TARGET_DIR" -type f \( -name "*.h" -o -name "*.c" \))
 
     if [ -z "$FILES" ]; then
         continue

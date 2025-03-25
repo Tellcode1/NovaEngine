@@ -69,22 +69,22 @@ extern void nv_hashmap_deserialize(nv_hashmap_t* NV_RESTRICT map, FILE* NV_RESTR
 
 struct nv_hashmap_node_t
 {
-  void* m_key;
-  void* m_value;
-  u32   m_hash;
+  void* key;
+  void* value;
+  u32   hash;
 };
 
 struct nv_hashmap_t
 {
-  unsigned           m_canary;
-  SDL_mutex*         m_mutex;
-  nv_hashmap_node_t* m_nodes;
-  nv_hash_fn         m_hash_fn;
-  size_t             m_entries;
-  size_t             m_size;
-  size_t             m_key_size;
-  size_t             m_value_size;
-  nv_allocator_t*    m_alloc;
+  unsigned           canary;
+  SDL_mutex*         mutex;
+  nv_hashmap_node_t* nodes;
+  nv_hash_fn         hash_fn;
+  size_t             entries;
+  size_t             size;
+  size_t             key_size;
+  size_t             value_size;
+  nv_allocator_t*    alloc;
 };
 
 NOVA_HEADER_END

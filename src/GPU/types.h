@@ -49,12 +49,12 @@ typedef unsigned nv_sample_count;
 
 typedef struct nv_extent2d
 {
-  size_t m_width, m_height;
+  size_t width, height;
 } nv_extent2d;
 
 typedef struct nv_extent3D
 {
-  size_t m_width, m_height, m_depth;
+  size_t width, height, depth;
 } nv_extent3D;
 
 NOVA_HEADER_END

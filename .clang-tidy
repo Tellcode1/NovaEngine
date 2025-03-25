@@ -20,7 +20,6 @@ Checks: >
 
 CheckOptions:
   readability-identifier-naming.MemberCase: lower_case
-  readability-identifier-naming.MemberPrefix: m_
   readability-simplify-boolean-expr.IncludeStyle: llvm
   readability-braces-around-statements.ShortStatementLines: 1
   modernize-use-auto.MinTypeNameLength: 5

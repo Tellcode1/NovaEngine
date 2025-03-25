@@ -13,8 +13,8 @@ NOVA_HEADER_START
 
 typedef struct nv_transform
 {
-  vec2 m_position, m_size;
-  vec4 m_rotation;
+  vec2 position, size;
+  vec4 rotation;
 } nv_transform;
 
 typedef void (*nv_object_update_fn)(real_t dt);

@@ -60,7 +60,7 @@ main(int argc, char* argv[])
 
   const nv_extent2d window_size = (nv_extent2d){ window_width, window_height };
 
-  nv_initialize_context(windowname, (int)window_size.m_width, (int)window_size.m_height);
+  nv_initialize_context(windowname, (int)window_size.width, (int)window_size.height);
   nvvk_context_initialize(&nvvk_context);
 
   if (recompile_shaders)
@@ -72,13 +72,13 @@ main(int argc, char* argv[])
     nvsm_compile_updated();
   }
 
-  nv_renderer_config rdconf     = nv_renderer_config_init();
-  rdconf.m_vsync_enabled        = 1;
-  rdconf.m_buffer_mode          = NOVA_BUFFER_MODE_TRIPLE_BUFFERED;
-  rdconf.m_window_resizable     = resizable_window;
-  rdconf.m_initial_window_size  = window_size;
-  rdconf.m_multisampling_enable = 0;
-  rdconf.m_samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
+  nv_renderer_config rdconf   = nv_renderer_config_init();
+  rdconf.vsync_enabled        = 1;
+  rdconf.buffer_mode          = NOVA_BUFFER_MODE_TRIPLE_BUFFERED;
+  rdconf.window_resizable     = resizable_window;
+  rdconf.initial_window_size  = window_size;
+  rdconf.multisampling_enable = 0;
+  rdconf.samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
 
   nv_renderer_t rdr;
   if (nv_renderer_init(&rdconf, &rdr) != 0)
@@ -144,9 +144,9 @@ main(int argc, char* argv[])
       size_t      year = time->tm_year + 1900;
 
       ctext_text_render_info_t clock_info = ctext_init_text_render_info();
-      clock_info.m_scale                  = 1.0F;
-      clock_info.m_bbox                   = (vec2){ camera.m_ortho_size.x * 2.0f, camera.m_ortho_size.y * 2.0f };
-      clock_info.m_scale_for_fit          = 1;
+      clock_info.scale                    = 1.0F;
+      clock_info.bbox                     = (vec2){ camera.ortho_size.x * 2.0f, camera.ortho_size.y * 2.0f };
+      clock_info.scale_for_fit            = 1;
       ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
 
       nv_renderer_render_quad(

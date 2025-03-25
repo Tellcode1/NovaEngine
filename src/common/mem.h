@@ -54,12 +54,12 @@ typedef void (*nv_allocator_free_fn)(nv_allocator_t* allocator, void* block);
 
 struct nv_allocator_t
 {
-  nv_allocator_alloc_fn   m_alloc;
-  nv_allocator_calloc_fn  m_calloc;
-  nv_allocator_realloc_fn m_realloc;
-  nv_allocator_free_fn    m_free;
-  void*                   m_context;
-  void*                   m_user_data;
+  nv_allocator_alloc_fn   alloc;
+  nv_allocator_calloc_fn  calloc;
+  nv_allocator_realloc_fn realloc;
+  nv_allocator_free_fn    free;
+  void*                   context;
+  void*                   user_data;
 };
 
 // malloc, realloc, free
@@ -67,24 +67,24 @@ extern struct nv_allocator_t* nv_allocator_get_default(void);
 
 struct nv_allocator_stack
 {
-  unsigned char* m_buf;
-  size_t         m_bufsiz;
-  size_t         m_bufoffset;
+  unsigned char* buf;
+  size_t         bufsiz;
+  size_t         bufoffset;
 };
 
 struct nv_allocator_heap
 {
-  nv_freelist_t m_freelist;
+  nv_freelist_t freelist;
 };
 
 static inline void
 nv_allocator_bind_stack_allocator(struct nv_allocator_t* allocator, nv_allocator_stack* stack)
 {
-  allocator->m_alloc   = nv_stack_alloc;
-  allocator->m_calloc  = nv_stack_calloc;
-  allocator->m_realloc = nv_stack_realloc;
-  allocator->m_free    = nv_stack_free;
-  allocator->m_context = stack;
+  allocator->alloc   = nv_stack_alloc;
+  allocator->calloc  = nv_stack_calloc;
+  allocator->realloc = nv_stack_realloc;
+  allocator->free    = nv_stack_free;
+  allocator->context = stack;
 }
 
 // static inline void

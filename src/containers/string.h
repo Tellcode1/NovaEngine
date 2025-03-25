@@ -11,12 +11,12 @@ typedef struct nv_string_t nv_string_t;
 
 struct nv_string_t
 {
-  unsigned        m_canary;
-  char*           m_data;
-  size_t          m_size;
-  size_t          m_capacity;
-  SDL_mutex*      m_mutex;
-  nv_allocator_t* m_alloc;
+  unsigned        canary;
+  char*           data;
+  size_t          size;
+  size_t          capacity;
+  SDL_mutex*      mutex;
+  nv_allocator_t* alloc;
 };
 
 /*

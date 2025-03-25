@@ -40,9 +40,9 @@ typedef struct nvvk_context_t
   VkQueue compute_queue;
   VkQueue transfer_queue;
 
-  u32           MAX_SAMPLES;
-  unsigned char SUPPORTS_MULTISAMPLING;
-  flt_t         MAX_ANISOTROPY;
+  u32           max_samples;
+  unsigned char supports_multisampling;
+  flt_t         max_anisotropy;
 } nvvk_context_t;
 
 extern nvvk_context_t nvvk_context;

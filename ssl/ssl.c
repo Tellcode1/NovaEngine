@@ -143,8 +143,8 @@ ssl(char* input)
     if (nv_strchr(symbols, PEEK()))
     {
       ss_tok_t tok;
-      tok.m_type       = SS_TOK_TYPE_SYMBOL;
-      tok.m_value.m_op = PEEK();
+      tok.type     = SS_TOK_TYPE_SYMBOL;
+      tok.value.op = PEEK();
       nv_list_push_back(&toks, &tok);
       ADVANCE();
       continue;
@@ -153,8 +153,8 @@ ssl(char* input)
     if (nv_strchr(operators, PEEK()))
     {
       ss_tok_t tok;
-      tok.m_type       = SS_TOK_TYPE_OPERATOR;
-      tok.m_value.m_op = PEEK();
+      tok.type     = SS_TOK_TYPE_OPERATOR;
+      tok.value.op = PEEK();
       nv_list_push_back(&toks, &tok);
       ADVANCE();
       continue;
@@ -178,8 +178,8 @@ ssl(char* input)
       }
 
       ss_tok_t tok;
-      tok.m_type      = SS_TOK_TYPE_STRING;
-      tok.m_value.m_s = nv_substr(start, 0, iter - start);
+      tok.type    = SS_TOK_TYPE_STRING;
+      tok.value.s = nv_substr(start, 0, iter - start);
       nv_list_push_back(&toks, &tok);
 
       ADVANCE();
@@ -202,20 +202,20 @@ ssl(char* input)
       ss_tok_t tok;
       if (is_in_char_array(start, types, nv_arrlen(types)))
       {
-        tok.m_type = SS_TOK_TYPE_TYPE;
+        tok.type = SS_TOK_TYPE_TYPE;
       }
       else if (iskeyword(start, iter - start))
       {
-        tok.m_type = SS_TOK_TYPE_KEYWORD;
+        tok.type = SS_TOK_TYPE_KEYWORD;
       }
       else
       {
-        tok.m_type = SS_TOK_TYPE_IDENTIFIER;
+        tok.type = SS_TOK_TYPE_IDENTIFIER;
       }
 
       PEEK() = temp;
 
-      tok.m_value.m_s = nv_substr(start, 0, iter - start);
+      tok.value.s = nv_substr(start, 0, iter - start);
       nv_list_push_back(&toks, &tok);
 
       continue;
@@ -234,13 +234,13 @@ ssl(char* input)
 
       if ((double)((int)value) == value)
       {
-        tok.m_type      = SS_TOK_TYPE_INT;
-        tok.m_value.m_i = (int)value;
+        tok.type    = SS_TOK_TYPE_INT;
+        tok.value.i = (int)value;
       }
       else
       {
-        tok.m_type      = SS_TOK_TYPE_FLOAT;
-        tok.m_value.m_d = value;
+        tok.type    = SS_TOK_TYPE_FLOAT;
+        tok.value.d = value;
       }
 
       nv_list_push_back(&toks, &tok);
@@ -257,26 +257,26 @@ ssl(char* input)
   {
     ss_tok_t* tk = (ss_tok_t*)nv_list_get(&toks, i);
 
-    switch (tk->m_type)
+    switch (tk->type)
     {
       case SS_TOK_TYPE_UNKNOWN: nv_printf("UNKNOWN??\n"); break;
-      case SS_TOK_TYPE_KEYWORD: nv_printf("KEYWORD %s\n", tk->m_value.m_s); break;
-      case SS_TOK_TYPE_IDENTIFIER: nv_printf("IDENTIFIER %s\n", tk->m_value.m_s); break;
-      case SS_TOK_TYPE_INT: nv_printf("INT %i\n", tk->m_value.m_i); break;
-      case SS_TOK_TYPE_FLOAT: nv_printf("FLOAT %f\n", tk->m_value.m_d); break;
-      case SS_TOK_TYPE_STRING: nv_printf("STRING %s\n", tk->m_value.m_s); break;
-      case SS_TOK_TYPE_OPERATOR: nv_printf("OPERATOR %c\n", tk->m_value.m_op); break;
-      case SS_TOK_TYPE_SYMBOL: nv_printf("SYMBOL %c\n", tk->m_value.m_op); break;
-      case SS_TOK_TYPE_TYPE: nv_printf("TYPE %s\n", tk->m_value.m_s); break;
+      case SS_TOK_TYPE_KEYWORD: nv_printf("KEYWORD %s\n", tk->value.s); break;
+      case SS_TOK_TYPE_IDENTIFIER: nv_printf("IDENTIFIER %s\n", tk->value.s); break;
+      case SS_TOK_TYPE_INT: nv_printf("INT %i\n", tk->value.i); break;
+      case SS_TOK_TYPE_FLOAT: nv_printf("FLOAT %f\n", tk->value.d); break;
+      case SS_TOK_TYPE_STRING: nv_printf("STRING %s\n", tk->value.s); break;
+      case SS_TOK_TYPE_OPERATOR: nv_printf("OPERATOR %c\n", tk->value.op); break;
+      case SS_TOK_TYPE_SYMBOL: nv_printf("SYMBOL %c\n", tk->value.op); break;
+      case SS_TOK_TYPE_TYPE: nv_printf("TYPE %s\n", tk->value.s); break;
     }
   }
 
   for (size_t i = 0; i < nv_list_size(&toks); i++)
   {
     ss_tok_t* tk = (ss_tok_t*)nv_list_get(&toks, i);
-    if (tk->m_type == SS_TOK_TYPE_STRING || tk->m_type == SS_TOK_TYPE_KEYWORD || tk->m_type == SS_TOK_TYPE_IDENTIFIER || tk->m_type == SS_TOK_TYPE_TYPE)
+    if (tk->type == SS_TOK_TYPE_STRING || tk->type == SS_TOK_TYPE_KEYWORD || tk->type == SS_TOK_TYPE_IDENTIFIER || tk->type == SS_TOK_TYPE_TYPE)
     {
-      nv_free(tk->m_value.m_s);
+      nv_free(tk->value.s);
     }
   }
 

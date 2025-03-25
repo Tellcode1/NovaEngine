@@ -11,11 +11,12 @@
 *   nv_gpu_buffer_type is now *_usage as it more reflects the purpose
 *   Renamed dynarray.h to list.h, much easier to type, more clear what the hell it is.
 *   We will now be using SDL_mutex instead of pthread for compatibility and because SDL is of superior intellect.
+*   Removed m_ prefix from all variables. It makes the project less readable.
 
 ### Fixed
 *   Fixed incorrect calculating of highest power of input in itoa.
 *   init_size in list.h has now been replaced with init_capacity, same purpose, better name.
-*   Fixed program options stupidly using opt->m_type instead of opt->m_value.
+*   Fixed program options stupidly using opt->type instead of opt->value.
 *   Fixed the debug messenger creation function using nvvk_context.instance which is not initialized by the time the function is called.
 
 ## \[Version 0.0.1\]

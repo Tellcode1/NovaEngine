@@ -18,30 +18,30 @@ typedef enum nv_rbnode_color
 
 typedef struct nv_rbmap_node_t
 {
-  struct nv_rbmap_node_t* m_parent;
-  struct nv_rbmap_node_t* m_children[2];
-  nv_rbnode_color         m_color;
-  void*                   m_key;
-  void*                   m_val;
+  struct nv_rbmap_node_t* parent;
+  struct nv_rbmap_node_t* children[2];
+  nv_rbnode_color         color;
+  void*                   key;
+  void*                   val;
 } nv_rbmap_node_t;
 
 typedef struct nv_rbmap_iterator_t
 {
-  nv_rbmap_node_t*  m_current;
-  size_t            m_top;
-  size_t            m_capacity;
-  nv_rbmap_node_t** m_stack;
+  nv_rbmap_node_t*  current;
+  size_t            top;
+  size_t            capacity;
+  nv_rbmap_node_t** stack;
 } nv_rbmap_iterator_t;
 
 typedef struct nv_rbmap_t
 {
-  unsigned               m_canary;
-  size_t                 m_key_size;
-  size_t                 m_val_size;
-  nv_compare_fn          m_compare_fn;
-  nv_rbmap_node_t*       m_root;
-  nv_rbmap_node_t**      m_nodes;
-  struct nv_allocator_t* m_alloc;
+  unsigned               canary;
+  size_t                 key_size;
+  size_t                 val_size;
+  nv_compare_fn          compare_fn;
+  nv_rbmap_node_t*       root;
+  nv_rbmap_node_t**      nodes;
+  struct nv_allocator_t* alloc;
 } nv_rbmap_t;
 
 extern void nv_rbmap_init(size_t key_size, size_t val_size, nv_compare_fn compare_fn, struct nv_allocator_t* alloc, nv_rbmap_t* dst);

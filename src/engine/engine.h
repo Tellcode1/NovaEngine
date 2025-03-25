@@ -10,8 +10,8 @@ union SDL_Event;
 
 typedef struct NVTime
 {
-  f64 m_time;
-  u64 m_last_frame_time;
+  f64 time;
+  u64 last_frame_time;
 
 } NVTime;
 
