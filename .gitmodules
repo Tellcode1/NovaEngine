@@ -1,8 +1,8 @@
-[submodule "external/volk"]
-	path = external/volk
+[submodule "src/external/volk"]
+	path = src/external/volk
 	url = https://github.com/zeux/volk.git
-[submodule "external/box2d"]
-	path = external/box2d
+[submodule "src/external/box2d"]
+	path = src/external/box2d
 	url = https://github.com/erincatto/box2d.git
 [submodule "src/std"]
 	path = src/std

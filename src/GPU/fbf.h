@@ -1,7 +1,7 @@
 #ifndef __NOVA_GPU_FRAMEBUFFER_H__
 #define __NOVA_GPU_FRAMEBUFFER_H__
 
-#include "../../external/volk/volk.h"
+#include "../external/volk/volk.h"
 #include "../containers/list.h"
 #include "../std/string.h"
 #include "texture.h"

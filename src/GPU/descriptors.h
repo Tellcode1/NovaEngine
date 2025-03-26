@@ -3,7 +3,7 @@
 
 // implementation: vk.c
 
-#include "../../external/volk/volk.h"
+#include "../external/volk/volk.h"
 #include "../std/math/math.h"
 #include "../std/stdafx.h"
 #include "vkstdafx.h"

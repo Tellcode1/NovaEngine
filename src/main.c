@@ -7,7 +7,6 @@
 #include "engine/shadermanager.h"
 #include "std/print.h"
 #include "std/props.h"
-#include "std/rover.h"
 #include "std/stdafx.h"
 #include "std/timer.h"
 

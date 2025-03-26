@@ -109,7 +109,7 @@ main(int argc, char* argv[])
 
 #else
 
-int
+static inline int
 compare_shader_t(const void* a, const void* b)
 {
   const struct nvsm_shader_t* shader1 = (const struct nvsm_shader_t*)a;
@@ -117,9 +117,11 @@ compare_shader_t(const void* a, const void* b)
   return nv_strncmp(shader1->name, shader2->name, 128);
 }
 
-void
+static inline void
 nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** dst)
 {
+  (void)nvsm_add_shader_to_map;
+
   struct nvsm_shader_t* new_map = nv_malloc((nshaders + 1) * sizeof(struct nvsm_shader_t));
   if (nshaders > 0)
   {
@@ -143,7 +145,7 @@ nvsm_add_shader_to_map(struct nvsm_shader_cache_entry_t entry, nvsm_shader_t** d
   qsort(shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
 }
 
-struct nvsm_shader_t*
+static inline struct nvsm_shader_t*
 find_shader(const char* name)
 {
   struct nvsm_shader_t shader = nv_zero_init(struct nvsm_shader_t);
@@ -154,7 +156,7 @@ find_shader(const char* name)
   return (struct nvsm_shader_t*)bsearch(&shader, shader_map, nshaders, sizeof(struct nvsm_shader_t), compare_shader_t);
 }
 
-bool
+static inline bool
 does_shader_exist(const char* name)
 {
   return find_shader(name) != NULL;
@@ -212,7 +214,7 @@ nvsm_load_shader_from_disk(const char* path, nvsm_shader_t** out)
   return 0;
 }
 
-int
+static inline int
 read_shader_spirv(const char* output, unsigned** spirv, size_t* spirvsize)
 {
   FILE* f = fopen(output, "rb");
@@ -257,8 +259,8 @@ err:
   return -1;
 }
 
-#  include "../external/volk/volk.h"
 #  include "GPU/pipeline.h"
+#  include "external/volk/volk.h"
 
 void
 _nvsm_create_shader(VkDevice vkdevice, const unsigned* bytes, size_t nbytes, struct nvsm_shader_t* out)
@@ -369,7 +371,7 @@ nvsm_get_shader_compiler_args(void)
   return shader_compiler_args;
 }
 
-nvsm_shader_cache_entry_t*
+static inline nvsm_shader_cache_entry_t*
 load_cache(int* count)
 {
   nv_assert(count != NULL);
@@ -413,7 +415,7 @@ load_cache(int* count)
   return entries;
 }
 
-void
+static inline void
 update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count)
 {
   FILE* f = fopen("shaders.cache", "wb");
@@ -446,7 +448,7 @@ update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count)
   NOVA_CALL_FILE_FN(fclose(f));
 }
 
-void
+static inline void
 write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
 {
   FILE* f = fopen("shaders.cache", "wb");
@@ -487,7 +489,7 @@ write_new_cache(const nvsm_shader_entry_t* restrict entries, int count)
   nv_log_info("NVSM cache written successfully\n");
 }
 
-void
+static inline void
 create_parent_dirs(const char path[256])
 {
   char* last_separator = nv_strrchr(path, PATH_SEP);
@@ -519,7 +521,7 @@ create_parent_dirs(const char path[256])
   }
 }
 
-time_t
+static inline time_t
 get_mtime(const char* fpath)
 {
   struct stat file_stats;
@@ -534,7 +536,7 @@ get_mtime(const char* fpath)
   return -1;
 }
 
-nvsm_shader_entry_t*
+static inline nvsm_shader_entry_t*
 load_all_entries(const char* shader_list_file_path, int* count)
 {
   FILE* f = fopen(shader_list_file_path, "r");
@@ -623,7 +625,7 @@ load_all_entries(const char* shader_list_file_path, int* count)
 
 static char* g_Buffer = NULL;
 
-int
+static inline int
 compile_shader(const struct nvsm_shader_entry_t* entry)
 {
   if (!g_Buffer)
@@ -683,7 +685,7 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
   return 0;
 }
 
-int
+static inline int
 nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_cache_entry_t* cacheentries, int cachecount)
 {
   int compiled = 0;
@@ -712,7 +714,7 @@ nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_
   return compiled;
 }
 
-int
+static inline int
 nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries)
 {
   int compiled = 0;

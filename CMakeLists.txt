@@ -15,8 +15,8 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 
 find_package(OpenMP REQUIRED)
 
-set(CMAKE_C_FLAGS -g)
-set(CMAKE_CXX_FLAGS -g)
+set(CFLAGS -g -Wall -Wextra -pedantic)
+set(LFLAGS -g -Wall -Wextra -pedantic)
 
 set(NOVA_BUILD_EXAMPLE false CACHE BOOL "Enable example build" )
 
@@ -58,17 +58,19 @@ set(LIBS
 
 add_executable(shadermanager src/nvsm.c src/common.c)
 target_compile_definitions(shadermanager PRIVATE NVSM_EXECUTABLE=1)
-target_link_libraries(shadermanager ${LIBS})
-target_compile_options(shadermanager PRIVATE -ffast-math -Wall -Wextra -pedantic)
+target_compile_options(shadermanager PRIVATE ${CFLAGS})
+target_link_options(shadermanager PRIVATE ${LFLAGS})
+target_link_libraries(shadermanager nvstd SDL2 png jpeg m)
 
 add_executable(fontc src/fontc.c src/common.c)
 target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
+target_link_options(fontc PRIVATE ${CFLAGS} -fopenmp)
+target_compile_options(fontc PRIVATE ${LFLAGS} -fopenmp)
 target_link_libraries(fontc ${LIBS})
-target_compile_options(fontc PRIVATE -g -Wall -Wextra -pedantic -fopenmp)
 
 target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src/std/stdafx.h)
-target_link_options(Nova PRIVATE -g -Wall -Wextra)
-target_compile_options(Nova PRIVATE -g -Wall -Wextra -Wall -Wextra -pedantic)
+target_link_options(Nova PRIVATE ${LFLAGS} -g)
+target_compile_options(Nova PRIVATE ${CFLAGS} -g)
 target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 

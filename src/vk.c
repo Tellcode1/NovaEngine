@@ -167,7 +167,7 @@ nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd)
 
 #define ABSF(x) ((x >= 0.0f) ? (x) : -(x))
 
-bool
+static inline bool
 nv_Quad_Visible(const vec3* pos, const vec3* siz)
 {
   const flt_t half_width  = siz->x * 0.5f;
@@ -197,7 +197,7 @@ nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, 
 }
 
 // thjs will just sort the array from small layer to big layer :> and try to group the types together
-int
+static inline int
 __drawcall_compar(const void* obj1, const void* obj2)
 {
   const nv_draw_call_t* call1 = obj1;
@@ -205,7 +205,7 @@ __drawcall_compar(const void* obj1, const void* obj2)
   return ((int)call1->layer - (int)call2->layer) + ((int)call1->type - (int)call2->type);
 }
 
-void
+static inline void
 _nv_renderer_flush_renders(nv_renderer_t* rd)
 {
   const uint32_t        camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
@@ -298,7 +298,7 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
   nv_list_clear(&rd->drawcalls);
 }
 
-void
+static inline void
 nv_renderer_prepare_quad_renderer(nv_renderer_t* rd)
 {
   nv_memcpy(
@@ -399,7 +399,7 @@ nv_renderer_destroy(nv_renderer_t* rd)
   vkDestroyInstance(nvvk_context.instance, NOVA_VK_ALLOCATOR);
 }
 
-void
+static inline void
 create_optional_images(nv_renderer_t* rd)
 {
   nvvk_result_check(vkGetSwapchainImagesKHR(nvvk_context.device, rd->swapchain, &nvvk_context.swap_chain_image_count, NULL));
@@ -457,7 +457,7 @@ create_optional_images(nv_renderer_t* rd)
   nv_free(swapchainImages);
 }
 
-void
+static inline void
 create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 {
   nv_list_t attachments;
@@ -510,7 +510,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
   nv_list_destroy(&attachments);
 }
 
-void
+static inline void
 nv_renderer_initialize_graphics_singleton(void)
 {
   if (!nv_vk_get_supported_format(nvvk_context.phys_device, nvvk_context.surface, &nvvk_context.swap_chain_image_format, &nvvk_context.swap_chain_color_space))
@@ -583,7 +583,7 @@ nv_renderer_initialize_graphics_singleton(void)
   nv_list_destroy(&queueFamilies);
 }
 
-void
+static inline void
 nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer_config* conf)
 {
   VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
@@ -751,7 +751,7 @@ nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst)
   return 0;
 }
 
-void
+static inline void
 _nvvk_renderer_resize(nv_renderer_t* rd)
 {
   vkDeviceWaitIdle(nvvk_context.device);
@@ -1034,7 +1034,7 @@ static const VkPhysicalDeviceFeatures WantedFeatures = {
   .samplerAnisotropy = VK_TRUE,
 };
 
-void
+static inline void
 _VK_DEBUG_LOG(const char* fmt, ...)
 {
   const char* preceder = " ";
@@ -1060,7 +1060,7 @@ nvvk_debug_messenger(
   return VK_FALSE;
 }
 
-nv_list_t
+static inline nv_list_t
 setify(u32 i1, u32 i2, u32 i3, u32 i4)
 {
   nv_list_t ret;
@@ -1276,7 +1276,7 @@ nvvk_get_valid_extensions(nv_list_t* returned_valid_extensions)
   nv_list_destroy(&vk_extensions);
 }
 
-VkInstance
+static inline VkInstance
 nvvk_create_instance(const char* title)
 {
   if (volkInitialize() != VK_SUCCESS)
@@ -1375,7 +1375,7 @@ nvvk_create_instance(const char* title)
   return nvvk_context.instance;
 }
 
-void
+static inline void
 nvvk_print_device_info(VkPhysicalDevice device)
 {
   VkPhysicalDeviceProperties properties;
@@ -1403,7 +1403,7 @@ nvvk_print_device_info(VkPhysicalDevice device)
   nv_log_info("(%s) %s\n", device_type_str, properties.deviceName);
   nv_log_info("Vulkan API Version: %u.%u.%u\n", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
   nv_log_info(
-      "Driver Vendor: %s Driver Version: %u.%u.%u Device ID: %#X\n",
+      "Driver Vendor: %s Driver Version: %u.%u.%u Device ID: %#x\n",
       device_driver_vendor,
       VK_VERSION_MAJOR(properties.driverVersion),
       VK_VERSION_MINOR(properties.driverVersion),
@@ -1411,7 +1411,7 @@ nvvk_print_device_info(VkPhysicalDevice device)
       properties.deviceID);
 }
 
-VkPhysicalDevice
+static inline VkPhysicalDevice
 _nvvk_choose_physical_device(VkInstance instance, VkSurfaceKHR surface)
 {
   uint32_t phys_device_count = 0;
@@ -1619,7 +1619,7 @@ nvvk_validate_queues(nv_list_t* queue_create_infos)
   nv_list_destroy(&unique_queue_families);
 }
 
-VkDevice
+static inline VkDevice
 nvvk_create_device(void)
 {
   nv_list_t enabled_extensions;
@@ -1732,7 +1732,7 @@ nvvk_context_initialize(nvvk_context_t* ctx)
 
 /* I have no idea what any of this is */
 
-void
+static inline void
 _ctext_load_font_upload_glyph_atlas(nv_renderer_t* rd, const nv_texture_atlas_t* atlas, cfont_t* dst)
 {
   nv_gpu_texture_create_info image_info = {
@@ -1766,7 +1766,7 @@ _ctext_load_font_upload_glyph_atlas(nv_renderer_t* rd, const nv_texture_atlas_t*
   nv_gpu_create_sampler(rd, &sampler_info, &dst->sampler);
 }
 
-void
+static inline void
 _ctext_load_font_update_descriptors(nv_ctext_module* ctext, cfont_t* dst)
 {
   const VkDescriptorImageInfo ctext_bitmap_image_info = {
@@ -1900,7 +1900,7 @@ ctext_destroy_font(cfont_t* fnt)
   nv_hashmap_destroy(&fnt->glyph_map);
 }
 
-bool
+static inline bool
 _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
 {
   if (ctext_validate_font(fnt) != 0)
@@ -1943,7 +1943,7 @@ _ctext_font_resize_buffer(cfont_t* fnt, size_t new_buffer_size)
   return true;
 }
 
-void
+static inline void
 _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 {
   if (ctext_validate_font(fnt) != 0)
@@ -2188,7 +2188,7 @@ _ctext_get_effective_length(const char* buf, size_t buflen)
   return len;
 }
 
-int
+static inline int
 _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_render_info_t* pInfo, const char* str)
 {
   if (!str || *str == 0) // nv_strlen == 0
@@ -2288,7 +2288,7 @@ _ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_r
 
 // TODO: Replace with a better system
 // that renders the characters all at once.
-void
+static inline void
 _ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* pInfo, char* buffer, size_t buffer_size)
 {
   if (ctext_validate_font(fnt) != 0)
@@ -2381,7 +2381,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
   fnt->rendered_this_frame = 1;
 }
 
-void
+static inline void
 _ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 {
   u32 total_vertex_byte_size = 0;
@@ -2473,7 +2473,7 @@ ctext_flush_renders(nv_renderer_t* rd)
   }
 }
 
-ctext_label_t*
+static inline ctext_label_t*
 ctext_create_label(nv_scene_t* scene, cfont_t* fnt)
 {
   ctext_label_t label = {
@@ -2488,35 +2488,35 @@ ctext_create_label(nv_scene_t* scene, cfont_t* fnt)
   return &(((ctext_label_t*)fnt->rd->ctext->labels.data)[nv_list_size(&fnt->rd->ctext->labels) - 1]);
 }
 
-void
+static inline void
 ctext_destroy_label(ctext_label_t* label)
 {
   nv_string_destroy(&label->text);
   nv_list_remove(&label->fnt->rd->ctext->labels, label->index);
 }
 
-nv_object*
+static inline nv_object*
 ctext_label_get_object(const ctext_label_t* label)
 {
   return label->obj;
 }
-void
+static inline void
 ctext_label_set_text(ctext_label_t* label, const char* text)
 {
   nv_string_set(&label->text, text);
 }
-void
+static inline void
 ctext_label_set_horizontal_align(ctext_label_t* label, ctext_hori_align h_align)
 {
   label->h_align = h_align;
 }
-void
+static inline void
 ctext_label_set_vertical_align(ctext_label_t* label, ctext_vert_align v_align)
 {
   label->v_align = v_align;
 }
 
-void
+static inline void
 ctext_label_set_text_scale(ctext_label_t* label, flt_t scale)
 {
   label->scale = scale;
@@ -2831,7 +2831,7 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
 }
 // nv_descriptors ^^
 
-void
+static inline void
 __BakeUnlitPipeline(nv_renderer_t* rd)
 {
   VkDescriptorSetLayoutBinding bindings[] = {
@@ -2899,7 +2899,7 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
   nv_gpu_create_graphics_pipeline(&pc, &g_Pipelines.unlit.pipeline, 0);
 }
 
-void
+static inline void
 __BakeCtextPipeline(nv_renderer_t* rd)
 {
   const VkVertexInputAttributeDescription attributeDescriptions[] = {
@@ -2957,7 +2957,7 @@ __BakeCtextPipeline(nv_renderer_t* rd)
   nv_gpu_create_graphics_pipeline(&pc, &g_Pipelines.ctext.pipeline, 0);
 }
 
-void
+static inline void
 __BakeDebugLinePipeline(nv_renderer_t* rd)
 {
   struct line_push_constants
@@ -3022,7 +3022,7 @@ nv_vk_bake_global_pipelines(nv_renderer_t* rd)
   __BakeCtextPipeline(rd);
 }
 
-void
+static inline void
 nv_vk_destroy_pipeline(nv_vk_pipeline_t* pipeline)
 {
   if (!pipeline)
@@ -3390,7 +3390,7 @@ nv_gpu_create_pipeline_layout(nv_gpu_pipeline_create_info const* pCreateInfo, Vk
   nvvk_result_check(vkCreatePipelineLayout(nvvk_context.device, &pipelineLayoutCreateInfo, NOVA_VK_ALLOCATOR, dstLayout));
 }
 
-const char*
+static inline const char*
 _nv_gpu_present_mode_to_string(VkPresentModeKHR present_mode)
 {
   switch (present_mode)
@@ -4119,7 +4119,7 @@ nv_gpu_create_buffer(size_t size, size_t alignment, VkBufferUsageFlags usage, nv
   dst->usage     = usage;
 }
 
-void
+static inline void
 nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* data, size_t offset)
 {
   nv_gpu_buffer_t staging_buffer;
@@ -4150,7 +4150,7 @@ nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* d
   }
 }
 
-void
+static inline void
 nv_gpu_write_to_uniform_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, size_t offset)
 {
   void* mapped = NULL;

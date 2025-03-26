@@ -1,5 +1,5 @@
 #include "engine/engine.h"
-#include "../external/box2d/include/box2d/box2d.h"
+#include "external/box2d/include/box2d/box2d.h"
 #include "GPU/vk.h"
 #include "containers/bitset.h"
 #include "containers/hashmap.h"

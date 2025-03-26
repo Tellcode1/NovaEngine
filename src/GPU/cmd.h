@@ -1,7 +1,7 @@
 #ifndef __NOVA_GPU_COMMANDS_H__
 #define __NOVA_GPU_COMMANDS_H__
 
-#include "../../external/volk/volk.h"
+#include "../external/volk/volk.h"
 #include "buffer.h"
 #include "descriptors.h"
 #include "pipeline.h"

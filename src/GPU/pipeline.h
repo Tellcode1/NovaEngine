@@ -3,7 +3,7 @@
 
 // implementation: vk.c
 
-#include "../../external/volk/volk.h"
+#include "../external/volk/volk.h"
 
 #include "../engine/renderer.h"
 #include "../std/print.h"
