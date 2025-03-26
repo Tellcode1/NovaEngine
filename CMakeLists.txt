@@ -34,8 +34,8 @@ set(SOURCES
     ssl/ssl.c
 )
 
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/box2d)
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/volk)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/box2d)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/volk)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/std)
 
 if (NOVA_BUILD_EXAMPLE)
@@ -72,7 +72,7 @@ target_compile_options(Nova PRIVATE -g -Wall -Wextra -Wall -Wextra -pedantic)
 target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 
-file(COPY ${CMAKE_CURRENT_LIST_DIR}/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
+file(COPY ${CMAKE_CURRENT_LIST_DIR}/src/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
 
 if (NOVA_BUILD_EXAMPLE)
     target_link_libraries(nova_example Nova)
