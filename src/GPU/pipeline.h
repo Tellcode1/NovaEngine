@@ -15,7 +15,8 @@ NOVA_HEADER_START
 
 #define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
 
-typedef void (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
+/* Return the result, but if it was handled, return whatever you want. */
+typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
   if ((ptr) == NULL)                                                                                                                                                          \
@@ -41,12 +42,12 @@ typedef u32 nvvk_pipeline_flags;
 
 #define nvvk_result_check(func) _nvvk_result_fn(func, nv_basename(__FILE__), #func, __LINE__)
 
-static void
+static VkResult
 _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
 {
   if (result == VK_SUCCESS)
   {
-    return;
+    return result;
   }
 
   struct tm* time = _nv_get_time();
@@ -60,6 +61,8 @@ _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const cha
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors
   nv_printf("[%d:%d:%d] [%s:%li] vk%s: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FILE, LINE, errstr, FUNC, nvvk_vk_result_to_string(result));
+
+  return result;
 }
 
 /*
@@ -196,8 +199,8 @@ extern nv_gpu_pipeline_blend_state  nv_gpu_init_pipeline_blend_state(nv_gpu_pipe
 #define nv_gpu_init_render_pass_create_info()                                                                                                                                 \
   (nv_gpu_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
 
-extern void nv_vk_bake_global_pipelines(nv_renderer_t* rd);
-extern void nv_vk_destroy_global_pipelines(void);
+extern nv_errorc nv_vk_bake_global_pipelines(nv_renderer_t* rd);
+extern void      nv_vk_destroy_global_pipelines(void);
 
 extern void nv_gpu_create_graphics_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
 extern void nv_gpu_create_depth_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);

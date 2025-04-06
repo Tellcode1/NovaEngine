@@ -3,6 +3,7 @@
 
 #include "../common/format.h"
 #include "../common/image.h"
+#include "../std/errorcodes.h"
 #include "../std/stdafx.h"
 #include "freelist.h"
 #include "rectpack.h"
@@ -14,7 +15,7 @@ NOVA_HEADER_START
 
 typedef struct nv_texture_atlas_t nv_texture_atlas_t;
 
-extern void nv_texture_atlas_init(size_t width, size_t height, nv_format fmt, int padding, nv_texture_atlas_t* dst);
+extern nv_errorc nv_texture_atlas_init(size_t width, size_t height, nv_format fmt, int padding, nv_texture_atlas_t* dst);
 
 // Returns false if the image was not packed
 extern int nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image_t* img, size_t* out_x, size_t* out_y);

@@ -1,13 +1,14 @@
 #ifndef __NOVA_POOL_H__
 #define __NOVA_POOL_H__
 
+#include "../std/errorcodes.h"
 #include "../std/stdafx.h"
 
 NOVA_HEADER_START
 
 typedef struct nv_pool_t nv_pool_t;
 
-extern int nv_pool_init(nv_pool_t* pool, size_t type_size, size_t capacity);
+extern nv_errorc nv_pool_init(nv_pool_t* pool, size_t type_size, size_t capacity);
 
 extern void nv_pool_destroy(nv_pool_t* pool);
 

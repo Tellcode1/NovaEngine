@@ -3,6 +3,7 @@
 
 // implementation: vk.c
 
+#include "../std/errorcodes.h"
 #include "../std/math/mat.h"
 #include "../std/math/vec2.h"
 #include "../std/math/vec3.h"
@@ -54,8 +55,8 @@ ctext_compare_glyph_keys(const void* key1, const void* key2, size_t nbytes, void
 }
 
 // Initializes the text renderer for ONLY that renderer
-extern void ctext_init(struct nv_renderer_t* rd);
-extern void ctext_shutdown(struct nv_renderer_t* rd);
+extern nv_errorc ctext_init(struct nv_renderer_t* rd);
+extern void      ctext_shutdown(struct nv_renderer_t* rd);
 
 extern void ctext_load_font(struct nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
 
@@ -70,6 +71,8 @@ extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, co
 
 extern void ctext_flush_renders(struct nv_renderer_t* rd);
 extern void _ctext_flush_font(struct nv_renderer_t* rd, cfont_t* fnt);
+
+extern void ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h);
 
 // Get the scale needed to fit the string in a box
 // The scale is calculated as if both the string and the box were at (0,0)

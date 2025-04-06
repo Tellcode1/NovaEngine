@@ -11,8 +11,8 @@
 #  error implement
 #endif
 
-#include "../external/volk/volk.h"
 #include "../common/format.h"
+#include "../external/volk/volk.h"
 #include "../std/stdafx.h"
 
 NOVA_HEADER_START

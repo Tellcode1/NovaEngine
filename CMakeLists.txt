@@ -15,8 +15,11 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 
 find_package(OpenMP REQUIRED)
 
-set(CFLAGS -g -Wall -Wextra -pedantic)
-set(LFLAGS -g -Wall -Wextra -pedantic)
+# Box2D uses C17 but still complains about C11 features.
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wno-typedef-redefinition)
+
+set(CFLAGS -g -Wall -Wextra -pedantic -Wno-unused-function)
+set(LFLAGS -g -Wall -Wextra -pedantic -Wno-unused-function)
 
 set(NOVA_BUILD_EXAMPLE false CACHE BOOL "Enable example build" )
 
@@ -34,8 +37,16 @@ set(SOURCES
     ssl/ssl.c
 )
 
+set(CLAY_INCLUDE_ALL_EXAMPLES OFF)
+set(CLAY_INCLUDE_DEMOS OFF)
+set(CLAY_INCLUDE_CPP_EXAMPLE OFF)
+set(CLAY_INCLUDE_RAYLIB_EXAMPLES OFF)
+set(CLAY_INCLUDE_SDL2_EXAMPLES OFF)
+set(CLAY_INCLUDE_SDL3_EXAMPLES OFF)
+
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/box2d)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/volk)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/clay)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/std)
 
 if (NOVA_BUILD_EXAMPLE)

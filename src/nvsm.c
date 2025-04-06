@@ -73,9 +73,9 @@ main(int argc, char* argv[])
   // clang-format on
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) != 0)
   {
-    nv_push_error("PROPS error: %s", error);
+    nv_log_error("PROPS error: %s", error);
     nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);
   }
@@ -220,7 +220,7 @@ read_shader_spirv(const char* output, unsigned** spirv, size_t* spirvsize)
   FILE* f = fopen(output, "rb");
   if (f == NULL)
   {
-    nv_push_error("%s : %s", output, strerror(*__errno_location()));
+    nv_log_error("%s : %s\n", output, strerror(*__errno_location()));
     goto err;
   }
 
@@ -249,7 +249,7 @@ read_shader_spirv(const char* output, unsigned** spirv, size_t* spirvsize)
   return 0;
 
 err:
-  nv_push_error("Could not read in spirv for output path \"%s\"", output);
+  nv_log_error("Could not read in spirv for output path \"%s\"", output);
   if (f)
   {
     NOVA_CALL_FILE_FN(fclose(f));
@@ -323,7 +323,7 @@ nvsm_register_all_shaders(VkDevice vkdevice, struct nvsm_shader_entry_t* entries
     }
     else
     {
-      nv_push_error("Invalid stage for shader \"%s\". It will not be added.", entries[i].name);
+      nv_log_error("Invalid stage for shader \"%s\". It will not be added.", entries[i].name);
       continue;
     }
     nv_strlcpy(shader->name, entries[i].name, sizeof(shader->name));
@@ -380,14 +380,14 @@ load_cache(int* count)
   if (f == NULL)
   {
     *count = 0;
-    nv_push_error("io error %s", strerror(errno));
+    nv_log_error("io error %s\n", strerror(errno));
     return NULL; // safe to return. nvsm will gracefully handle this.
   }
 
   if (fread(count, sizeof(int), 1, f) != 1)
   {
     *count = 0;
-    nv_push_error("io error %s", strerror(errno));
+    nv_log_error("io error %s\n", strerror(errno));
     NOVA_CALL_FILE_FN(fclose(f));
     return NULL;
   }
@@ -395,7 +395,7 @@ load_cache(int* count)
   if (fread(write, sizeof(nvsm_shader_disk_t), *count, f) != (size_t)(*count))
   {
     *count = 0;
-    nv_push_error("io error %s", strerror(errno));
+    nv_log_error("io error %s\n", strerror(errno));
     NOVA_CALL_FILE_FN(fclose(f));
     return NULL;
   }
@@ -421,7 +421,7 @@ update_cache(const nvsm_shader_cache_entry_t* restrict entries, int count)
   FILE* f = fopen("shaders.cache", "wb");
   if (!f)
   {
-    nv_push_error("Could not open cache file for update due to %s", strerror(errno));
+    nv_log_error("Could not open cache file for update due to %s\n", strerror(errno));
     return;
   }
 
@@ -531,7 +531,7 @@ get_mtime(const char* fpath)
   }
   else
   {
-    nv_push_error("stat error: %s", strerror(errno));
+    nv_log_error("stat error: %s\n", strerror(errno));
   }
   return -1;
 }
@@ -542,13 +542,13 @@ load_all_entries(const char* shader_list_file_path, int* count)
   FILE* f = fopen(shader_list_file_path, "r");
   if (f == NULL)
   {
-    nv_push_error("Could not open list file for reading: %s", strerror(errno));
+    nv_log_error("Could not open list file for reading: %s\n", strerror(errno));
     return NULL;
   }
 
   int                  currallocsize = 16;
   nvsm_shader_entry_t* entries       = nv_malloc(currallocsize * sizeof(nvsm_shader_entry_t));
-  nv_assert(entries != NULL);
+  nv_assert_and_ret(entries != NULL, NULL);
 
   char line[256];
   for (int i = 0;; i++)
@@ -567,7 +567,7 @@ load_all_entries(const char* shader_list_file_path, int* count)
     {
       currallocsize *= 2;
       entries = nv_realloc(entries, currallocsize * sizeof(nvsm_shader_entry_t));
-      nv_assert(entries != NULL);
+      nv_assert_and_ret(entries != NULL, NULL);
     }
 
     entries[*count]            = nv_zero_init(nvsm_shader_entry_t);
@@ -579,7 +579,7 @@ load_all_entries(const char* shader_list_file_path, int* count)
     FILE* shader_file = fopen(entry->path, "r");
     if (shader_file == NULL)
     {
-      nv_push_error("Could not open shader file \"%s\": %s", entry->path, strerror(errno));
+      nv_log_error("Could not open shader file \"%s\": %s", entry->path, strerror(errno));
       continue;
     }
 
@@ -598,7 +598,7 @@ load_all_entries(const char* shader_list_file_path, int* count)
     {
       nv_strcpy(entry->stage, "000");
       nv_strcpy(entry->output_path, "");
-      nv_push_error(
+      nv_log_error(
           "Shader \"%s\": has invalid or no header.\nHeader Format "
           "-> // output: "
           "{output} stage: {stage} name: {name}",
@@ -635,25 +635,26 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
 
   if (!g_Buffer)
   {
-    nv_push_error("global buffer allocation failed");
+    nv_log_error("Global buffer allocation failed\n");
+    exit(-1);
     return -1;
   }
 
   // if (nv_strcmp(entry->output_path, "") == 0)
   // {
-  //   nv_push_error("Empty output path!");
+  //   nv_log_error("Empty output path!\n");
   //   return -1;
   // }
 
   // if (nv_strcmp(entry->path, "") == 0)
   // {
-  //   nv_push_error("Empty input path!");
+  //   nv_log_error("Empty input path!\n");
   //   return -1;
   // }
 
   // if (nv_strcmp(entry->stage, "") == 0)
   // {
-  //   nv_push_error("Empty stage!");
+  //   nv_log_error("Empty stage!\n");
   //   return -1;
   // }
 
@@ -665,7 +666,7 @@ compile_shader(const struct nvsm_shader_entry_t* entry)
   nv_snprintf(
       g_Buffer,
       1024,
-      "%s %s %s -o %s -S %s",
+      "%s %s %s -o %s -S %.4s",
       shader_compiler,
       shader_compiler_args,
       entry->path,
@@ -703,7 +704,7 @@ nvsm_compile_from_cache(nvsm_shader_entry_t* entries, int nentries, nvsm_shader_
       }
       if (compile_shader(&entries[i]) != 0)
       {
-        nv_push_error("Error while compiling shader \"%s\".", entries[i].path);
+        nv_log_error("Error while compiling shader \"%s\".", entries[i].path);
         continue;
       }
       compiled++;
@@ -722,7 +723,7 @@ nvsm_compile_without_cache(nvsm_shader_entry_t* entries, int nentries)
   {
     if (compile_shader(&entries[i]) != 0)
     {
-      nv_push_error("Error while compiling shader \"%s\".", entries[i].path);
+      nv_log_error("Error while compiling shader \"%s\".", entries[i].path);
       continue;
     }
     compiled++;
@@ -743,7 +744,7 @@ nvsm_compile_updated(void)
 
   if (cacheentries == NULL)
   {
-    nv_push_error("Could not open cache for reading. return.");
+    nv_log_error("Could not open cache for reading. return.\n");
     num_shaders_compiled = nvsm_compile_without_cache(entries, nentries);
   }
   else
@@ -753,7 +754,7 @@ nvsm_compile_updated(void)
 
   if (cacheentries == NULL)
   {
-    nv_push_error("No cache or modified cache. Writing new cache file...");
+    nv_log_error("No cache or modified cache. Writing new cache file...\n");
     write_new_cache(entries, nentries);
   }
   else
@@ -791,7 +792,7 @@ nvsm_compile_all(void)
   {
     if (compile_shader(&entries[i]) != 0)
     {
-      nv_push_error("Error while compiling shader \"%s\".", entries[i].path);
+      nv_log_error("Error while compiling shader \"%s\".", entries[i].path);
     }
     else
     {

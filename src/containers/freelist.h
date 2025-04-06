@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "../std/errorcodes.h"
 #include "../std/stdafx.h"
 
 NOVA_HEADER_START
@@ -20,7 +21,7 @@ typedef void (*nv_freelist_free_fn)(nv_node_t* node);                      // yo
 extern nv_chunk_t* nv_freelist_make_chunk(const nv_freelist_t* list, size_t alignment, size_t size);
 extern nv_node_t*  nv_freelist_mknode(const nv_freelist_t* list, size_t alignment, size_t size);
 
-extern void nv_freelist_init(size_t init_size, nv_freelist_alloc_fn alloc_fn, nv_freelist_free_fn free_fn, nv_allocator_t* allocator, nv_freelist_t* list);
+extern nv_errorc nv_freelist_init(size_t init_size, nv_freelist_alloc_fn alloc_fn, nv_freelist_free_fn free_fn, nv_allocator_t* allocator, nv_freelist_t* list);
 
 extern void nv_freelist_destroy(nv_freelist_t* list);
 

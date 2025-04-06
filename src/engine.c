@@ -1,5 +1,4 @@
 #include "engine/engine.h"
-#include "external/box2d/include/box2d/box2d.h"
 #include "GPU/vk.h"
 #include "containers/bitset.h"
 #include "containers/hashmap.h"
@@ -10,6 +9,7 @@
 #include "engine/object.h"
 #include "engine/scene.h"
 #include "engine/ui.h"
+#include "external/box2d/include/box2d/box2d.h"
 
 #include "std/string.h"
 #include <SDL2/SDL.h>
@@ -278,9 +278,9 @@ _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_sha
   b2ShapeDef shape_def          = b2DefaultShapeDef();
   shape_def.density             = 5.0f;
   shape_def.restitution         = 0.0f;
-  shape_def.filter.categoryBits = layer;
-  shape_def.filter.maskBits     = mask;
-  shape_def.filter.groupIndex   = 0;
+  shape_def.filter.category_bits = layer;
+  shape_def.filter.mask_bits     = mask;
+  shape_def.filter.group_index   = 0;
 
   if (shape == NOVA_COLLIDER_SHAPE_RECT)
   {
@@ -411,8 +411,8 @@ nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t lay
   ctx.hit              = &hit;
 
   b2QueryFilter filter = b2DefaultQueryFilter();
-  filter.categoryBits  = layer;
-  filter.maskBits      = mask;
+  filter.category_bits  = layer;
+  filter.mask_bits      = mask;
 
   b2World_CastRay(col->scene->world, VEC2_TO_BVEC2(orig), VEC2_TO_BVEC2(dir), filter, cast_result_fn, &ctx);
 
@@ -581,7 +581,7 @@ nvui_create_button(nv_sprite* spr)
 {
   if (!nvui_ctx.active)
   {
-    nv_push_error("nvui not initialized");
+    nv_log_error("nvui not initialized\n");
     return NULL;
   }
   nvui_button bton        = nv_zero_init(nvui_button);
@@ -598,7 +598,7 @@ nvui_create_slider(void)
 {
   if (!nvui_ctx.active)
   {
-    nv_push_error("nvui not initialized");
+    nv_log_error("nvui not initialized\n");
     return NULL;
   }
   nvui_slider slider        = nv_zero_init(nvui_slider);
@@ -659,7 +659,7 @@ nvui_render(nv_renderer_t* rd)
 
     if (slider->max == slider->min)
     {
-      nv_push_error("Slider %i has equal min and max", i);
+      nv_log_error("Slider %i has equal min and max\n", i);
       continue;
     }
 

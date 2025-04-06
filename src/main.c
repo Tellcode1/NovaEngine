@@ -5,6 +5,7 @@
 #include "engine/input.h"
 #include "engine/renderer.h"
 #include "engine/shadermanager.h"
+#include "std/errorcodes.h"
 #include "std/print.h"
 #include "std/props.h"
 #include "std/stdafx.h"
@@ -30,9 +31,6 @@ get_month_str(const struct tm* t)
 int
 main(int argc, char* argv[])
 {
-  /* We clean the error queue at exit to notify the user of any errors */
-  atexit(nv_flush_errors);
-
   char        windowname[64]    = "clocker";
   int         window_width      = 800;
   int         window_height     = 600;
@@ -48,7 +46,7 @@ main(int argc, char* argv[])
   char error[256];
   if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
   {
-    nv_push_error("PROPS error: %s", error);
+    nv_log_error("PROPS error: %s\n", error);
     nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);
   }
@@ -79,12 +77,13 @@ main(int argc, char* argv[])
   rdconf.multisampling_enable = 0;
   rdconf.samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
 
+  nv_errorc code = NOVA_SUCCESS;
+
   nv_renderer_t rdr;
-  if (nv_renderer_init(&rdconf, &rdr) != 0)
+  if ((code = nv_renderer_init(&rdconf, &rdr)) != NOVA_SUCCESS)
   {
-    nv_push_error("Error in initializing renderer");
-    nv_flush_errors();
-    return -1;
+    nv_log_error("Error in initializing renderer (rval:%s)\n", nv_error_str(code));
+    return code;
   }
 
   // If you're wondering why every Action has a +,
@@ -109,8 +108,6 @@ main(int argc, char* argv[])
 
   while (nv_running())
   {
-    nv_flush_errors();
-
     nv_update();
     const real_t dt = nv_get_delta_time();
 

@@ -2,6 +2,7 @@
 #define __NOVA_HASHMAP_H__
 
 #include "../common/mem.h"
+#include "../std/errorcodes.h"
 #include "../std/hash.h"
 
 NOVA_HEADER_START
@@ -18,7 +19,7 @@ typedef struct nv_hashmap_node_t nv_hashmap_node_t;
   hash_fn may be NULL for the standard FNV-1A function.
   equal_fn may also be NULL for standard memcmp == 0
 */
-extern void nv_hashmap_init(size_t init_size, size_t keysize, size_t valuesize, nv_hash_fn hash_fn, nv_allocator_t* allocator, nv_hashmap_t* dst);
+extern nv_errorc nv_hashmap_init(size_t init_size, size_t keysize, size_t valuesize, nv_hash_fn hash_fn, nv_allocator_t* allocator, nv_hashmap_t* dst);
 
 extern void nv_hashmap_destroy(nv_hashmap_t* map);
 

@@ -1,6 +1,7 @@
 #ifndef __NOVA_REDBLACK_MAP_H__
 #define __NOVA_REDBLACK_MAP_H__
 
+#include "../std/errorcodes.h"
 #include "../std/hash.h"
 #include "../std/stdafx.h"
 
@@ -44,7 +45,7 @@ typedef struct nv_rbmap_t
   struct nv_allocator_t* alloc;
 } nv_rbmap_t;
 
-extern void nv_rbmap_init(size_t key_size, size_t val_size, nv_compare_fn compare_fn, struct nv_allocator_t* alloc, nv_rbmap_t* dst);
+extern nv_errorc nv_rbmap_init(size_t key_size, size_t val_size, nv_compare_fn compare_fn, struct nv_allocator_t* alloc, nv_rbmap_t* dst);
 
 extern void nv_rbmap_destroy(nv_rbmap_t* map);
 

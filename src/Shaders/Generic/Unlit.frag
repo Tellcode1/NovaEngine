@@ -7,6 +7,9 @@ layout(location = 0) out vec4 o_color;
 layout (location = 0) in
 vec2 f_tex_coords;
 
+layout (location = 1) in
+vec4 f_color;
+
 layout(set = 1, binding = 0) uniform sampler2D f_texture;
 
 layout (push_constant) uniform push_constants {
@@ -16,5 +19,5 @@ layout (push_constant) uniform push_constants {
 } pc;
 
 void main() {
-    o_color = texture(f_texture, f_tex_coords * pc.tex_multiplier) * pc.color;
+    o_color = texture(f_texture, f_tex_coords * pc.tex_multiplier) * pc.color * f_color;
 }

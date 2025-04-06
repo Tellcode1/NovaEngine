@@ -2,6 +2,7 @@
 #define __NOVA_VECTOR_H__
 
 #include "../common/mem.h"
+#include "../std/errorcodes.h"
 #include <SDL2/SDL_mutex.h>
 
 NOVA_HEADER_START
@@ -23,8 +24,8 @@ typedef int (*nv_list_compare_fn)(const void* obj1, const void* obj2);
 /*
     init_capacity may be 0
 */
-extern void nv_list_init(size_t typesize, size_t init_capacity, nv_allocator_t* allocator, nv_list_t* vec);
-extern void nv_list_destroy(nv_list_t* vec);
+extern nv_errorc nv_list_init(size_t typesize, size_t init_capacity, nv_allocator_t* allocator, nv_list_t* vec);
+extern void      nv_list_destroy(nv_list_t* vec);
 
 /*
   Returns 0 if the dynamic array is valid and anything else if it's not
@@ -58,6 +59,8 @@ extern size_t nv_list_size(const nv_list_t* vec);
 extern size_t nv_list_capacity(const nv_list_t* vec);
 extern size_t nv_list_typesize(const nv_list_t* vec);
 extern void*  nv_list_data(const nv_list_t* vec);
+
+extern void* nv_list_front(nv_list_t* vec);
 
 extern void* nv_list_back(nv_list_t* vec);
 

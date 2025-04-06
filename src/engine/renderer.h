@@ -156,11 +156,11 @@ struct nv_renderer_t
   void* mapped;
 };
 
-extern int  nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst);
-extern void nv_renderer_destroy(nv_renderer_t* rd);
+extern nv_errorc nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst);
+extern void      nv_renderer_destroy(nv_renderer_t* rd);
 
-extern bool nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
-extern void nv_renderer_end(nv_renderer_t* rd);
+extern bool      nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
+extern nv_errorc nv_renderer_end(nv_renderer_t* rd);
 
 extern u32                       nv_renderer_get_frame(const nv_renderer_t* rd);
 extern u32                       nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);

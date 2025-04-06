@@ -3,6 +3,7 @@
 
 // implementation: vk.c
 
+#include "../std/errorcodes.h"
 #include "../std/math/mat.h"
 #include "../std/math/vec2.h"
 #include "../std/math/vec3.h"
@@ -66,17 +67,17 @@ struct nv_camera_t
   // VkRenderPass render_pass;
 };
 
-extern void nv_camera_destroy(nv_camera_t* cam);
-extern void nv_camera_init(nv_camera_t* cam);
-extern mat4 nv_camera_get_projection(nv_camera_t* cam);
-extern mat4 nv_camera_get_view(nv_camera_t* cam);
-extern vec3 nv_camera_get_up_vector(nv_camera_t* cam);
-extern vec3 nv_camera_get_front_vector(nv_camera_t* cam);
-extern void nv_camera_rotate(nv_camera_t* cam, flt_t yaw_, flt_t pitch_);
-extern void nv_camera_move(nv_camera_t* cam, vec3 amt);
-extern void nv_camera_set_position(nv_camera_t* cam, vec3 pos);
-extern void nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd);
-extern vec2 nv_camera_get_global_mouse_position(const nv_camera_t* cam);
+extern void      nv_camera_destroy(nv_camera_t* cam);
+extern nv_errorc nv_camera_init(nv_camera_t* cam);
+extern mat4      nv_camera_get_projection(nv_camera_t* cam);
+extern mat4      nv_camera_get_view(nv_camera_t* cam);
+extern vec3      nv_camera_get_up_vector(nv_camera_t* cam);
+extern vec3      nv_camera_get_front_vector(nv_camera_t* cam);
+extern void      nv_camera_rotate(nv_camera_t* cam, flt_t yaw_, flt_t pitch_);
+extern void      nv_camera_move(nv_camera_t* cam, vec3 amt);
+extern void      nv_camera_set_position(nv_camera_t* cam, vec3 pos);
+extern void      nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd);
+extern vec2      nv_camera_get_global_mouse_position(const nv_camera_t* cam);
 
 NOVA_HEADER_END
 
