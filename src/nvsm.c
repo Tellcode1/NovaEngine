@@ -244,10 +244,14 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
     nv_bzero(entry->spirv_path, sizeof(entry->spirv_path));
     nv_bzero(entry->stage, sizeof(entry->stage));
 
+    nv_strlcpy(entry->spirv_path, NVSM_SHADER_SPIRV_DIRNAME, sizeof(entry->spirv_path));
+    char buffer[sizeof(entry->spirv_path)];
+
     /* if we were successful in reading the line, only then continue */
     /* also, ignore the stoopid sheet at the start, it's basically reading everything up to the first colon into the name */
-    if (sscanf(line, " %255[^:]: path: %255s output: %255s stage: %s", entry->name, entry->shader_path, entry->spirv_path, entry->stage) == 4)
+    if (sscanf(line, " %255[^:]: path: %255s output: %255s stage: %s", entry->name, entry->shader_path, buffer, entry->stage) == 4)
     {
+      nv_strlcat(entry->spirv_path, buffer, sizeof(entry->spirv_path));
       idx++;
     }
   }
@@ -320,13 +324,12 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   file->entries = (nvsm_cache_file_entry_t*)nv_calloc(file->num_entries * sizeof(nvsm_cache_file_entry_t));
   nv_assert_and_ret(file->entries != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
 
-  size_t idx = 0;
-  while (fread(&file->entries[idx], sizeof(nvsm_cache_file_entry_t), 1, cache_file) != 0 && idx < file->num_entries)
+  /* we did not read as many entries as the header reported. Maybe the file wasn't written fully when the program terminated. */
+  if (fread(file->entries, sizeof(nvsm_cache_file_entry_t), file->num_entries, cache_file) != file->num_entries)
   {
-    idx++;
+    fclose(cache_file);
+    return NOVA_ERROR_CODE_INVALID_CACHE;
   }
-
-  file->num_entries = idx;
 
   fclose(cache_file);
 
@@ -344,9 +347,20 @@ _nvsm_generate_and_write_cache_file(nvsm_list_file_t* file, size_t list_file_mti
   const u32 canary = 0xDEADBEEF;
 
   /* write a canary for protection */
-  fwrite(&canary, sizeof(u32), 1, out_file);
-  fwrite(&list_file_mtime, sizeof(list_file_mtime), 1, out_file);
-  fwrite(&file->num_entries, sizeof(file->num_entries), 1, out_file);
+  if (fwrite(&canary, sizeof(u32), 1, out_file) != 1)
+  {
+    return NOVA_ERROR_CODE_IO_ERROR;
+  }
+
+  if (fwrite(&list_file_mtime, sizeof(list_file_mtime), 1, out_file) != 1)
+  {
+    return NOVA_ERROR_CODE_IO_ERROR;
+  }
+
+  if (fwrite(&file->num_entries, sizeof(file->num_entries), 1, out_file) != 1)
+  {
+    return NOVA_ERROR_CODE_IO_ERROR;
+  }
 
   for (size_t idx = 0; idx < file->num_entries; idx++)
   {
@@ -356,7 +370,10 @@ _nvsm_generate_and_write_cache_file(nvsm_list_file_t* file, size_t list_file_mti
     nv_strlcpy(cache_converted.name, entry->name, sizeof(cache_converted.name));
     cache_converted.last_mod_time = get_last_modified_time(entry->shader_path);
 
-    fwrite(&cache_converted, sizeof(cache_converted), 1, out_file);
+    if (fwrite(&cache_converted, sizeof(cache_converted), 1, out_file) != 1)
+    {
+      return NOVA_ERROR_CODE_IO_ERROR;
+    }
   }
 
   return NOVA_SUCCESS;
@@ -426,7 +443,15 @@ _nvsm_compile_shader(const char* shader_compiler, const char* shader_compiler_ar
   }
   nv_strlcat(buffer2, "-V", sizeof(buffer2));
 
-  nv_snprintf(buffer, sizeof(buffer), "%s %s %s -o %s -S %.4s", shader_compiler, buffer2, shader_path, spirv_path, stage);
+  size_t written = nv_snprintf(buffer, sizeof(buffer), "%s %s %s -o %s -S %.4s", shader_compiler, buffer2, shader_path, spirv_path, stage);
+  if (written != nv_strlen(buffer))
+  {
+    nv_log_error(
+        "Could not fit the command into the buffer %p of size %zu. Could you resize the shader path / spirv path / the compiler args to a smaller size?\n",
+        buffer,
+        sizeof(buffer));
+  }
+
   buffer[sizeof(buffer) - 1] = '\0';
 
   if (system(buffer) != 0)
@@ -655,7 +680,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
 }
 
 VkShaderStageFlags
-_nvsm_shader_stage_from_string(const char stage[8])
+_nvsm_shader_stage_from_string(const char stage[4])
 {
   if (nv_strncmp(stage, "vert", 4) == 0)
   {

@@ -26,7 +26,7 @@ typedef uint32_t nv_gpu_buffer_usage;
 
 typedef struct nv_gpu_buffer_t
 {
-  struct VkBuffer_T* buffer;
+  VkBuffer buffer;
   void*              mapping; // For nv_gpu_write_to_buffer()
   bool               is_mapped;
   // The size of the buffer

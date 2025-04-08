@@ -28,7 +28,6 @@
 
 #include <SDL2/SDL_vulkan.h>
 #include <math.h>
-#include <vulkan/vulkan_core.h>
 
 #define HAS_FLAG(flag) ((nv_gpu_vk_flag_register & flag) || (flags & flag))
 #define STR(s) #s
@@ -47,8 +46,8 @@ u32                    nv_gpu_vk_flag_register = 0;
 // nv_pipelines.h
 nv_baked_pipelines g_Pipelines;
 
-VkPipeline      base_pipeline = NULL;
-VkPipelineCache cache         = NULL;
+VkPipeline      base_pipeline = VK_NULL_HANDLE;
+VkPipelineCache cache         = VK_NULL_HANDLE;
 
 // nv_pipelines.h
 
@@ -512,7 +511,7 @@ static inline nv_errorc
 create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(rd->render_pass != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(rd->render_pass != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
 
   nv_assert_and_ret(rd->render_extent.width != 0, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(rd->render_extent.height != 0, NOVA_ERROR_CODE_INVALID_ARG);
@@ -950,12 +949,12 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
     vkDestroySemaphore(nvvk_context.device, data->render_finish_semaphore, NOVA_VK_ALLOCATOR);
     vkDestroyFence(nvvk_context.device, data->in_flight_fence, NOVA_VK_ALLOCATOR);
 
-    nv_assert_and_ret(data->depth_image.image != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
+    nv_assert_and_ret(data->depth_image.image != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
     nv_gpu_destroy_texture(&data->depth_image);
 
-    data->image_available_semaphore = NULL;
-    data->render_finish_semaphore   = NULL;
-    data->in_flight_fence           = NULL;
+    data->image_available_semaphore = VK_NULL_HANDLE;
+    data->render_finish_semaphore   = VK_NULL_HANDLE;
+    data->in_flight_fence           = VK_NULL_HANDLE;
   }
   nv_assert_and_ret(rd->depth_image_memory.memory != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_gpu_free_memory(&rd->depth_image_memory);
@@ -974,13 +973,13 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
     nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, i);
     nv_assert_and_ret(data != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
 
-    nv_assert_and_ret(data->sc_image.image != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
+    nv_assert_and_ret(data->sc_image.image != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
 
     // as the view was silently smushed into the
     // structure, we just kinda smush it out as well.
     vkDestroyImageView(nvvk_context.device, nv_gpu_texture_get_view(&data->sc_image), NOVA_VK_ALLOCATOR);
 
-    nv_assert_and_ret(data->color_framebuffer.handle != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
+    nv_assert_and_ret(data->color_framebuffer.handle != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
     nv_gpu_destroy_framebuffer(&data->color_framebuffer);
   }
   nv_list_clear(&rd->render_data);
@@ -1818,8 +1817,8 @@ nvvk_get_valid_device_extensions(nv_list_t* available_extensions)
 static inline void
 nvvk_validate_queues(nv_list_t* queue_create_infos)
 {
-  nv_assert_and_ret(nvvk_context.phys_device != NULL, );
-  nv_assert_and_ret(nvvk_context.surface != NULL, );
+  nv_assert_and_ret(nvvk_context.phys_device != VK_NULL_HANDLE, );
+  nv_assert_and_ret(nvvk_context.surface != VK_NULL_HANDLE, );
 
   u32 queue_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(nvvk_context.phys_device, &queue_count, NULL);
@@ -1899,8 +1898,8 @@ nvvk_validate_queues(nv_list_t* queue_create_infos)
 static inline VkDevice
 nvvk_create_device(void)
 {
-  nv_assert_and_ret(nvvk_context.phys_device != NULL, NULL);
-  nv_assert_and_ret(nvvk_context.surface != NULL, NULL);
+  nv_assert_and_ret(nvvk_context.phys_device != VK_NULL_HANDLE, NULL);
+  nv_assert_and_ret(nvvk_context.surface != VK_NULL_HANDLE, NULL);
 
   nv_list_t enabled_extensions;
   nv_list_init(sizeof(const char*), NUM_WANTED_DEVICE_EXTENSIONS + NUM_WANTED_DEVICE_EXTENSIONS, nv_allocator_get_default(), &enabled_extensions);
@@ -1951,22 +1950,22 @@ nvvk_create_device(void)
 void
 nvvk_context_initialize(nvvk_context_t* ctx)
 {
-  nv_assert_and_ret(ctx->window != NULL, );
+  nv_assert_and_ret(ctx->window != VK_NULL_HANDLE, );
 
   ctx->instance = nvvk_create_instance(SDL_GetWindowTitle(ctx->window));
-  nv_assert_and_ret(ctx->instance != NULL, );
+  nv_assert_and_ret(ctx->instance != VK_NULL_HANDLE, );
 
   if (SDL_Vulkan_CreateSurface(ctx->window, ctx->instance, &ctx->surface) != SDL_TRUE)
   {
     nv_log_and_abort("Surface creation failed.\nSDL reports: %s\n", SDL_GetError());
   }
-  nv_assert_and_ret(ctx->surface != NULL, );
+  nv_assert_and_ret(ctx->surface != VK_NULL_HANDLE, );
 
   ctx->phys_device = _nvvk_choose_physical_device(ctx->instance, ctx->surface);
-  nv_assert_and_ret(ctx->phys_device != NULL, );
+  nv_assert_and_ret(ctx->phys_device != VK_NULL_HANDLE, );
 
   ctx->device = nvvk_create_device();
-  nv_assert_and_ret(ctx->device != NULL, );
+  nv_assert_and_ret(ctx->device != VK_NULL_HANDLE, );
 
   volkLoadDevice(ctx->device);
 
@@ -2175,7 +2174,7 @@ ctext_destroy_font(cfont_t* fnt)
   nv_gpu_destroy_texture(&fnt->texture);
   nv_gpu_free_memory(&fnt->texture_mem);
 
-  if (fnt->buffer.buffer != NULL)
+  if (fnt->buffer.buffer != VK_NULL_HANDLE)
   {
     nv_gpu_destroy_buffer(&fnt->buffer);
     nv_gpu_free_memory(&fnt->buffer_mem);
@@ -2935,7 +2934,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
     for (int i = 0; i < pool->nsets; i++)
     {
-      if (pool->sets[i]->layout == NULL)
+      if (pool->sets[i]->layout == VK_NULL_HANDLE)
       {
         i = NV_MAX(i - 1, 0);
         continue;
@@ -2971,7 +2970,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
     for (int writei = 0; writei < old_set->nwrites; writei++)
     {
-      if (new_sets[i] == NULL)
+      if (new_sets[i] == VK_NULL_HANDLE)
       {
         continue;
       }
@@ -3097,7 +3096,7 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
   setAllocInfo.descriptorSetCount          = 1;
   setAllocInfo.pSetLayouts                 = &set->layout;
   nvvk_result_check(vkAllocateDescriptorSets(nvvk_context.device, &setAllocInfo, &set->set));
-  if (set->set == NULL)
+  if (set->set == VK_NULL_HANDLE)
   {
     return -1;
   }
@@ -3191,8 +3190,9 @@ __BakeCtextPipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
     { 1, 0, nv_format_to_vk_format(NOVA_FORMAT_RG32), sizeof(vec3f) }, // uv
   };
 
-  const VkVertexInputBindingDescription bindingDescriptions[] = { // binding; stride; inputRate
-                                                                  { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX }
+  const VkVertexInputBindingDescription bindingDescriptions[] = {
+    // binding; stride; inputRate
+    { 0, sizeof(vec3f) + sizeof(vec2f), VK_VERTEX_INPUT_RATE_VERTEX },
   };
 
   const VkPushConstantRange pushConstants[] = {
@@ -3488,11 +3488,18 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
     {
       continue;
     }
+
     const VkShaderStageFlagBits stage = (VkShaderStageFlagBits)_nvsm_shader_stage_from_string(pCreateInfo->p_shaders[i]->stage);
-    shader_infos[i].sType             = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_infos[i].stage             = stage;
-    shader_infos[i].module            = (VkShaderModule)pCreateInfo->p_shaders[i]->module;
-    shader_infos[i].pName             = "main";
+    if (stage == (VkShaderStageFlagBits)-1)
+    {
+      nv_log_error("Error in parsing stage for shader %i(%p): \"%s\"", i, pCreateInfo->p_shaders[i], pCreateInfo->p_shaders[i]->stage);
+      continue;
+    }
+
+    shader_infos[i].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_infos[i].stage  = stage;
+    shader_infos[i].module = (VkShaderModule)pCreateInfo->p_shaders[i]->module;
+    shader_infos[i].pName  = "main";
   }
 
   VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {
@@ -3548,7 +3555,7 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
 
   // if(cacheIsNull) cacheCreator.join();
   // nvvk_result_check(vkCreateGraphicsPipelines(nvvk_context.device, pCreateInfo->cache, 1, &graphicsPipelineCreateInfo, NOVA_VK_ALLOCATOR, dstPipeline));
-  nvvk_result_check(vkCreateGraphicsPipelines(nvvk_context.device, NULL, 1, &graphicsPipelineCreateInfo, NOVA_VK_ALLOCATOR, dstPipeline));
+    nvvk_result_check(vkCreateGraphicsPipelines(nvvk_context.device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, NOVA_VK_ALLOCATOR, dstPipeline));
 
   base_pipeline = *dstPipeline;
 
@@ -4584,7 +4591,7 @@ nv_gpu_resize_buffer(nv_gpu_buffer_t* buffer, nv_gpu_memory_t* memory, size_t ne
 }
 
 void
-nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** out)
+nv_gpu_map_memory(nv_gpu_memory_t* memory, VkDeviceSize size, size_t offset, void** out)
 {
   nv_assert(memory != NULL);
   nv_assert(out != NULL);
@@ -4889,19 +4896,19 @@ nv_gpu_write_to_texture(nv_gpu_texture* tex, const nv_image_t* src)
 VkImage
 nv_gpu_texture_get(const nv_gpu_texture* tex)
 {
-  return tex ? tex->image : NULL;
+  return tex ? tex->image : VK_NULL_HANDLE;
 }
 
 VkImageView
 nv_gpu_texture_get_view(const nv_gpu_texture* tex)
 {
-  return tex ? tex->view : NULL;
+  return tex ? tex->view : VK_NULL_HANDLE;
 }
 
 VkSampler
 nv_gpu_sampler_get(const nv_gpu_sampler* sampler)
 {
-  return sampler ? sampler->vksampler : NULL;
+  return sampler ? sampler->vksampler : VK_NULL_HANDLE;
 }
 
 void

@@ -4,13 +4,25 @@
 #include "../GPU/vkstdafx.h"
 #include "../containers/hashmap.h"
 #include "../std/stdafx.h"
-#include <vulkan/vulkan_core.h>
+
+// TODO: Hot reloading? Hot reloading.
+
+/**
+ * Cache file structure:
+ *  canary: u32
+ *  list file last mod time : size_t
+ *  number of entries : u32
+ */
 
 NOVA_HEADER_START
 
 #ifndef NVSM_CACHE_FILENAME
-#  define NVSM_CACHE_FILENAME ".nvshadercache"
+#  define NVSM_CACHE_FILENAME ".nvsmcache"
 #endif // NVSM_CACHE_FILENAME
+
+#ifndef NVSM_SHADER_SPIRV_DIRNAME
+#  define NVSM_SHADER_SPIRV_DIRNAME ".nvshaders"
+#endif
 
 typedef struct nvsm_ctx_t              nvsm_ctx_t;
 typedef struct nvsm_list_file_entry_t  nvsm_list_file_entry_t;
@@ -31,7 +43,7 @@ extern nv_errorc nvsm_create_shader_modules(nvsm_ctx_t* ctx);
 extern nv_errorc nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out);
 
 /* Returns (VkShaderStageFlags)-1 on error/invalid stage */
-extern VkShaderStageFlags _nvsm_shader_stage_from_string(const char stage[8]);
+extern VkShaderStageFlags _nvsm_shader_stage_from_string(const char stage[4]);
 
 struct nvsm_ctx_t
 {
@@ -70,12 +82,12 @@ struct nvsm_ctx_t
 
 typedef struct nvsm_list_file_entry_t
 {
-  char shader_path[256];
-  char spirv_path[256];
-  char name[256];
   /* we technically only need 4 bytes */
   char           stage[8];
   VkShaderModule module;
+  char           shader_path[256];
+  char           spirv_path[256];
+  char           name[256];
 } nvsm_list_file_entry_t;
 
 typedef struct nvsm_cache_file_entry_t

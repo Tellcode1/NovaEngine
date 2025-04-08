@@ -167,11 +167,11 @@ extern void      nv_renderer_destroy(nv_renderer_t* rd);
 extern bool      nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
 extern nv_errorc nv_renderer_end(nv_renderer_t* rd);
 
-extern u32                       nv_renderer_get_frame(const nv_renderer_t* rd);
-extern u32                       nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
-extern struct VkCommandBuffer_T* nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
-extern struct VkRenderPass_T*    nv_renderer_get_render_pass(const nv_renderer_t* rd);
-extern struct nv_extent2d        nv_renderer_get_render_extent(const nv_renderer_t* rd);
+extern u32                    nv_renderer_get_frame(const nv_renderer_t* rd);
+extern u32                    nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
+extern VkCommandBuffer nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
+extern VkRenderPass    nv_renderer_get_render_pass(const nv_renderer_t* rd);
+extern struct nv_extent2d     nv_renderer_get_render_extent(const nv_renderer_t* rd);
 
 extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
 extern void nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, int layer);

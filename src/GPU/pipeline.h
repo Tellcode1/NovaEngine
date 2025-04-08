@@ -21,7 +21,7 @@ struct nvsm_ctx_t;
 typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((ptr) == NULL)                                                                                                                                                          \
+  if ((unsigned long)(ptr) == 0UL)                                                                                                                                              \
   nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
   if ((val) == (to))                                                                                                                                                          \

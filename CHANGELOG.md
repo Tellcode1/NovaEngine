@@ -19,6 +19,7 @@
 *   init_size in list.h has now been replaced with init_capacity, same purpose, better name.
 *   Fixed program options stupidly using opt->type instead of opt->value.
 *   Fixed the debug messenger creation function using nvvk_context.instance which is not initialized by the time the function is called.
+*   Fixed vulkan dependant code not compiling on 32 bit because I was using NULL instead of VK_NULL_HANDLE.
 
 ## \[Version 0.0.1\]
 ### Added

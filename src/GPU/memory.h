@@ -39,7 +39,7 @@ struct nv_gpu_memory_t
 extern void nv_gpu_allocate_memory(size_t size, nv_gpu_memory_usage usage, nv_gpu_memory_t* dst);
 extern void nv_gpu_free_memory(nv_gpu_memory_t* mem);
 
-extern void nv_gpu_map_memory(nv_gpu_memory_t* memory, size_t size, size_t offset, void** out);
+extern void nv_gpu_map_memory(nv_gpu_memory_t* memory, VkDeviceSize size, size_t offset, void** out);
 extern void nv_gpu_unmap_memory(nv_gpu_memory_t* memory);
 
 /* Warning: src must not be mapped when this function is called. */
