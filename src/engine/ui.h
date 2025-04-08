@@ -12,6 +12,7 @@ NOVA_HEADER_START
 
 typedef struct nvui_button nvui_button;
 typedef struct nvui_slider nvui_slider;
+struct nv_input_ctx_t;
 
 typedef void (*nvui_button_on_click)(nvui_button* bton);
 typedef void (*nvui_button_on_hover)(nvui_button* bton);
@@ -47,12 +48,12 @@ extern nvui_button* nvui_create_button(nv_sprite* spr);
 
 extern nvui_slider* nvui_create_slider(void);
 
-extern void nvui_destroy_button(nvui_button* obj);
-extern void nvui_destroy_slider(nvui_slider* obj);
+extern void nvui_destroy_button(nvvk_ctx_t* nvvkctx, nvui_button* obj);
+extern void nvui_destroy_slider(nvvk_ctx_t* nvvkctx, nvui_slider* obj);
 
 extern void nvui_render(nv_renderer_t* rd);
 
-extern void nvui_update(void);
+extern void nvui_update(struct nv_input_ctx_t* input);
 
 NOVA_HEADER_END
 

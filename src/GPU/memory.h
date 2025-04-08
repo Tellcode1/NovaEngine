@@ -9,7 +9,7 @@
 // This header should be fragmented into multiple, each for their own object.
 
 #include "../std/stdafx.h"
-#include "vkstdafx.h"
+#include "vk.h"
 
 NOVA_HEADER_START
 
@@ -36,14 +36,14 @@ struct nv_gpu_memory_t
 };
 
 // I think we should make like a cgfx_err_t enum
-extern void nv_gpu_allocate_memory(size_t size, nv_gpu_memory_usage usage, nv_gpu_memory_t* dst);
-extern void nv_gpu_free_memory(nv_gpu_memory_t* mem);
+extern void nv_gpu_allocate_memory(nvvk_ctx_t* nvvkctx, size_t size, nv_gpu_memory_usage usage, nv_gpu_memory_t* dst);
+extern void nv_gpu_free_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* mem);
 
-extern void nv_gpu_map_memory(nv_gpu_memory_t* memory, VkDeviceSize size, size_t offset, void** out);
-extern void nv_gpu_unmap_memory(nv_gpu_memory_t* memory);
+extern void nv_gpu_map_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* memory, VkDeviceSize size, size_t offset, void** out);
+extern void nv_gpu_unmap_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* memory);
 
 /* Warning: src must not be mapped when this function is called. */
-extern void nv_gpu_copy_memory(nv_gpu_memory_t* dst, nv_gpu_memory_t* src, size_t size, size_t dst_offset, size_t src_offset);
+extern void nv_gpu_copy_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* dst, nv_gpu_memory_t* src, size_t size, size_t dst_offset, size_t src_offset);
 
 NOVA_HEADER_END
 

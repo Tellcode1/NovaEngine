@@ -16,6 +16,8 @@ NOVA_HEADER_START
 typedef struct nv_camera_uniform_buffer nv_camera_uniform_buffer;
 typedef struct nv_camera_t              nv_camera_t;
 
+struct nv_input_ctx_t;
+
 #define CAMERA_FAKE_BUFFER_COUNT 3
 
 #define ALIGN_UP(sz, align) (((unsigned long)(sz) + (align) - 1) & ~((align) - 1))
@@ -67,8 +69,8 @@ struct nv_camera_t
   // VkRenderPass render_pass;
 };
 
-extern void      nv_camera_destroy(nv_camera_t* cam);
-extern nv_errorc nv_camera_init(nv_camera_t* cam);
+extern void      nv_camera_destroy(nvvk_ctx_t* nvvkctx, nv_camera_t* cam);
+extern nv_errorc nv_camera_init(nvvk_ctx_t* nvvkctx, nv_camera_t* cam);
 extern mat4      nv_camera_get_projection(nv_camera_t* cam);
 extern mat4      nv_camera_get_view(nv_camera_t* cam);
 extern vec3      nv_camera_get_up_vector(nv_camera_t* cam);
@@ -77,7 +79,7 @@ extern void      nv_camera_rotate(nv_camera_t* cam, flt_t yaw_, flt_t pitch_);
 extern void      nv_camera_move(nv_camera_t* cam, vec3 amt);
 extern void      nv_camera_set_position(nv_camera_t* cam, vec3 pos);
 extern void      nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd);
-extern vec2      nv_camera_get_global_mouse_position(const nv_camera_t* cam);
+extern vec2      nv_camera_get_global_mouse_position(struct nv_input_ctx_t* inputctx, const nv_camera_t* cam);
 
 NOVA_HEADER_END
 

@@ -5,6 +5,7 @@
 
 #include "../std/stdafx.h"
 #include "memory.h"
+#include "vk.h"
 
 NOVA_HEADER_START
 
@@ -27,8 +28,8 @@ typedef uint32_t nv_gpu_buffer_usage;
 typedef struct nv_gpu_buffer_t
 {
   VkBuffer buffer;
-  void*              mapping; // For nv_gpu_write_to_buffer()
-  bool               is_mapped;
+  void*    mapping; // For nv_gpu_write_to_buffer()
+  bool     is_mapped;
   // The size of the buffer
   // Even if there are multiple children, this gives only the size of ONE buffer
   size_t              size, offset;
@@ -37,35 +38,35 @@ typedef struct nv_gpu_buffer_t
   nv_gpu_buffer_usage usage;
 } nv_gpu_buffer_t;
 
-extern void nv_gpu_create_buffer(size_t size, size_t alignment, nv_gpu_buffer_usage usage, nv_gpu_buffer_t* dst);
-extern void nv_gpu_destroy_buffer(nv_gpu_buffer_t* buffer);
+extern void nv_gpu_create_buffer(nvvk_ctx_t* nvvkctx, size_t size, size_t alignment, nv_gpu_buffer_usage usage, nv_gpu_buffer_t* dst);
+extern void nv_gpu_destroy_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer);
 
 // Open the buffer for writing.
 // Writing must still be done through the nv_gpu_write_to_buffer() function
 // However, mapped writes will be much faster as nv_gpu_write_to_buffer() will map the buffer memory multiple times
 // When only once to write is needed
-extern void nv_gpu_map_buffer(nv_gpu_buffer_t* buffer);
+extern void nv_gpu_map_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer);
 
-extern void nv_gpu_unmap_buffer(nv_gpu_buffer_t* buffer);
+extern void nv_gpu_unmap_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer);
 
-extern void nv_gpu_write_to_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* data, size_t offset);
+extern void nv_gpu_write_to_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer, size_t size, const void* data, size_t offset);
 
-extern void nv_gpu_resize_buffer(nv_gpu_buffer_t* buffer, nv_gpu_memory_t* memory, size_t new_size);
+extern void nv_gpu_resize_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer, nv_gpu_memory_t* memory, size_t new_size);
 
 /**
  * @brief Copy the contents of a buffer to the other
  */
-extern void nv_gpu_copy_buffer(nv_gpu_buffer_t* dst, const nv_gpu_buffer_t* src);
+extern void nv_gpu_copy_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* dst, const nv_gpu_buffer_t* src);
 
 // Note: Memory must be able to hold all the buffers!
 // You can get the size of the memory by just looking up the size of one buffer
 // and then multiplying it with the count.
-extern void nv_gpu_bind_buffer_to_memory(nv_gpu_memory_t* mem, size_t offset, nv_gpu_buffer_t* buffer);
+extern void nv_gpu_bind_buffer_to_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* mem, size_t offset, nv_gpu_buffer_t* buffer);
 
 extern size_t nv_gpu_get_buffer_size(const nv_gpu_buffer_t* buffer);
 
 // src must be atleast the size of the buffer
-extern void nv_gpu_buffer_readback(const nv_gpu_buffer_t* buffer, void* src);
+extern void nv_gpu_buffer_readback(nvvk_ctx_t* nvvkctx, const nv_gpu_buffer_t* buffer, void* src);
 
 // extern NVAsync_Context nv_GPU_BufferReadbackAsync(const nv_GPU_Buffer *buffer, void *src);
 

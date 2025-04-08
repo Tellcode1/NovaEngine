@@ -25,6 +25,7 @@
 #include "std/errorcodes.h"
 #include "std/math/math.h"
 #include "std/stdafx.h"
+#include "std/string.h"
 
 /* find last quote in a line: "([^"]+)"(?!.*") */
 
@@ -1029,6 +1030,11 @@ nv_list_destroy(nv_list_t* vec)
 void
 nv_list_clear(nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return;
+  }
+
   SDL_LockMutex(vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   vec->size = 0;
@@ -1038,6 +1044,11 @@ nv_list_clear(nv_list_t* vec)
 size_t
 nv_list_size(const nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return 0;
+  }
+
   SDL_LockMutex((SDL_mutex*)vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   size_t sz = vec->size;
@@ -1048,6 +1059,11 @@ nv_list_size(const nv_list_t* vec)
 size_t
 nv_list_capacity(const nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return 0;
+  }
+
   SDL_LockMutex((SDL_mutex*)vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   size_t cap = vec->capacity;
@@ -1058,6 +1074,10 @@ nv_list_capacity(const nv_list_t* vec)
 size_t
 nv_list_typesize(const nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return 0;
+  }
   SDL_LockMutex((SDL_mutex*)vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   size_t tsize = vec->typesize;
@@ -1068,6 +1088,10 @@ nv_list_typesize(const nv_list_t* vec)
 void*
 nv_list_data(const nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return 0;
+  }
   SDL_LockMutex((SDL_mutex*)vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   void* ptr = vec->data;
@@ -1078,6 +1102,10 @@ nv_list_data(const nv_list_t* vec)
 void*
 nv_list_front(nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return 0;
+  }
   SDL_LockMutex(vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   void* ptr = nv_list_get(vec, 0);
@@ -1088,6 +1116,10 @@ nv_list_front(nv_list_t* vec)
 void*
 nv_list_back(nv_list_t* vec)
 {
+  if (!vec)
+  {
+    return 0;
+  }
   SDL_LockMutex(vec->mutex);
   nv_assert(CONT_IS_VALID(vec));
   void* ptr = nv_list_get(vec, NV_MAX(1ULL, vec->size) - 1); // stupid but works
@@ -1099,8 +1131,14 @@ nv_list_back(nv_list_t* vec)
 void*
 nv_list_get(const nv_list_t* vec, size_t i)
 {
+  if (!vec)
+  {
+    return NULL;
+  }
+
   SDL_LockMutex((SDL_mutex*)vec->mutex);
-  nv_assert(CONT_IS_VALID(vec));
+  nv_assert_and_ret(CONT_IS_VALID(vec), NULL);
+  nv_assert_and_ret(i < vec->capacity, NULL);
   uchar* data     = vec->data;
   size_t typesize = vec->typesize;
   SDL_UnlockMutex((SDL_mutex*)vec->mutex);
@@ -1193,7 +1231,7 @@ nv_list_equal(const nv_list_t* vec1, const nv_list_t* vec2)
 void
 nv_list_resize(nv_list_t* vec, size_t new_size)
 {
-  nv_assert(CONT_IS_VALID(vec));
+  nv_assert_and_ret(CONT_IS_VALID(vec), );
 
   if (vec->data)
   {
@@ -1211,7 +1249,7 @@ nv_list_resize(nv_list_t* vec, size_t new_size)
 void
 nv_list_push_back(nv_list_t* NV_RESTRICT vec, const void* NV_RESTRICT elem)
 {
-  nv_assert(CONT_IS_VALID(vec));
+  nv_assert_and_ret(CONT_IS_VALID(vec), );
 
   SDL_LockMutex(vec->mutex);
 
@@ -1253,7 +1291,7 @@ nv_list_push_empty(nv_list_t* __restrict vec)
 void
 nv_list_push_set(nv_list_t* NV_RESTRICT vec, const void* NV_RESTRICT arr, size_t count)
 {
-  nv_assert(CONT_IS_VALID(vec));
+  nv_assert_and_ret(CONT_IS_VALID(vec), );
 
   SDL_LockMutex(vec->mutex);
 
@@ -1271,7 +1309,7 @@ nv_list_push_set(nv_list_t* NV_RESTRICT vec, const void* NV_RESTRICT arr, size_t
 void
 nv_list_pop_back(nv_list_t* vec)
 {
-  nv_assert(CONT_IS_VALID(vec));
+  nv_assert_and_ret(CONT_IS_VALID(vec), );
 
   SDL_LockMutex(vec->mutex);
 
@@ -1286,7 +1324,7 @@ nv_list_pop_back(nv_list_t* vec)
 void
 nv_list_pop_front(nv_list_t* vec)
 {
-  nv_assert(CONT_IS_VALID(vec));
+  nv_assert_and_ret(CONT_IS_VALID(vec), );
 
   SDL_LockMutex(vec->mutex);
 
@@ -2576,9 +2614,18 @@ nv_bitset_copy_from(nv_bitset_t* dst, const nv_bitset_t* src)
 void
 nv_bitset_destroy(nv_bitset_t* set)
 {
+  if (!set)
+  {
+    return;
+  }
+
   SDL_LockMutex(set->mutex);
   set->alloc->free(set->alloc, set->data);
   SDL_UnlockMutex(set->mutex);
+
+  SDL_DestroyMutex(set->mutex);
+
+  nv_bzero(set, sizeof(nv_bitset_t));
 }
 
 void

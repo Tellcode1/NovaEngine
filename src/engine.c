@@ -1,5 +1,5 @@
 #include "engine/engine.h"
-#include "GPU/vk.h"
+#include "SDL_video.h"
 #include "containers/bitset.h"
 #include "containers/hashmap.h"
 #include "containers/list.h"
@@ -11,77 +11,80 @@
 #include "engine/ui.h"
 #include "external/box2d/include/box2d/box2d.h"
 
+#include "std/errorcodes.h"
+#include "std/math/math.h"
+#include "std/stdafx.h"
 #include "std/string.h"
+
 #include <SDL2/SDL.h>
-
-u8     nv_current_frame   = 0;
-u64    nv_last_frame_time = 0; // div by SDL_GetPerformanceCounterFrequency to get actual time.
-real_t nv_time            = 0.0;
-
-real_t nv_delta_time = 0.0;
-
-u64 nv_frame_start_time       = 0;
-u64 nv_fixed_frame_start_time = 0;
-u64 nv_frame_time             = 0;
-
-bool nv_window_framebuffer_resized = 0;
-bool nv_application_running        = 1;
-
-static u64 sdl_time;
-
-// cinput vars
-vec2        g_nv_input_mouse_position;
-vec2        g_nv_input_last_frame_mouse_position;
-nv_bitset_t g_nv_input_kb_state;
-nv_bitset_t g_nv_input_last_frame_kb_state;
-unsigned    g_nv_input_mouse_state;
-unsigned    g_nv_input_last_frame_mouse_state;
 
 b2BodyId _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shape shape, vec2 pos, vec2 siz, uint64_t layer, uint64_t mask, bool start_enabled);
 float    cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
 
 void
-nv_initialize_context(const char* window_title, int window_width, int window_height)
+nv_window_init(const char* window_title, int window_width, int window_height, nv_ctx_t* dst)
 {
-  nvvk_context.window =
-      SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-  nv_assert(nvvk_context.window != NULL);
+  nv_assert_and_ret(dst != NULL, );
+
+  nv_bzero(dst, sizeof(nv_ctx_t));
+
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+
+  dst->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  nv_assert_and_ret(dst->window != NULL, );
 
   nv_log_info("Created window (name=%s w=%i h=%i flags=%#x)\n", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
-  // This fixes really large values of delta time for the first frame.
-  sdl_time = SDL_GetPerformanceCounter();
+  dst->sdl_time                   = SDL_GetPerformanceCounter();
+  dst->current_frame              = 0;
+  dst->last_frame_time            = 0;
+  dst->time                       = 0.0;
+  dst->delta_time                 = 0.0;
+  dst->frame_start_time           = 0;
+  dst->fixed_frame_start_time     = 0;
+  dst->frame_time                 = 0;
+  dst->window_framebuffer_resized = 0;
+  dst->application_running        = 1;
 }
 
 void
-nv_consume_event(const SDL_Event* event)
+nv_window_shutdown(nv_ctx_t* ctx)
+{
+  nv_assert_and_ret(ctx != NULL, );
+
+  SDL_DestroyWindow(ctx->window);
+  SDL_Quit();
+}
+
+void
+nv_consume_event(nv_ctx_t* ctx, const SDL_Event* event)
 {
   if ((event->type == SDL_QUIT) || ((event->type == SDL_WINDOWEVENT) && (event->window.event == SDL_WINDOWEVENT_CLOSE))
       || (event->type == SDL_KEYDOWN && event->key.keysym.scancode == SDL_SCANCODE_ESCAPE))
   {
-    nv_application_running = false;
+    ctx->application_running = false;
   }
 
   if (event->type == SDL_WINDOWEVENT && (event->window.event == SDL_WINDOWEVENT_RESIZED || event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED))
   {
-    nv_window_framebuffer_resized = true;
+    ctx->window_framebuffer_resized = true;
   }
 }
 
 real_t
-nv_get_last_frame_time(void)
+nv_get_last_frame_time(const nv_ctx_t* ctx)
 {
-  return (real_t)nv_last_frame_time / (real_t)SDL_GetPerformanceFrequency();
+  return (real_t)ctx->last_frame_time / (real_t)SDL_GetPerformanceFrequency();
 }
 
 void
-nv_update(void)
+nv_update(nv_ctx_t* ctx)
 {
-  nv_time = (real_t)SDL_GetTicks64() * (1.0 / 1000.0);
+  ctx->time = (real_t)SDL_GetTicks64() * (1.0 / 1000.0);
 
-  nv_last_frame_time = sdl_time;
-  sdl_time           = SDL_GetPerformanceCounter();
-  nv_delta_time      = (real_t)(sdl_time - nv_last_frame_time) / (real_t)SDL_GetPerformanceFrequency();
+  ctx->last_frame_time = ctx->sdl_time;
+  ctx->sdl_time        = SDL_GetPerformanceCounter();
+  ctx->delta_time      = (real_t)(ctx->sdl_time - ctx->last_frame_time) / (real_t)SDL_GetPerformanceFrequency();
 }
 
 // nv
@@ -442,7 +445,7 @@ nv_scene_init(void)
 }
 
 void
-nv_scene_update(void)
+nv_scene_update(const nv_ctx_t* ctx)
 {
   const int   substeps = 4;
   const flt_t timeStep = 1.0F / 60.0F;
@@ -464,7 +467,7 @@ nv_scene_update(void)
     objects[i].col->position      = BVEC2_TO_VEC2(pos);
   }
 
-  const real_t dt = nv_get_delta_time();
+  const real_t dt = nv_get_delta_time(ctx);
   for (int i = 0; i < (int)nv_list_size(&scene_main->objects); i++)
   {
     if (objects[i].update_fn)
@@ -620,24 +623,24 @@ nvui_create_slider(void)
 }
 
 void
-nvui_destroy_button(nvui_button* obj)
+nvui_destroy_button(nvvk_ctx_t* nvvkctx, nvui_button* obj)
 {
   if (!obj)
   {
     return;
   }
-  nv_sprite_release(obj->spr);
+  nv_sprite_release(nvvkctx, obj->spr);
 }
 
 void
-nvui_destroy_slider(nvui_slider* obj)
+nvui_destroy_slider(nvvk_ctx_t* nvvkctx, nvui_slider* obj)
 {
   if (!obj)
   {
     return;
   }
-  nv_sprite_release(obj->slider_sprite);
-  nv_sprite_release(obj->bg_sprite);
+  nv_sprite_release(nvvkctx, obj->slider_sprite);
+  nv_sprite_release(nvvkctx, obj->bg_sprite);
 }
 
 void
@@ -686,10 +689,10 @@ nvui_render(nv_renderer_t* rd)
 }
 
 void
-nvui_update(void)
+nvui_update(nv_input_ctx_t* inputctx)
 {
-  const bool mouse_pressed  = nv_input_is_mouse_just_signalled(SDL_BUTTON_LEFT);
-  const vec2 mouse_position = nv_camera_get_global_mouse_position(&camera);
+  const bool mouse_pressed  = nv_input_is_mouse_just_signalled(inputctx, SDL_BUTTON_LEFT);
+  const vec2 mouse_position = nv_camera_get_global_mouse_position(inputctx, &camera);
 
   for (int i = 0; i < (int)nv_list_size(&nvui_ctx.btons); i++)
   {
@@ -726,7 +729,7 @@ nvui_update(void)
     const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
     if (slider->interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
     {
-      if (nv_input_is_mouse_signalled(NOVA_MOUSE_BUTTON_LEFT))
+      if (nv_input_is_mouse_signalled(inputctx, NOVA_MOUSE_BUTTON_LEFT))
       {
         flt_t rel_mx     = mouse_position.x - (t->position.x - t->size.x * 0.5f);
         flt_t clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->size.x);
@@ -743,19 +746,10 @@ nvui_update(void)
 }
 // nvui
 
-vec2        g_nv_input_mouse_position;
-vec2        g_nv_input_last_frame_mouse_position;
-nv_bitset_t g_nv_input_kb_state;
-nv_bitset_t g_nv_input_last_frame_kb_state;
-unsigned    g_nv_input_mouse_state;
-unsigned    g_nv_input_last_frame_mouse_state;
-
-static nv_hashmap_t g_nv_input_action_mapping;
-
 int
-nv_input_signal_action(const char* action)
+nv_input_signal_action(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (!ia)
   {
     return -1;
@@ -769,10 +763,10 @@ nv_input_signal_action(const char* action)
 }
 
 nv_input_key_state
-nv_input_get_key_state(const SDL_Scancode sc)
+nv_input_get_key_state(nv_input_ctx_t* ctx, const SDL_Scancode sc)
 {
-  const nv_input_key_state this_frame_key_state = nv_bitset_access_bit(&g_nv_input_kb_state, sc);
-  const nv_input_key_state last_frame_key_state = nv_bitset_access_bit(&g_nv_input_last_frame_kb_state, sc);
+  const nv_input_key_state this_frame_key_state = nv_bitset_access_bit(&ctx->input_kb_state, sc);
+  const nv_input_key_state last_frame_key_state = nv_bitset_access_bit(&ctx->input_last_frame_kb_state, sc);
 
   // curly braces are beautiful, aren't they?
   if (this_frame_key_state && last_frame_key_state)
@@ -796,58 +790,58 @@ nv_input_get_key_state(const SDL_Scancode sc)
 }
 
 bool
-nv_input_is_key_signalled(const SDL_Scancode sc)
+nv_input_is_key_signalled(nv_input_ctx_t* ctx, const SDL_Scancode sc)
 {
-  return nv_input_get_key_state(sc) == NOVA_KEY_STATE_HELD;
+  return nv_input_get_key_state(ctx, sc) == NOVA_KEY_STATE_HELD;
 }
 
 bool
-nv_input_is_key_unsignalled(const SDL_Scancode sc)
+nv_input_is_key_unsignalled(nv_input_ctx_t* ctx, const SDL_Scancode sc)
 {
-  return nv_input_get_key_state(sc) == NOVA_KEY_STATE_NOT_HELD;
+  return nv_input_get_key_state(ctx, sc) == NOVA_KEY_STATE_NOT_HELD;
 }
 
 bool
-nv_input_is_key_just_signalled(const SDL_Scancode sc)
+nv_input_is_key_just_signalled(nv_input_ctx_t* ctx, const SDL_Scancode sc)
 {
-  return nv_input_get_key_state(sc) == NOVA_KEY_STATE_PRESSED;
+  return nv_input_get_key_state(ctx, sc) == NOVA_KEY_STATE_PRESSED;
 }
 
 bool
-nv_input_is_key_just_unsignalled(const SDL_Scancode sc)
+nv_input_is_key_just_unsignalled(nv_input_ctx_t* ctx, const SDL_Scancode sc)
 {
-  return nv_input_get_key_state(sc) == NOVA_KEY_STATE_RELEASED;
+  return nv_input_get_key_state(ctx, sc) == NOVA_KEY_STATE_RELEASED;
 }
 
 vec2
-nv_input_get_mouse_position(void)
+nv_input_get_mouse_position(nv_input_ctx_t* ctx)
 {
-  return g_nv_input_mouse_position;
+  return ctx->input_mouse_position;
 }
 
 vec2
-nv_input_get_last_frame_mouse_position(void)
+nv_input_get_last_frame_mouse_position(nv_input_ctx_t* ctx)
 {
-  return g_nv_input_last_frame_mouse_position;
+  return ctx->input_last_frame_mouse_position;
 }
 
 vec2
-nv_input_get_mouse_delta(void)
+nv_input_get_mouse_delta(nv_input_ctx_t* ctx)
 {
-  return v2sub(nv_input_get_last_frame_mouse_position(), nv_input_get_mouse_position());
+  return v2sub(nv_input_get_last_frame_mouse_position(ctx), nv_input_get_mouse_position(ctx));
 }
 
 // button is 1 for left mouse, 2 for middle, 3 for right
 bool
-nv_input_is_mouse_just_signalled(nv_input_mouse_button button)
+nv_input_is_mouse_just_signalled(nv_input_ctx_t* ctx, nv_input_mouse_button button)
 {
-  return g_nv_input_mouse_state & SDL_BUTTON(button) && !(g_nv_input_last_frame_mouse_state & SDL_BUTTON(button));
+  return ctx->input_mouse_state & SDL_BUTTON(button) && !(ctx->input_last_frame_mouse_state & SDL_BUTTON(button));
 }
 
 bool
-nv_input_is_mouse_signalled(nv_input_mouse_button button)
+nv_input_is_mouse_signalled(nv_input_ctx_t* ctx, nv_input_mouse_button button)
 {
-  return g_nv_input_mouse_state & SDL_BUTTON((int)button);
+  return ctx->input_mouse_state & SDL_BUTTON((int)button);
 }
 
 unsigned str_hash(const void* key1, const void* key2, size_t keysize);
@@ -874,52 +868,74 @@ str_hash(const void* key1, const void* key2, size_t keysize)
   return hash;
 }
 
-void
-nv_input_init(void)
+nv_errorc
+nv_input_init(nv_input_ctx_t* ctx)
 {
-  nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_get_default(), &g_nv_input_action_mapping);
+  nv_errorc code = NOVA_SUCCESS;
 
-  nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_get_default(), &g_nv_input_kb_state);
-  nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_get_default(), &g_nv_input_last_frame_kb_state);
-  g_nv_input_mouse_position            = nv_zero_init(vec2);
-  g_nv_input_last_frame_mouse_position = nv_zero_init(vec2);
+  if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_get_default(), &ctx->input_action_mapping)) != NOVA_SUCCESS)
+  {
+    return code;
+  }
+
+  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_get_default(), &ctx->input_kb_state)) != NOVA_SUCCESS)
+  {
+    return code;
+  }
+
+  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_get_default(), &ctx->input_last_frame_kb_state)) != NOVA_SUCCESS)
+  {
+    return code;
+  }
+
+  ctx->input_mouse_position            = nv_zero_init(vec2);
+  ctx->input_last_frame_mouse_position = nv_zero_init(vec2);
+
+  return NOVA_SUCCESS;
 }
 
 void
-nv_input_shutdown(void)
+nv_input_shutdown(nv_input_ctx_t* ctx)
 {
-  nv_hashmap_destroy(&g_nv_input_action_mapping);
-  nv_bitset_destroy(&g_nv_input_kb_state);
-  nv_bitset_destroy(&g_nv_input_last_frame_kb_state);
+  if (!ctx)
+  {
+    return;
+  }
+
+  nv_hashmap_destroy(&ctx->input_action_mapping);
+  nv_bitset_destroy(&ctx->input_kb_state);
+  nv_bitset_destroy(&ctx->input_last_frame_kb_state);
+
+  nv_bzero(ctx, sizeof(nv_input_ctx_t));
 }
 
 void
-nv_input_update(void)
+nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
 {
   int mx, my;
-  g_nv_input_last_frame_mouse_state = g_nv_input_mouse_state;
-  g_nv_input_mouse_state            = SDL_GetMouseState(&mx, &my);
+  ctx->input_last_frame_mouse_state = ctx->input_mouse_state;
+  ctx->input_mouse_state            = SDL_GetMouseState(&mx, &my);
 
-  const flt_t width  = (flt_t)nv_get_window_size().width;
-  const flt_t height = (flt_t)nv_get_window_size().height;
+  const flt_t width  = (flt_t)nv_get_window_size(globalctx).width;
+  const flt_t height = (flt_t)nv_get_window_size(globalctx).height;
 
-  g_nv_input_last_frame_mouse_position = g_nv_input_mouse_position;
-  g_nv_input_mouse_position.x          = ((flt_t)mx / width) * 2.0f - 1.0f;
-  g_nv_input_mouse_position.y          = ((flt_t)my / height) * 2.0f - 1.0f;
-  g_nv_input_mouse_position.y *= -1.0f;
+  ctx->input_last_frame_mouse_position = ctx->input_mouse_position;
+  ctx->input_mouse_position.x          = ((flt_t)mx / width) * 2.0f - 1.0f;
+  ctx->input_mouse_position.y          = ((flt_t)my / height) * 2.0f - 1.0f;
+  ctx->input_mouse_position.y *= -1.0f;
 
   const u8* const sdl_kb_state = SDL_GetKeyboardState(NULL);
-  nv_bitset_copy_from(&g_nv_input_last_frame_kb_state, &g_nv_input_kb_state);
+  nv_bitset_copy_from(&ctx->input_last_frame_kb_state, &ctx->input_kb_state);
   for (int i = 0; i < SDL_NUM_SCANCODES; i++)
   {
-    nv_bitset_set_bit_to(&g_nv_input_kb_state, i, sdl_kb_state[i]);
+    nv_bitset_set_bit_to(&ctx->input_kb_state, i, sdl_kb_state[i]);
   }
 
   u32 mouse_state = SDL_GetMouseState(NULL, NULL);
 
   size_t             __i = 0;
   nv_hashmap_node_t* node;
-  while ((node = nv_hashmap_iterate(&g_nv_input_action_mapping, &__i)) != NULL)
+  while ((node = nv_hashmap_iterate(&ctx->input_action_mapping, &__i)) != NULL)
   {
     nv_input_action_t* ia = (nv_input_action_t*)node->value;
 
@@ -951,9 +967,9 @@ nv_input_update(void)
 }
 
 void
-nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn response)
+nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (ia == NULL)
   {
     return;
@@ -962,13 +978,13 @@ nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn
 }
 
 void
-nv_input_bind_key_to_action(SDL_Scancode key, const char* action)
+nv_input_bind_key_to_action(nv_input_ctx_t* ctx, SDL_Scancode key, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (!ia)
   {
     nv_input_action_t w = { .key = key };
-    nv_hashmap_insert(&g_nv_input_action_mapping, action, &w, NULL);
+    nv_hashmap_insert(&ctx->input_action_mapping, action, &w, NULL);
   }
   else
   {
@@ -984,17 +1000,17 @@ nv_input_bind_key_to_action(SDL_Scancode key, const char* action)
 }
 
 void
-nv_input_bind_mouse_to_action(int bton, const char* action)
+nv_input_bind_mouse_to_action(nv_input_ctx_t* ctx, int bton, const char* action)
 {
   nv_input_action_t ia = nv_zero_init(nv_input_action_t);
   ia.mouse             = bton;
-  nv_hashmap_insert(&g_nv_input_action_mapping, action, &ia, NULL);
+  nv_hashmap_insert(&ctx->input_action_mapping, action, &ia, NULL);
 }
 
 void
-nv_input_unbind_action(const char* action)
+nv_input_unbind_action(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (ia == NULL)
   {
     return;
@@ -1006,9 +1022,9 @@ nv_input_unbind_action(const char* action)
 }
 
 bool
-nv_input_is_action_signalled(const char* action)
+nv_input_is_action_signalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (ia == NULL)
   {
     return false;
@@ -1017,9 +1033,9 @@ nv_input_is_action_signalled(const char* action)
 }
 
 bool
-nv_input_is_action_just_signalled(const char* action)
+nv_input_is_action_just_signalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (ia == NULL)
   {
     return false;
@@ -1028,9 +1044,9 @@ nv_input_is_action_just_signalled(const char* action)
 }
 
 bool
-nv_input_is_action_unsignalled(const char* action)
+nv_input_is_action_unsignalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (ia == NULL)
   {
     return false;
@@ -1039,9 +1055,9 @@ nv_input_is_action_unsignalled(const char* action)
 }
 
 bool
-nv_input_is_action_just_unsignalled(const char* action)
+nv_input_is_action_just_unsignalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = nv_hashmap_find(&g_nv_input_action_mapping, action, NULL);
+  nv_input_action_t* ia = nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
   if (ia == NULL)
   {
     return false;

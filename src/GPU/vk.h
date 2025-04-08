@@ -5,22 +5,29 @@
 
 #include "../common/format.h"
 #include "../external/volk/volk.h"
+#include "../std/errorcodes.h"
 #include "../std/stdafx.h"
 
 NOVA_HEADER_START
+
+struct nv_ctx_t;
 
 // pointer to allocator
 #ifndef NOVA_VK_ALLOCATOR
 #  define NOVA_VK_ALLOCATOR NULL
 #endif
 
-typedef struct nvvk_context_t
+/* Return the result, but if it was handled, return whatever you want. */
+typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
+
+/* did you notice that the vulkan context is entirely independant of the global context? */
+/* beauty. */
+typedef struct nvvk_ctx_t
 {
   VkInstance               instance;
   VkDevice                 device;
   VkPhysicalDevice         phys_device;
   VkSurfaceKHR             surface;
-  struct SDL_Window*       window;
   VkDebugUtilsMessengerEXT debug_messenger;
 
   nv_format swap_chain_image_format;
@@ -43,42 +50,64 @@ typedef struct nvvk_context_t
   u32           max_samples;
   unsigned char supports_multisampling;
   flt_t         max_anisotropy;
-} nvvk_context_t;
 
-extern nvvk_context_t nvvk_context;
+  VkCommandPool   cmd_pool;
+  VkCommandBuffer buffer;
 
-extern void nvvk_context_initialize(nvvk_context_t* ctx);
+  // To not cause NULLptr dereference.
+  // SetResultCheckFunc also checks for NULLptr
+  // and handles it.
+  nv_gpu_result_check_fn result_fn;
+  u32                    flag_register;
+} nvvk_ctx_t;
+
+extern nv_errorc nvvk_ctx_init(struct nv_ctx_t* nvctx, nvvk_ctx_t* ctx);
+extern void      nvvk_ctx_destroy(nvvk_ctx_t* ctx);
 
 extern const char* nvvk_vk_result_to_string(VkResult r);
 
 // YOU SAW NOTHING
 
-extern u32 nv_vk_get_mem_type(const u32 memoryTypeBits, const VkMemoryPropertyFlags memoryProperties);
+extern u32 nv_vk_get_mem_type(nvvk_ctx_t* nvvkctx, const u32 memoryTypeBits, const VkMemoryPropertyFlags memoryProperties);
 
 /* externallyAllocated = true asserts *dstMemory will not be written to by this function */
-extern void
-nv_vk_create_buffer(size_t size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer* dstBuffer, VkDeviceMemory* dstMemory, bool externallyAllocated);
+extern void nv_vk_create_buffer(
+    nvvk_ctx_t*           ctx,
+    size_t                size,
+    VkBufferUsageFlags    usageFlags,
+    VkMemoryPropertyFlags propertyFlags,
+    VkBuffer*             dstBuffer,
+    VkDeviceMemory*       dstMemory,
+    bool                  externallyAllocated);
 
 /*  */
-extern void nv_vk_stage_buffer_transfer(VkBuffer dst, void* data, size_t size);
+extern void nv_vk_stage_buffer_transfer(nvvk_ctx_t* ctx, VkBuffer dst, void* data, size_t size);
 
 /* src Must be a valid VkCommandBuffer */
 extern VkCommandBuffer nv_vk_begin_command_buffer_from(VkCommandBuffer src);
 
 /* BeginSingleTimeCommands(new CommandBuffer) */
-extern VkCommandBuffer nv_vk_begin_command_buffer(void);
+extern VkCommandBuffer nv_vk_begin_command_buffer(nvvk_ctx_t* ctx);
 
 /* WARNING: waitForExecution = false implies you take responsibility of freeing the commandBuffer! */
-extern VkResult nv_vk_end_command_buffer(VkCommandBuffer cmd, VkQueue queue, bool waitForExecution);
+extern VkResult nv_vk_end_command_buffer(nvvk_ctx_t* ctx, VkCommandBuffer cmd, VkQueue queue, bool waitForExecution);
 
-extern void nv_vk_stage_image_transfer(VkImage dst, const void* data, size_t width, size_t height, size_t image_size);
+extern void nv_vk_stage_image_transfer(nvvk_ctx_t* ctx, VkImage dst, const void* data, size_t width, size_t height, size_t image_size);
 
-extern void nv_vk_create_texture_from_memory(u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
+extern void nv_vk_create_texture_from_memory(nvvk_ctx_t* ctx, u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
 
-extern u8* nv_vk_create_texture_from_disk(const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
+extern u8* nv_vk_create_texture_from_disk(nvvk_ctx_t* ctx, const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern void nv_vk_create_texture_empty(
-    u32 width, u32 height, nv_format format, VkSampleCountFlagBits samples, VkImageUsageFlags usage, size_t* image_size, VkImage* dst, VkDeviceMemory* dstMem);
+    nvvk_ctx_t*           ctx,
+    u32                   width,
+    u32                   height,
+    nv_format             format,
+    VkSampleCountFlagBits samples,
+    VkImageUsageFlags     usage,
+    size_t*               image_size,
+    VkImage*              dst,
+    VkDeviceMemory*       dstMem);
 
 extern void nv_vk_insert_texture_layout_transition(
     VkCommandBuffer       cmd,
@@ -92,11 +121,11 @@ extern void nv_vk_insert_texture_layout_transition(
     VkPipelineStageFlags  sourceStage,
     VkPipelineStageFlags  destinationStage);
 
-extern nv_format nv_vk_get_supported_format_for_draw(nv_format fmt);
+extern nv_format nv_vk_get_supported_format_for_draw(nvvk_ctx_t* nvvkctx, nv_format fmt);
 
-extern bool nv_vk_get_supported_format(VkPhysicalDevice phys_device, VkSurfaceKHR surface, nv_format* dstFormat, VkColorSpaceKHR* dstColorSpace);
+extern bool nv_vk_get_supported_format(nvvk_ctx_t* nvvkctx, VkPhysicalDevice phys_device, VkSurfaceKHR surface, nv_format* dstFormat, VkColorSpaceKHR* dstColorSpace);
 
-extern u32 nv_vk_get_surface_image_count(VkPhysicalDevice phys_device, VkSurfaceKHR surface);
+extern u32 nv_vk_get_surface_image_count(nvvk_ctx_t* nvvkctx, VkPhysicalDevice phys_device, VkSurfaceKHR surface);
 
 extern void nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize);
 

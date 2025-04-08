@@ -6,73 +6,89 @@
 NOVA_HEADER_START
 
 struct nv_renderer_config;
+struct SDL_Window;
 union SDL_Event;
 
-typedef struct NVTime
+typedef struct nv_ctx_t nv_ctx_t;
+
+struct nv_ctx_t
 {
-  f64 time;
-  u64 last_frame_time;
+  struct SDL_Window* window;
 
-} NVTime;
+  u8     current_frame;
+  u64    last_frame_time; // div by SDL_GetPerofrmanceCounterFrequency to get actual time.
+  real_t time;
 
-extern u8     nv_current_frame;
-extern u64    nv_last_frame_time; // div by SDL_GetPerofrmanceCounterFrequency to get actual time.
-extern real_t nv_time;
+  real_t delta_time;
 
-extern real_t nv_delta_time;
+  u64 frame_start_time;
+  u64 fixed_frame_start_time;
+  u64 frame_time;
 
-extern u64 nv_frame_start_time;
-extern u64 nv_fixed_frame_start_time;
-extern u64 nv_frame_time;
+  bool window_framebuffer_resized;
+  bool application_running;
 
-extern bool nv_window_framebuffer_resized;
-extern bool nv_application_running;
+  // This is a fix for really large values of delta time for the first frame.
+  u64 sdl_time;
+};
 
 static inline bool
-nv_running(void)
+nv_running(const nv_ctx_t* ctx)
 {
-  return nv_application_running;
+  return ctx->application_running;
 }
 
 static inline void
-_nv_reset_frame_buffer_resized(void)
+_nv_reset_frame_buffer_resized(nv_ctx_t* ctx)
 {
-  nv_window_framebuffer_resized = false;
+  ctx->window_framebuffer_resized = false;
 }
 
 static inline bool
-nv_get_frame_buffer_resized(void)
+nv_get_frame_buffer_resized(const nv_ctx_t* ctx)
 {
-  return nv_window_framebuffer_resized;
+  return ctx->window_framebuffer_resized;
 }
 
 static inline u8
-nv_get_current_frame(void)
+nv_get_current_frame(const nv_ctx_t* ctx)
 {
-  return nv_current_frame;
+  return ctx->current_frame;
 }
 
 static inline real_t
-nv_get_delta_time(void)
+nv_get_delta_time(const nv_ctx_t* ctx)
 {
-  return nv_delta_time;
+  return ctx->delta_time;
 }
 
-extern real_t nv_get_last_frame_time(void);
+extern real_t nv_get_last_frame_time(const nv_ctx_t* ctx);
 
 static inline real_t
-nv_get_time(void)
+nv_get_time(const nv_ctx_t* ctx)
 {
-  return nv_time;
+  return ctx->time;
 }
 
-extern void nv_initialize_context(const char* window_title, int window_width, int window_height);
+// TODO: get better name
+extern void nv_window_init(const char* window_title, int window_width, int window_height, nv_ctx_t* dst);
+extern void nv_window_shutdown(nv_ctx_t* ctx);
+
+static inline bool
+nv_ctx_is_valid(nv_ctx_t* ctx)
+{
+  if (NV_UNLIKELY(!ctx || !ctx->window))
+  {
+    return false;
+  }
+  return true;
+}
 
 static const u32    NV_FIXED_FRAME_RATE = 60;
 static const real_t NV_FIXED_TICK_RATE  = 1000.0 / (real_t)NV_FIXED_FRAME_RATE; // 1000 milliseconds
 
-extern void nv_consume_event(const union SDL_Event* event);
-extern void nv_update(void);
+extern void nv_consume_event(nv_ctx_t* ctx, const union SDL_Event* event);
+extern void nv_update(nv_ctx_t* ctx);
 
 NOVA_HEADER_END
 

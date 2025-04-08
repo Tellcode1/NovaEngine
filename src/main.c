@@ -31,15 +31,15 @@ get_month_str(const struct tm* t)
 int
 main(int argc, char* argv[])
 {
-  char        windowname[64]    = "clocker";
-  int         window_width      = 800;
-  int         window_height     = 600;
-  bool        recompile_shaders = 1, resizable_window = 0;
+  char        windowname[64]          = "clocker";
+  int         window_width            = 800;
+  int         window_height           = 600;
+  bool        force_recompile_shaders = 0, resizable_window = 0;
   nv_option_t options[] = {
     { NV_OP_TYPE_STRING, "wn", "window-name", windowname, sizeof(windowname) },
     { NV_OP_TYPE_INT, "ww", "window-width", &window_width, 0 },
     { NV_OP_TYPE_INT, "wh", "window-height", &window_height, 0 },
-    { NV_OP_TYPE_BOOL, NULL, "recompile-shaders", &recompile_shaders, 0 },
+    { NV_OP_TYPE_BOOL, NULL, "force-recompile-shaders", &force_recompile_shaders, 0 },
     { NV_OP_TYPE_BOOL, "rw", "resizable-window", &resizable_window, 0 },
   };
 
@@ -53,28 +53,29 @@ main(int argc, char* argv[])
 
   nv_timer_t tm = nv_timer_begin(0.1);
 
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-
   const nv_extent2d window_size = (nv_extent2d){ window_width, window_height };
 
-  nv_initialize_context(windowname, (int)window_size.width, (int)window_size.height);
-  nvvk_context_initialize(&nvvk_context);
+  nv_ctx_t   ctx     = nv_zero_init(nv_ctx_t);
+  nvvk_ctx_t nvvkctx = nv_zero_init(nvvk_ctx_t);
+
+  nv_window_init(windowname, (int)window_size.width, (int)window_size.height, &ctx);
+  nvvk_ctx_init(&ctx, &nvvkctx);
 
   nvsm_ctx_t nvsmctx = nv_zero_init(nvsm_ctx_t);
   nvsm_init(&nvsmctx);
 
   nvsmctx.list_file = "Shaders/shaderlist";
 
-  if (recompile_shaders)
-  {
-    nvsm_compile_shaders(&nvsmctx);
-  }
-  else
+  if (force_recompile_shaders)
   {
     nvsm_compile_shaders_force(&nvsmctx, true);
   }
+  else
+  {
+    nvsm_compile_shaders(&nvsmctx);
+  }
 
-  nvsm_create_shader_modules(&nvsmctx);
+  nvsm_create_shader_modules(&nvvkctx, &nvsmctx);
 
   nv_renderer_config rdconf   = nv_renderer_config_init();
   rdconf.vsync_enabled        = 1;
@@ -87,9 +88,9 @@ main(int argc, char* argv[])
   nv_errorc code = NOVA_SUCCESS;
 
   nv_renderer_t rdr;
-  if ((code = nv_renderer_init(&nvsmctx, &rdconf, &rdr)) != NOVA_SUCCESS)
+  if ((code = nv_renderer_init(&ctx, &nvvkctx, &nvsmctx, &rdconf, &rdr)) != NOVA_SUCCESS)
   {
-    nv_log_error("Fatal error in initializing renderer (rval:%s)\n", nv_error_str(code));
+    nv_log_error("Fatal error in initializing renderer (error:%s)\n", nv_error_str(code));
     return code;
   }
 
@@ -99,7 +100,8 @@ main(int argc, char* argv[])
   // and etc. and every event will have a preceding +, booleans will have a 0
   // and integers will have an i I'll drop the + (the user won't have to add it)
   // when i get to it
-  nv_input_init();
+  nv_input_ctx_t inputctx = nv_zero_init(nv_input_ctx_t);
+  nv_input_init(&inputctx);
 
   const real_t updateTime = 3.0; // seconds. 1.5f = 1.5 seconds
   real_t       totalTime  = 0.0;
@@ -111,21 +113,21 @@ main(int argc, char* argv[])
 
   nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
 
-  ctext_load_font(&rdr, "Assets/roboto.ttf", 128, &amongus);
+  ctext_load_font(&nvvkctx, &rdr, "Assets/roboto.ttf", 128, &amongus);
 
-  while (nv_running())
+  while (nv_running(&ctx))
   {
-    nv_update();
-    const real_t dt = nv_get_delta_time();
+    nv_update(&ctx);
+    const real_t dt = nv_get_delta_time(&ctx);
 
     SDL_Event event;
-    nv_input_update();
+    nv_input_update(&inputctx, &ctx);
 
     nv_camera_update(&camera, &rdr);
 
     while (SDL_PollEvent(&event))
     {
-      nv_consume_event(&event);
+      nv_consume_event(&ctx, &event);
     }
 
     totalTime += dt;
@@ -165,8 +167,10 @@ main(int argc, char* argv[])
     }
   }
 
-  nv_input_shutdown();
-  nvsm_shutdown(&nvsmctx);
-  ctext_destroy_font(&amongus);
+  nv_input_shutdown(&inputctx);
+  nvsm_shutdown(&nvvkctx, &nvsmctx);
   nv_renderer_destroy(&rdr);
+  ctext_destroy_font(&nvvkctx, &amongus);
+  nvvk_ctx_destroy(&nvvkctx);
+  nv_window_shutdown(&ctx);
 }

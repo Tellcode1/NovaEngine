@@ -3,6 +3,8 @@
 
 // implementation: engine.c
 
+#include "../containers/bitset.h"
+#include "../containers/hashmap.h"
 #include "../std/math/vec2.h"
 #include <SDL2/SDL.h>
 
@@ -11,6 +13,9 @@ NOVA_HEADER_START
 // Only TWO keys OR ONE mouse button may be bound to an action currently!
 
 typedef struct nv_input_action_t nv_input_action_t;
+typedef struct nv_input_ctx_t    nv_input_ctx_t;
+
+struct nv_ctx_t;
 
 // A function that is called every time an action is signalled
 // This is better than polling the event every frame when the action is signalled multiple times per frame
@@ -47,49 +52,61 @@ struct nv_input_action_t
   bool                        this_frame, last_frame;
 };
 
-extern void nv_input_init(void);
-extern void nv_input_update(void);
-extern void nv_input_shutdown(void);
+struct nv_input_ctx_t
+{
+  vec2        input_mouse_position;
+  vec2        input_last_frame_mouse_position;
+  nv_bitset_t input_kb_state;
+  nv_bitset_t input_last_frame_kb_state;
+  unsigned    input_mouse_state;
+  unsigned    input_last_frame_mouse_state;
 
-void nv_input_bind_function_to_action(const char* action, nv_input_action_response_fn response);
+  nv_hashmap_t input_action_mapping;
+};
 
-extern void nv_input_bind_key_to_action(SDL_Scancode key, const char* action);
-extern void nv_input_bind_mouse_to_action(int bton, const char* action);
+extern nv_errorc nv_input_init(nv_input_ctx_t* ctx);
+extern void      nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx_t* globalctx);
+extern void      nv_input_shutdown(nv_input_ctx_t* ctx);
+
+void nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response);
+
+extern void nv_input_bind_key_to_action(nv_input_ctx_t* ctx, SDL_Scancode key, const char* action);
+extern void nv_input_bind_mouse_to_action(nv_input_ctx_t* ctx, int bton, const char* action);
 
 // remove all keys, mouse buttons and the response function from action
 // essentially, clear it.
-extern void nv_input_unbind_action(const char* action);
+extern void nv_input_unbind_action(nv_input_ctx_t* ctx, const char* action);
 
 // action held
-extern bool nv_input_is_action_signalled(const char* action);
+extern bool nv_input_is_action_signalled(nv_input_ctx_t* ctx, const char* action);
 
 // action pressed
-extern bool nv_input_is_action_just_signalled(const char* action);
+extern bool nv_input_is_action_just_signalled(nv_input_ctx_t* ctx, const char* action);
 
 // action not held
-extern bool nv_input_is_action_unsignalled(const char* action);
+extern bool nv_input_is_action_unsignalled(nv_input_ctx_t* ctx, const char* action);
 
 // action released
-extern bool nv_input_is_action_just_unsignalled(const char* action);
+extern bool nv_input_is_action_just_unsignalled(nv_input_ctx_t* ctx, const char* action);
 
 /// @brief signals the action for a frame
 /// @return 0 on action signalled, -1 if it can't find the action specified.
-extern int nv_input_signal_action(const char* action);
+extern int nv_input_signal_action(nv_input_ctx_t* ctx, const char* action);
 
-extern nv_input_key_state nv_input_get_key_state(const SDL_Scancode sc);
+extern nv_input_key_state nv_input_get_key_state(nv_input_ctx_t* ctx, const SDL_Scancode sc);
 
-extern bool nv_input_is_key_signalled(const SDL_Scancode sc);
-extern bool nv_input_is_key_unsignalled(const SDL_Scancode sc);
-extern bool nv_input_is_key_just_signalled(const SDL_Scancode sc);
-extern bool nv_input_is_key_just_unsignalled(const SDL_Scancode sc);
+extern bool nv_input_is_key_signalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
+extern bool nv_input_is_key_unsignalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
+extern bool nv_input_is_key_just_signalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
+extern bool nv_input_is_key_just_unsignalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
 
-extern vec2 nv_input_get_mouse_position(void);
-extern vec2 nv_input_get_last_frame_mouse_position(void);
-extern vec2 nv_input_get_mouse_delta(void);
+extern vec2 nv_input_get_mouse_position(nv_input_ctx_t* ctx);
+extern vec2 nv_input_get_last_frame_mouse_position(nv_input_ctx_t* ctx);
+extern vec2 nv_input_get_mouse_delta(nv_input_ctx_t* ctx);
 
 // button is 1 for left mouse, 2 for middle, 3 for right
-extern bool nv_input_is_mouse_signalled(nv_input_mouse_button button);
-extern bool nv_input_is_mouse_just_signalled(nv_input_mouse_button button);
+extern bool nv_input_is_mouse_signalled(nv_input_ctx_t* ctx, nv_input_mouse_button button);
+extern bool nv_input_is_mouse_just_signalled(nv_input_ctx_t* ctx, nv_input_mouse_button button);
 
 NOVA_HEADER_END
 

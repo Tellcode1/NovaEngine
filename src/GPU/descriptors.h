@@ -3,10 +3,8 @@
 
 // implementation: vk.c
 
-#include "../external/volk/volk.h"
-#include "../std/math/math.h"
 #include "../std/stdafx.h"
-#include "vkstdafx.h"
+#include "vk.h"
 
 NOVA_HEADER_START
 
@@ -42,12 +40,12 @@ struct nv_descriptor_set_t
   int                          nwrites;
 };
 
-extern int  nv_descriptor_set_submit_write(nv_descriptor_set_t* set, const VkWriteDescriptorSet* write);
-extern void nv_descriptor_set_destroy(nv_descriptor_set_t* set);
-extern void nv_descriptor_pool_destroy(nv_descriptor_pool_t* pool);
-extern int  _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool);
-extern int  nv_descriptor_pool_init(nv_descriptor_pool_t* dst);
-extern int  nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst);
+extern int  nv_descriptor_set_submit_write(nvvk_ctx_t* nvvkctx, nv_descriptor_set_t* set, const VkWriteDescriptorSet* write);
+extern void nv_descriptor_set_destroy(nvvk_ctx_t* nvvkctx, nv_descriptor_set_t* set);
+extern void nv_descriptor_pool_destroy(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool);
+extern int  _nv_descriptor_pool_allocate(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool);
+extern int  nv_descriptor_pool_init(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* dst);
+extern int nv_allocate_descriptor_set(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst);
 
 NOVA_HEADER_END
 

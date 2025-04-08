@@ -22,6 +22,8 @@
 
 NOVA_HEADER_START
 
+struct nvvk_ctx_t;
+
 // DEPRECATE THIS YOU FOOL
 // IT WAS ONLY MEANT FOR SIMPLE TESTING
 static const int             CTEXT_MAX_FONT_COUNT = 8;
@@ -58,14 +60,14 @@ ctext_compare_glyph_keys(const void* key1, const void* key2, size_t nbytes, void
 extern nv_errorc ctext_init(struct nv_renderer_t* rd);
 extern void      ctext_shutdown(struct nv_renderer_t* rd);
 
-extern void ctext_load_font(struct nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
+extern void ctext_load_font(struct nvvk_ctx_t* nvvkctx, struct nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
 
 /*
   Returns 0 if the font is ok and anything else if it is on life support (hasn't crashed your program yet)
 */
 extern int ctext_validate_font(const cfont_t* fnt);
 
-extern void ctext_destroy_font(cfont_t* fnt);
+extern void ctext_destroy_font(nvvk_ctx_t*nvvkctx, cfont_t* fnt);
 
 extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...);
 

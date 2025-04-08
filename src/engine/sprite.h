@@ -3,7 +3,7 @@
 
 // implementation: vk.c
 
-#include "../GPU/vkstdafx.h"
+#include "../GPU/vk.h"
 #include "../common/format.h"
 
 NOVA_HEADER_START
@@ -20,11 +20,11 @@ extern nv_sprite* nv_sprite_load_from_memory(struct nv_renderer_t* rd, const uns
 extern nv_sprite* nv_sprite_load_from_disk(struct nv_renderer_t* rd, const char* path);
 
 // force destroy
-extern void nv_sprite_destroy(nv_sprite* spr);
+extern void nv_sprite_destroy(nvvk_ctx_t* nvvkctx, nv_sprite* spr);
 
 // references
 extern void nv_sprite_lock(nv_sprite* spr);
-extern void nv_sprite_release(nv_sprite* spr);
+extern void nv_sprite_release(nvvk_ctx_t* nvvkctx, nv_sprite* spr);
 
 extern void            nv_sprite_get_dimensions(const nv_sprite* spr, size_t* w, size_t* h);
 extern VkImage         nv_sprite_get_vk_image(const nv_sprite* spr);

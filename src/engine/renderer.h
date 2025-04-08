@@ -9,7 +9,7 @@
 
 // I strive for a world where I do not have to call vulkan functions myself again
 
-#include "../GPU/descriptors.h"
+#include "engine.h"
 #include "nvsm.h"
 #include "sprite.h"
 
@@ -18,9 +18,13 @@
 #include "../std/math/vec4.h"
 
 #include "../GPU/buffer.h"
+#include "../GPU/descriptors.h"
 #include "../GPU/fbf.h"
 #include "../GPU/texture.h"
 #include "../GPU/types.h"
+#include "../GPU/vk.h"
+
+#include "../containers/list.h"
 
 NOVA_HEADER_START
 
@@ -30,6 +34,7 @@ typedef struct nv_line_draw_call_t nv_line_draw_call_t;
 typedef struct nv_draw_call_t      nv_draw_call_t;
 typedef struct nv_renderer_t       nv_renderer_t;
 
+struct nv_ctx_t;
 struct nvsm_ctx_t;
 
 extern nv_descriptor_pool_t g_pool;
@@ -119,6 +124,9 @@ struct nv_draw_call_t
 
 struct nv_renderer_t
 {
+  nv_ctx_t*   ctx;
+  nvvk_ctx_t* nvvkctx;
+
   unsigned       flags;
   nv_buffer_mode buffer_mode;
 
@@ -157,26 +165,24 @@ struct nv_renderer_t
   nv_gpu_memory_t quad_memory;
 
   void* mapped;
-
-  nvsm_ctx_t* nvsmctx;
 };
 
-extern nv_errorc nv_renderer_init(struct nvsm_ctx_t* nvsmctx, const nv_renderer_config* conf, nv_renderer_t* dst);
+extern nv_errorc nv_renderer_init(struct nv_ctx_t* ctx, nvvk_ctx_t* nvvkctx, struct nvsm_ctx_t* nvsmctx, const nv_renderer_config* conf, nv_renderer_t* dst);
 extern void      nv_renderer_destroy(nv_renderer_t* rd);
 
 extern bool      nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
 extern nv_errorc nv_renderer_end(nv_renderer_t* rd);
 
-extern u32                    nv_renderer_get_frame(const nv_renderer_t* rd);
-extern u32                    nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
-extern VkCommandBuffer nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
-extern VkRenderPass    nv_renderer_get_render_pass(const nv_renderer_t* rd);
-extern struct nv_extent2d     nv_renderer_get_render_extent(const nv_renderer_t* rd);
+extern u32                nv_renderer_get_frame(const nv_renderer_t* rd);
+extern u32                nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
+extern VkCommandBuffer    nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
+extern VkRenderPass       nv_renderer_get_render_pass(const nv_renderer_t* rd);
+extern struct nv_extent2d nv_renderer_get_render_extent(const nv_renderer_t* rd);
 
 extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
 extern void nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, int layer);
 
-extern nv_extent2d nv_get_window_size(void);
+extern nv_extent2d nv_get_window_size(nv_ctx_t* ctx);
 
 NOVA_HEADER_END
 

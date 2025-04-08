@@ -15,13 +15,8 @@ NOVA_HEADER_START
 
 struct nvsm_ctx_t;
 
-#define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
-
-/* Return the result, but if it was handled, return whatever you want. */
-typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
-
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((unsigned long)(ptr) == 0UL)                                                                                                                                              \
+  if ((unsigned long)(ptr) == 0UL)                                                                                                                                            \
   nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
   if ((val) == (to))                                                                                                                                                          \
@@ -42,7 +37,7 @@ typedef enum nvvk_pipeline_flags_bits
 } nvvk_pipeline_flags_bits;
 typedef u32 nvvk_pipeline_flags;
 
-#define nvvk_result_check(func) _nvvk_result_fn(func, nv_basename(__FILE__), #func, __LINE__)
+#define nvvk_result_check(ctx, func) (ctx).result_fn((func), nv_basename(__FILE__), #func, __LINE__)
 
 static VkResult
 _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
@@ -68,24 +63,19 @@ _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const cha
 }
 
 /*
-  Used internally. Do NOT modify by yourselves! Use SetResultCheckFunc instead.
-*/
-extern nv_gpu_result_check_fn _nvvk_result_fn;
-
-/*
   Set the result checking function for the API. This is called every time the program requests something in the order of vkCreate* that this namespace
   has a hold of. Use NULL to deattach the function.
 */
 static inline void
-nv_gpu_set_result_check_fn(nv_gpu_result_check_fn func)
+nv_gpu_set_result_check_fn(nvvk_ctx_t* ctx, nv_gpu_result_check_fn func)
 {
   if (func != NULL)
   {
-    _nvvk_result_fn = func;
+    ctx->result_fn = func;
   }
   else
   {
-    _nvvk_result_fn = _nvvk_default_result_check_fn;
+    ctx->result_fn = _nvvk_default_result_check_fn;
   }
 }
 
@@ -202,14 +192,14 @@ extern nv_gpu_pipeline_blend_state  nv_gpu_init_pipeline_blend_state(nv_gpu_pipe
   (nv_gpu_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
 
 extern nv_errorc nv_vk_bake_global_pipelines(struct nvsm_ctx_t* ctx, nv_renderer_t* rd);
-extern void      nv_vk_destroy_global_pipelines(void);
+extern void      nv_vk_destroy_global_pipelines(nvvk_ctx_t* nvvkctx);
 
-extern void nv_gpu_create_graphics_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
-extern void nv_gpu_create_depth_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
-extern void nv_gpu_create_pipeline_layout(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipelineLayout* dstLayout);
-extern void nv_gpu_create_render_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
-extern void nv_gpu_create_depth_pass(nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
-extern void nv_gpu_create_swapchain(nv_gpu_swapchain_create_info const* pCreateInfo, VkSwapchainKHR* dstSwapchain);
+extern void nv_gpu_create_graphics_pipeline(nvvk_ctx_t* nvvkctx, nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
+extern void nv_gpu_create_depth_pipeline(nvvk_ctx_t* nvvkctx, nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);
+extern void nv_gpu_create_pipeline_layout(nvvk_ctx_t* nvvkctx, nv_gpu_pipeline_create_info const* pCreateInfo, VkPipelineLayout* dstLayout);
+extern void nv_gpu_create_render_pass(nvvk_ctx_t* nvvkctx, nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
+extern void nv_gpu_create_depth_pass(nvvk_ctx_t* nvvkctx, nv_gpu_render_pass_create_info const* pCreateInfo, VkRenderPass* dstRenderPass, u32 flags);
+extern void nv_gpu_create_swapchain(nvvk_ctx_t* nvvkctx, nv_gpu_swapchain_create_info const* pCreateInfo, VkSwapchainKHR* dstSwapchain);
 
 NOVA_HEADER_END
 

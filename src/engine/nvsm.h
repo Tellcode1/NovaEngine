@@ -30,15 +30,17 @@ typedef struct nvsm_cache_file_entry_t nvsm_cache_file_entry_t;
 typedef struct nvsm_list_file_t        nvsm_list_file_t;
 typedef struct nvsm_cache_file_t       nvsm_cache_file_t;
 
+struct nvvk_ctx_t;
+
 #define nvsm_shader_t nvsm_list_file_entry_t
 
 extern nv_errorc nvsm_init(nvsm_ctx_t* ctx);
-extern void      nvsm_shutdown(nvsm_ctx_t* ctx);
+extern void      nvsm_shutdown(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
 
 extern nv_errorc nvsm_compile_shaders(nvsm_ctx_t* ctx);
 extern nv_errorc nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache);
 
-extern nv_errorc nvsm_create_shader_modules(nvsm_ctx_t* ctx);
+extern nv_errorc nvsm_create_shader_modules(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
 
 extern nv_errorc nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out);
 

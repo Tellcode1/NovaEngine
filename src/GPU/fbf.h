@@ -1,12 +1,10 @@
 #ifndef __NOVA_GPU_FRAMEBUFFER_H__
 #define __NOVA_GPU_FRAMEBUFFER_H__
 
-#include "../containers/list.h"
 #include "../external/volk/volk.h"
-#include "../std/string.h"
 #include "texture.h"
 #include "types.h"
-#include "vkstdafx.h"
+#include "vk.h"
 
 NOVA_HEADER_START
 
@@ -35,9 +33,9 @@ struct nv_gpu_framebuffer_create_info_t
   size_t           num_layers;
 };
 
-extern int nv_gpu_create_framebuffer(const nv_gpu_framebuffer_create_info_t* pCreateInfo, nv_gpu_framebuffer_t* dst);
+extern int nv_gpu_create_framebuffer(nvvk_ctx_t* nvvkctx, const nv_gpu_framebuffer_create_info_t* pCreateInfo, nv_gpu_framebuffer_t* dst);
 
-extern void nv_gpu_destroy_framebuffer(nv_gpu_framebuffer_t* dst);
+extern void nv_gpu_destroy_framebuffer(nvvk_ctx_t* nvvkctx, nv_gpu_framebuffer_t* dst);
 
 NOVA_HEADER_END
 

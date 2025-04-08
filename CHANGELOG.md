@@ -1,5 +1,5 @@
 ## \[TODO\]
-
+*   [ ] dude, the vulkan and non vulkan parts are interacting too much. fix!
 *   [ ] Add a render spec that contains all the data about rendering which the user can fetch at runtime.
 *   [x] Move the renderer struct to the stack.
 *   [ ] Add support for things like NOVA_GPU_BUFFER_USAGE_SINGLE_TIME, etc. Basically, make an abstraction over the vulkan type.
@@ -13,6 +13,7 @@
 *   We will now be using SDL_mutex instead of pthread for compatibility and because SDL is of superior intellect.
 *   Removed m_ prefix from all variables. It makes the project less readable.
 *   Entirely redid nvsm. Maybe I should break off the databasing code into a new container?
+*   Modularize everything.
 
 ### Fixed
 *   Fixed incorrect calculating of highest power of input in itoa.

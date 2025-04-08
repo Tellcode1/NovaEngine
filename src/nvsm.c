@@ -259,6 +259,7 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
   file->num_entries = idx;
 
   fclose(list_file);
+  nv_free(line);
 
   return NOVA_SUCCESS;
 }
@@ -334,6 +335,18 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   fclose(cache_file);
 
   return NOVA_SUCCESS;
+}
+
+static inline void
+_nvsm_destroy_cache_file(nvsm_cache_file_t* file)
+{
+  nv_free(file->entries);
+}
+
+static inline void
+_nvsm_destroy_list_file(nvsm_list_file_t* file)
+{
+  nv_free(file->entries);
 }
 
 nv_errorc
@@ -576,11 +589,14 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
 
   fclose(generated_cache_file);
 
+  _nvsm_destroy_list_file(&list_file);
+  _nvsm_destroy_cache_file(&cache_file);
+
   return NOVA_SUCCESS;
 }
 
 nv_errorc
-nvsm_create_shader_modules(nvsm_ctx_t* ctx)
+nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 {
   nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(nv_hashmap_size(&ctx->shader_map) != 0, NOVA_ERROR_CODE_INVALID_ARG);
@@ -607,7 +623,7 @@ nvsm_create_shader_modules(nvsm_ctx_t* ctx)
       .codeSize = spirv_size,
       .pCode    = spirv,
     };
-    nvvk_result_check(vkCreateShaderModule(nvvk_context.device, &info, NOVA_VK_ALLOCATOR, &entry->module));
+    nvvk_result_check(*nvvkctx, vkCreateShaderModule(nvvkctx->device, &info, NOVA_VK_ALLOCATOR, &entry->module));
 
     nv_free((void*)spirv);
   }
@@ -676,6 +692,8 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
     fclose(generated_cache_file);
   }
 
+  _nvsm_destroy_list_file(&list_file);
+
   return NOVA_SUCCESS;
 }
 
@@ -726,7 +744,7 @@ nvsm_init(nvsm_ctx_t* ctx)
 }
 
 void
-nvsm_shutdown(nvsm_ctx_t* ctx)
+nvsm_shutdown(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 {
   nv_assert_and_ret(ctx != NULL, );
 
@@ -737,7 +755,7 @@ nvsm_shutdown(nvsm_ctx_t* ctx)
     nvsm_list_file_entry_t* entry = (nvsm_list_file_entry_t*)node->value;
     if (entry->module != VK_NULL_HANDLE)
     {
-      vkDestroyShaderModule(nvvk_context.device, entry->module, NOVA_VK_ALLOCATOR);
+      vkDestroyShaderModule(nvvkctx->device, entry->module, NOVA_VK_ALLOCATOR);
     }
   }
 
