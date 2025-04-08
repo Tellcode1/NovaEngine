@@ -18,9 +18,8 @@
 #include "engine/engine.h"
 #include "engine/fontc.h"
 #include "engine/input.h"
+#include "engine/nvsm.h"
 #include "engine/renderer.h"
-#include "engine/shadermanager.h"
-#include "engine/shadermanagerdev.h"
 #include "engine/sprite_renderer.h"
 #include "engine/ui.h"
 #include "std/errorcodes.h"
@@ -71,6 +70,12 @@ nv_get_window_size(void)
   SDL_GetWindowSize(nvvk_context.window, &ww, &wh);
   return (nv_extent2d){ ww, wh };
 }
+
+VKAPI_ATTR VkBool32 VKAPI_CALL nvvk_debug_messenger(
+    VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT             messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void*                                       pUserData);
 
 typedef struct nv_quad_vertex_t     nv_quad_vertex_t;
 typedef struct nv_line_vertex_t     nv_line_vertex_t;
@@ -171,18 +176,18 @@ nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd)
 
 #define ABSF(x) ((x >= 0.0f) ? (x) : -(x))
 
-static inline bool
-nv_is_quad_visible_through_default_camera(const vec3* pos, const vec3* siz)
-{
-  const flt_t half_width  = siz->x * 0.5f;
-  const flt_t half_height = siz->y * 0.5f;
-  const flt_t deltax      = pos->x - camera.position.x;
-  const flt_t deltay      = pos->y - camera.position.y;
-  const flt_t dx          = ABSF(deltax); // delta x & y
-  const flt_t dy          = ABSF(deltay); //
+// static inline bool
+// nv_is_quad_visible_through_default_camera(const vec3* pos, const vec3* siz)
+// {
+//   const flt_t half_width  = siz->x * 0.5f;
+//   const flt_t half_height = siz->y * 0.5f;
+//   const flt_t deltax      = pos->x - camera.position.x;
+//   const flt_t deltay      = pos->y - camera.position.y;
+//   const flt_t dx          = ABSF(deltax); // delta x & y
+//   const flt_t dy          = ABSF(deltay); //
 
-  return (dx <= (half_width + camera.ortho_size.x) && dy <= (half_height + camera.ortho_size.y));
-}
+//   return (dx <= (half_width + camera.ortho_size.x) && dy <= (half_height + camera.ortho_size.y));
+// }
 
 void
 nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer)
@@ -398,8 +403,6 @@ nv_renderer_destroy(nv_renderer_t* rd)
   vkFreeCommandBuffers(nvvk_context.device, rd->command_pool, nv_list_size(&rd->draw_cmd_buffers), (VkCommandBuffer*)nv_list_data(&rd->draw_cmd_buffers));
   vkDestroyCommandPool(nvvk_context.device, rd->command_pool, NOVA_VK_ALLOCATOR);
   nv_list_destroy(&rd->draw_cmd_buffers);
-
-  nvsm_shutdown();
 
   vkDestroySwapchainKHR(nvvk_context.device, rd->swapchain, NOVA_VK_ALLOCATOR);
 
@@ -797,13 +800,14 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 }
 
 nv_errorc
-nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst)
+nv_renderer_init(nvsm_ctx_t* nvsmctx, const nv_renderer_config* conf, nv_renderer_t* dst)
 {
   nv_assert_and_ret(conf != NULL, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(conf->initial_window_size.width != 0, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(conf->initial_window_size.height != 0, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(conf->samples != 0, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(dst != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvsmctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
 
   nv_bzero(dst, sizeof(nv_renderer_t));
 
@@ -818,6 +822,8 @@ nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst)
   {
     frames_in_flight = 1;
   }
+
+  dst->nvsmctx = nvsmctx;
 
   nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
 
@@ -904,7 +910,7 @@ nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst)
     return code;
   }
 
-  if ((code = nv_vk_bake_global_pipelines(dst)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = nv_vk_bake_global_pipelines(nvsmctx, dst)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
@@ -1290,14 +1296,14 @@ static const VkPhysicalDeviceFeatures WantedFeatures = {
 static inline void
 _VK_DEBUG_LOG(bool is_error_msg, const char* fmt, ...)
 {
-  const char* preceder = " ";
+  const char* preceder = is_error_msg ? " err: " : " vkdebug: ";
   va_list     args;
   va_start(args, fmt);
-  _nv_log(args, __FILE__, __LINE__, STR(nvvk_debug_messenger), preceder, fmt, is_error_msg);
+  _nv_log(args, __FILE__, __LINE__, "<dbg>", preceder, fmt, is_error_msg);
   va_end(args);
 }
 
-static SDL_UNUSED VKAPI_ATTR VkBool32 VKAPI_CALL
+VKAPI_ATTR VkBool32 VKAPI_CALL
 nvvk_debug_messenger(
     VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT             messageType,
@@ -1325,7 +1331,12 @@ setify(u32 i1, u32 i2, u32 i3, u32 i4)
     bool      already_in = false;
     for (int i = 0; i < (int)nv_list_size(&ret); i++)
     {
-      if (e == *(u32*)nv_list_get(&ret, i))
+      u32* exists_ptr = (u32*)nv_list_get(&ret, i);
+      if (!exists_ptr)
+      {
+        continue;
+      }
+      if (e == *exists_ptr)
       {
         already_in = true;
       }
@@ -2746,55 +2757,6 @@ ctext_flush_renders(nv_renderer_t* rd)
   }
 }
 
-static inline ctext_label_t*
-ctext_create_label(nv_scene_t* scene, cfont_t* fnt)
-{
-  ctext_label_t label = {
-    .h_align = CTEXT_HORI_ALIGN_LEFT,
-    .v_align = CTEXT_VERT_ALIGN_TOP,
-    .index   = (int)nv_list_size(&fnt->rd->ctext->labels),
-    .text    = nv_string_init(0, nv_allocator_get_default()),
-    .fnt     = fnt,
-    .obj     = nv_object_create(scene, "Text Label", 0, 0, 0, nv_zero_init(vec2), (vec2){ 1.0f, 1.0f }, NOVA_OBJECT_NO_COLLISION),
-  };
-  nv_list_push_back(&fnt->rd->ctext->labels, &label);
-  return &(((ctext_label_t*)fnt->rd->ctext->labels.data)[nv_list_size(&fnt->rd->ctext->labels) - 1]);
-}
-
-static inline void
-ctext_destroy_label(ctext_label_t* label)
-{
-  nv_string_destroy(&label->text);
-  nv_list_remove(&label->fnt->rd->ctext->labels, label->index);
-}
-
-static inline nv_object*
-ctext_label_get_object(const ctext_label_t* label)
-{
-  return label->obj;
-}
-static inline void
-ctext_label_set_text(ctext_label_t* label, const char* text)
-{
-  nv_string_set(&label->text, text);
-}
-static inline void
-ctext_label_set_horizontal_align(ctext_label_t* label, ctext_hori_align h_align)
-{
-  label->h_align = h_align;
-}
-static inline void
-ctext_label_set_vertical_align(ctext_label_t* label, ctext_vert_align v_align)
-{
-  label->v_align = v_align;
-}
-
-static inline void
-ctext_label_set_text_scale(ctext_label_t* label, flt_t scale)
-{
-  label->scale = scale;
-}
-
 nv_errorc
 ctext_init(struct nv_renderer_t* rd)
 {
@@ -2926,7 +2888,7 @@ nv_descriptor_pool_destroy(nv_descriptor_pool_t* pool)
 int
 _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 {
-  nv_assert(pool != NULL);
+  nv_assert_and_ret(pool != NULL, NOVA_ERROR_CODE_INVALID_ARG);
 
   VkDescriptorPoolSize allocations[11]     = { 0 };
   int                  descriptors_written = 0;
@@ -2964,15 +2926,21 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   }
 
   VkDescriptorSet* new_sets = nv_malloc(sizeof(VkDescriptorSet) * NV_MAX(pool->nsets, 1));
-  nv_assert(new_sets != NULL);
+  nv_assert_and_ret(new_sets != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
 
   if (pool->nsets > 0)
   {
     VkDescriptorSetLayout* layouts = nv_malloc(sizeof(VkDescriptorSetLayout) * pool->nsets);
+    nv_assert_and_ret(layouts != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+
     for (int i = 0; i < pool->nsets; i++)
     {
+      if (pool->sets[i]->layout == NULL)
+      {
+        i = NV_MAX(i - 1, 0);
+        continue;
+      }
       layouts[i] = pool->sets[i]->layout;
-      nv_assert(layouts[i] != NULL);
     }
 
     VkDescriptorSetAllocateInfo setAllocInfo = nv_zero_init(VkDescriptorSetAllocateInfo);
@@ -2981,10 +2949,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
     setAllocInfo.descriptorSetCount          = pool->nsets;
     setAllocInfo.pSetLayouts                 = layouts;
     nvvk_result_check(vkAllocateDescriptorSets(nvvk_context.device, &setAllocInfo, new_sets));
-    if (!new_sets)
-    {
-      return -1;
-    }
+    nv_assert_and_ret(new_sets != NULL, NOVA_ERROR_CODE_INVALID_RETVAL);
 
     nv_free(layouts);
   }
@@ -2995,6 +2960,7 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
     ncopies += pool->sets[i]->nwrites;
   }
   VkCopyDescriptorSet* copies = nv_malloc(sizeof(VkCopyDescriptorSet) * NV_MAX(ncopies, 1));
+  nv_assert_and_ret(copies != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
 
   nv_assert(pool->sets != NULL);
 
@@ -3005,7 +2971,10 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
 
     for (int writei = 0; writei < old_set->nwrites; writei++)
     {
-      nv_assert(new_sets[i] != NULL);
+      if (new_sets[i] == NULL)
+      {
+        continue;
+      }
 
       VkWriteDescriptorSet* write = &old_set->writes[writei];
       copies[ncopies]             = (VkCopyDescriptorSet){
@@ -3030,8 +2999,14 @@ _nv_descriptor_pool_allocate(nv_descriptor_pool_t* pool)
   }
   pool->pool = new_pool;
 
-  nv_free(new_sets);
-  nv_free(copies);
+  if (new_sets)
+  {
+    nv_free(new_sets);
+  }
+  if (copies)
+  {
+    nv_free(copies);
+  }
   return 0;
 }
 
@@ -3066,6 +3041,11 @@ nv_descriptor_pool_init(nv_descriptor_pool_t* dst)
 int
 nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst)
 {
+  nv_assert_and_ret(pool != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(bindings != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(dst != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nbindings > 0, NOVA_ERROR_CODE_INVALID_ARG);
+
   bool need_realloc = 0;
   for (int i = 0; i < 11; i++)
   {
@@ -3086,14 +3066,14 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
     {
       pool->max_child_sets = NV_MAX(pool->max_child_sets * 2, 1);
       pool->sets           = nv_realloc(pool->sets, pool->max_child_sets * sizeof(nv_descriptor_set_t));
-      nv_assert(pool->sets != NULL);
+      nv_assert_and_ret(pool->sets != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
     }
 
     _nv_descriptor_pool_allocate(pool);
   }
 
   nv_descriptor_set_t* set = nv_calloc(sizeof(nv_descriptor_set_t));
-  nv_assert(set != NULL);
+  nv_assert_and_ret(set != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
 
   pool->sets[pool->nsets] = set;
   pool->nsets++;
@@ -3102,17 +3082,14 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
 
   set->pool   = pool;
   set->writes = nv_malloc(sizeof(VkWriteDescriptorSet));
-  nv_assert(set->writes != NULL);
+  nv_assert_and_ret(set->writes != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
 
   VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zero_init(VkDescriptorSetLayoutCreateInfo);
   layoutinfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutinfo.pBindings                       = bindings;
   layoutinfo.bindingCount                    = nbindings;
   nvvk_result_check(vkCreateDescriptorSetLayout(nvvk_context.device, &layoutinfo, NOVA_VK_ALLOCATOR, &set->layout));
-  if (set->layout == NULL)
-  {
-    return -1;
-  }
+  nv_assert_and_ret(set->layout != VK_NULL_HANDLE, NOVA_ERROR_CODE_EXTERNAL);
 
   VkDescriptorSetAllocateInfo setAllocInfo = nv_zero_init(VkDescriptorSetAllocateInfo);
   setAllocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -3130,7 +3107,7 @@ nv_allocate_descriptor_set(nv_descriptor_pool_t* pool, const VkDescriptorSetLayo
 // nv_descriptors ^^
 
 static inline nv_errorc
-__BakeUnlitPipeline(nv_renderer_t* rd)
+__BakeUnlitPipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
 {
   VkDescriptorSetLayoutBinding bindings[] = {
     // binding; descriptorType; descriptorCount; stageFlags;
@@ -3145,8 +3122,8 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
   nvvk_result_check(vkCreateDescriptorSetLayout(nvvk_context.device, &layoutinfo, NOVA_VK_ALLOCATOR, &g_Pipelines.unlit.descriptor_layout));
 
   nvsm_shader_t *vertex, *fragment;
-  nv_assert_and_ret(nvsm_load_shader("Unlit/vert", &vertex) == 0, NOVA_ERROR_CODE_EXTERNAL);
-  nv_assert_and_ret(nvsm_load_shader("Unlit/frag", &fragment) == 0, NOVA_ERROR_CODE_EXTERNAL);
+  nv_assert_and_ret(nvsm_load_shader(ctx, "Unlit/vert", &vertex) == 0, NOVA_ERROR_CODE_EXTERNAL);
+  nv_assert_and_ret(nvsm_load_shader(ctx, "Unlit/frag", &fragment) == 0, NOVA_ERROR_CODE_EXTERNAL);
 
   nv_assert(vertex != NULL && fragment != NULL);
 
@@ -3206,7 +3183,7 @@ __BakeUnlitPipeline(nv_renderer_t* rd)
 }
 
 static inline nv_errorc
-__BakeCtextPipeline(nv_renderer_t* rd)
+__BakeCtextPipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
 {
   const VkVertexInputAttributeDescription attributeDescriptions[] = {
     // location; binding; format; offset;
@@ -3224,8 +3201,8 @@ __BakeCtextPipeline(nv_renderer_t* rd)
   };
 
   nvsm_shader_t *vertex, *fragment;
-  nv_assert_and_ret(nvsm_load_shader("ctext/vert", &vertex) == 0, NOVA_ERROR_CODE_EXTERNAL);
-  nv_assert_and_ret(nvsm_load_shader("ctext/frag", &fragment) == 0, NOVA_ERROR_CODE_EXTERNAL);
+  nv_assert_and_ret(nvsm_load_shader(ctx, "ctext/vert", &vertex) == 0, NOVA_ERROR_CODE_EXTERNAL);
+  nv_assert_and_ret(nvsm_load_shader(ctx, "ctext/frag", &fragment) == 0, NOVA_ERROR_CODE_EXTERNAL);
 
   nvsm_shader_t*        shaders[] = { vertex, fragment };
   VkDescriptorSetLayout layouts[] = { camera.sets->layout, rd->ctext->desc_set->layout };
@@ -3266,7 +3243,7 @@ __BakeCtextPipeline(nv_renderer_t* rd)
 }
 
 static inline nv_errorc
-__BakeDebugLinePipeline(nv_renderer_t* rd)
+__BakeDebugLinePipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
 {
   struct line_push_constants
   {
@@ -3282,8 +3259,8 @@ __BakeDebugLinePipeline(nv_renderer_t* rd)
   };
 
   nvsm_shader_t *vertex, *fragment;
-  nv_assert_and_ret(nvsm_load_shader("Debug/Line/vert", &vertex) == 0, NOVA_ERROR_CODE_EXTERNAL);
-  nv_assert_and_ret(nvsm_load_shader("Debug/Line/frag", &fragment) == 0, NOVA_ERROR_CODE_EXTERNAL);
+  nv_assert_and_ret(nvsm_load_shader(ctx, "Debug/Line/vert", &vertex) == NOVA_SUCCESS, NOVA_ERROR_CODE_EXTERNAL);
+  nv_assert_and_ret(nvsm_load_shader(ctx, "Debug/Line/frag", &fragment) == NOVA_SUCCESS, NOVA_ERROR_CODE_EXTERNAL);
 
   nvsm_shader_t*        shaders[] = { vertex, fragment };
   VkDescriptorSetLayout layouts[] = { camera.sets->layout };
@@ -3325,7 +3302,7 @@ __BakeDebugLinePipeline(nv_renderer_t* rd)
 }
 
 nv_errorc
-nv_vk_bake_global_pipelines(nv_renderer_t* rd)
+nv_vk_bake_global_pipelines(nvsm_ctx_t* ctx, nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(rd->render_extent.width != 0, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -3336,17 +3313,17 @@ nv_vk_bake_global_pipelines(nv_renderer_t* rd)
 
   nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
 
-  if ((code = __BakeUnlitPipeline(rd)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = __BakeUnlitPipeline(ctx, rd)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
 
-  if ((code = __BakeDebugLinePipeline(rd)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = __BakeDebugLinePipeline(ctx, rd)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
 
-  if ((code = __BakeCtextPipeline(rd)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = __BakeCtextPipeline(ctx, rd)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
@@ -3507,10 +3484,15 @@ nv_gpu_create_graphics_pipeline(const nv_gpu_pipeline_create_info* pCreateInfo, 
   VkPipelineShaderStageCreateInfo* shader_infos = (VkPipelineShaderStageCreateInfo*)nv_calloc(pCreateInfo->n_shaders * sizeof(VkPipelineShaderStageCreateInfo));
   for (int i = 0; i < pCreateInfo->n_shaders; i++)
   {
-    shader_infos[i].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_infos[i].stage  = (VkShaderStageFlagBits)pCreateInfo->p_shaders[i]->stage;
-    shader_infos[i].module = (VkShaderModule)pCreateInfo->p_shaders[i]->shader_module;
-    shader_infos[i].pName  = "main";
+    if (!pCreateInfo->p_shaders[i] || pCreateInfo->p_shaders[i]->module == VK_NULL_HANDLE)
+    {
+      continue;
+    }
+    const VkShaderStageFlagBits stage = (VkShaderStageFlagBits)_nvsm_shader_stage_from_string(pCreateInfo->p_shaders[i]->stage);
+    shader_infos[i].sType             = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_infos[i].stage             = stage;
+    shader_infos[i].module            = (VkShaderModule)pCreateInfo->p_shaders[i]->module;
+    shader_infos[i].pName             = "main";
   }
 
   VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {
@@ -4482,19 +4464,19 @@ nv_gpu_write_to_local_buffer(nv_gpu_buffer_t* buffer, size_t size, const void* d
   }
 }
 
-static inline void
-nv_gpu_write_to_uniform_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, size_t offset)
-{
-  void* mapped = NULL;
-  nv_gpu_map_memory(buffer->memory, size, offset, &mapped);
-  if (mapped == NULL)
-  {
-    nv_log_error("error in mapping\n");
-    return;
-  }
-  nv_memcpy(mapped, data, size);
-  nv_gpu_unmap_memory(buffer->memory);
-}
+// static inline void
+// nv_gpu_write_to_uniform_buffer(nv_gpu_buffer_t* buffer, size_t size, void* data, size_t offset)
+// {
+//   void* mapped = NULL;
+//   nv_gpu_map_memory(buffer->memory, size, offset, &mapped);
+//   if (mapped == NULL)
+//   {
+//     nv_log_error("error in mapping\n");
+//     return;
+//   }
+//   nv_memcpy(mapped, data, size);
+//   nv_gpu_unmap_memory(buffer->memory);
+// }
 
 void
 nv_gpu_map_buffer(nv_gpu_buffer_t* buffer)

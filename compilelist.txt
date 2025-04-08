@@ -1,8 +1,0 @@
-../src/Shaders/Generic/Unlit.vert
-../src/Shaders/Generic/Unlit.frag
-
-../src/Shaders/ctext/ctext.vert.glsl
-../src/Shaders/ctext/ctext.frag.glsl
-
-../src/Shaders/Debug/Line.vert
-../src/Shaders/Debug/Line.frag

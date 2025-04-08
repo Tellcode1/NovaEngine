@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 # https://stackoverflow.com/a/72234354
 # make all --always-make --dry-run CC=clang CXX=clang++ \
@@ -10,8 +10,7 @@ cd "$(dirname "$0")" || exit 1
 #  > build/compile_commands.json
 
 DIRECTORIES=(
-    "src"
-    "src/std"
+    "src/**"
     "ssl"
 )
 
@@ -25,7 +24,7 @@ if ! command -v clang &> /dev/null; then
     exit 1
 fi
 
-cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ; make -C build/
+cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ; make -j -C build/
 
 for TARGET_DIR in "${DIRECTORIES[@]}"; do
     if [ ! -d "$TARGET_DIR" ]; then
@@ -33,7 +32,7 @@ for TARGET_DIR in "${DIRECTORIES[@]}"; do
         continue
     fi
 
-    FILES=$(find "$TARGET_DIR" -type f \( -name "*.h" -o -name "*.c" \))
+    FILES=$(find "$TARGET_DIR" -type f \( -name "*.h" -o -name "*.c" \) ! -path "*/external/*")
 
     if [ -z "$FILES" ]; then
         continue

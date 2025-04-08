@@ -7,3 +7,6 @@
 [submodule "src/std"]
 	path = src/std
 	url = https://github.com/Tellcode1/nvstd.git
+[submodule "src/external/clay"]
+	path = src/external/clay
+	url = https://github.com/nicbarker/clay

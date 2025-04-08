@@ -1,0 +1,8 @@
+Unlit/vert:      path: Shaders/Generic/Unlit.vert      output: .nvshaders/generic.unlit.vert.spv   stage: vert
+Unlit/frag:      path: Shaders/Generic/Unlit.frag      output: .nvshaders/generic.unlit.frag.spv   stage: frag
+
+ctext/vert:      path: Shaders/ctext/ctext.vert.glsl   output: .nvshaders/ctext.frag.spv           stage: vert
+ctext/frag:      path: Shaders/ctext/ctext.frag.glsl   output: .nvshaders/ctext.vert.spv           stage: frag
+
+Debug/Line/vert: path: Shaders/Debug/Line.vert         output: .nvshaders/debug.line.vert.spv      stage: vert
+Debug/Line/frag: path: Shaders/Debug/Line.frag         output: .nvshaders/debug.line.frag.spv      stage: frag

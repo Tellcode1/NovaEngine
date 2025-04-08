@@ -506,7 +506,7 @@ fontc_write_font_file(const char* out, fontc_file_t* file)
     goto CLEANUP_AND_RETURN;
   }
 
-  nv_log_info("wrotebaked font to %s\n", out);
+  nv_log_info("baked font >> %s\n", out);
 
 CLEANUP_AND_RETURN:
   if (f)

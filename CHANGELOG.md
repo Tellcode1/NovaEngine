@@ -12,6 +12,7 @@
 *   Renamed dynarray.h to list.h, much easier to type, more clear what the hell it is.
 *   We will now be using SDL_mutex instead of pthread for compatibility and because SDL is of superior intellect.
 *   Removed m_ prefix from all variables. It makes the project less readable.
+*   Entirely redid nvsm. Maybe I should break off the databasing code into a new container?
 
 ### Fixed
 *   Fixed incorrect calculating of highest power of input in itoa.

@@ -37,6 +37,9 @@ nv_bitset_t g_nv_input_last_frame_kb_state;
 unsigned    g_nv_input_mouse_state;
 unsigned    g_nv_input_last_frame_mouse_state;
 
+b2BodyId _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shape shape, vec2 pos, vec2 siz, uint64_t layer, uint64_t mask, bool start_enabled);
+float    cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
+
 void
 nv_initialize_context(const char* window_title, int window_width, int window_height)
 {
@@ -278,9 +281,9 @@ _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_sha
   b2ShapeDef shape_def          = b2DefaultShapeDef();
   shape_def.density             = 5.0f;
   shape_def.restitution         = 0.0f;
-  shape_def.filter.category_bits = layer;
-  shape_def.filter.mask_bits     = mask;
-  shape_def.filter.group_index   = 0;
+  shape_def.filter.categoryBits = layer;
+  shape_def.filter.maskBits     = mask;
+  shape_def.filter.groupIndex   = 0;
 
   if (shape == NOVA_COLLIDER_SHAPE_RECT)
   {
@@ -411,8 +414,8 @@ nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t lay
   ctx.hit              = &hit;
 
   b2QueryFilter filter = b2DefaultQueryFilter();
-  filter.category_bits  = layer;
-  filter.mask_bits      = mask;
+  filter.categoryBits  = layer;
+  filter.maskBits      = mask;
 
   b2World_CastRay(col->scene->world, VEC2_TO_BVEC2(orig), VEC2_TO_BVEC2(dir), filter, cast_result_fn, &ctx);
 
@@ -740,15 +743,6 @@ nvui_update(void)
 }
 // nvui
 
-void
-LunaEditor_Render(nv_renderer_t* rd)
-{
-  (void)rd;
-  // nv_renderer_render_quad(rd, sprite_empty, (vec2){1.0f,1.0f},
-  // (vec3){-8.0f,0.0f,0.0f}, (vec3){4.0f,20.0f,0.0f},
-  // (vec4){1.0f,1.0f,1.0f,1.0f}, 5);
-}
-
 vec2        g_nv_input_mouse_position;
 vec2        g_nv_input_last_frame_mouse_position;
 nv_bitset_t g_nv_input_kb_state;
@@ -855,6 +849,8 @@ nv_input_is_mouse_signalled(nv_input_mouse_button button)
 {
   return g_nv_input_mouse_state & SDL_BUTTON((int)button);
 }
+
+unsigned str_hash(const void* key1, const void* key2, size_t keysize);
 
 unsigned
 str_hash(const void* key1, const void* key2, size_t keysize)

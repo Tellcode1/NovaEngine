@@ -10,6 +10,7 @@
 // I strive for a world where I do not have to call vulkan functions myself again
 
 #include "../GPU/descriptors.h"
+#include "nvsm.h"
 #include "sprite.h"
 
 #include "../std/math/vec2.h"
@@ -28,6 +29,8 @@ typedef struct nv_quad_draw_call_t nv_quad_draw_call_t;
 typedef struct nv_line_draw_call_t nv_line_draw_call_t;
 typedef struct nv_draw_call_t      nv_draw_call_t;
 typedef struct nv_renderer_t       nv_renderer_t;
+
+struct nvsm_ctx_t;
 
 extern nv_descriptor_pool_t g_pool;
 extern struct nv_camera_t   camera;
@@ -154,9 +157,11 @@ struct nv_renderer_t
   nv_gpu_memory_t quad_memory;
 
   void* mapped;
+
+  nvsm_ctx_t* nvsmctx;
 };
 
-extern nv_errorc nv_renderer_init(const nv_renderer_config* conf, nv_renderer_t* dst);
+extern nv_errorc nv_renderer_init(struct nvsm_ctx_t* nvsmctx, const nv_renderer_config* conf, nv_renderer_t* dst);
 extern void      nv_renderer_destroy(nv_renderer_t* rd);
 
 extern bool      nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);

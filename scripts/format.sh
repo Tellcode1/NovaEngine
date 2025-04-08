@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 DIRS=("src" "src/std" "ssl")
 EXTS=("*.c" "*.h" "*.cpp" "*.hpp")

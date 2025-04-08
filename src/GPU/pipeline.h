@@ -13,6 +13,8 @@
 
 NOVA_HEADER_START
 
+struct nvsm_ctx_t;
+
 #define NOVA_VK_MAX_SHADERS_PER_PIPELINE 8
 
 /* Return the result, but if it was handled, return whatever you want. */
@@ -199,7 +201,7 @@ extern nv_gpu_pipeline_blend_state  nv_gpu_init_pipeline_blend_state(nv_gpu_pipe
 #define nv_gpu_init_render_pass_create_info()                                                                                                                                 \
   (nv_gpu_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
 
-extern nv_errorc nv_vk_bake_global_pipelines(nv_renderer_t* rd);
+extern nv_errorc nv_vk_bake_global_pipelines(struct nvsm_ctx_t* ctx, nv_renderer_t* rd);
 extern void      nv_vk_destroy_global_pipelines(void);
 
 extern void nv_gpu_create_graphics_pipeline(nv_gpu_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);

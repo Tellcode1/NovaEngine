@@ -16,12 +16,9 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 find_package(OpenMP REQUIRED)
 
 # Box2D uses C17 but still complains about C11 features.
-set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wno-typedef-redefinition)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition")
 
-set(CFLAGS -g -Wall -Wextra -pedantic -Wno-unused-function)
-set(LFLAGS -g -Wall -Wextra -pedantic -Wno-unused-function)
-
-set(NOVA_BUILD_EXAMPLE false CACHE BOOL "Enable example build" )
+set(NOVA_BUILD_EXAMPLE true CACHE BOOL "Enable example build" )
 
 # The name of the output
 set(OUTPUT
@@ -67,12 +64,6 @@ set(LIBS
     OpenMP::OpenMP_C
 )
 
-add_executable(shadermanager src/nvsm.c src/common.c)
-target_compile_definitions(shadermanager PRIVATE NVSM_EXECUTABLE=1)
-target_compile_options(shadermanager PRIVATE ${CFLAGS})
-target_link_options(shadermanager PRIVATE ${LFLAGS})
-target_link_libraries(shadermanager nvstd SDL2 png jpeg m)
-
 add_executable(fontc src/fontc.c src/common.c)
 target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
 target_link_options(fontc PRIVATE ${CFLAGS} -fopenmp)
@@ -86,6 +77,7 @@ target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's
 target_link_libraries(Nova ${LIBS})
 
 file(COPY ${CMAKE_CURRENT_LIST_DIR}/src/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
+file(COPY ${CMAKE_CURRENT_LIST_DIR}/src/Shaders DESTINATION ${CMAKE_BINARY_DIR}/)
 
 if (NOVA_BUILD_EXAMPLE)
     target_link_libraries(nova_example Nova)

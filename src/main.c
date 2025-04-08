@@ -3,8 +3,8 @@
 #include "engine/ctext.h"
 #include "engine/engine.h"
 #include "engine/input.h"
+#include "engine/nvsm.h"
 #include "engine/renderer.h"
-#include "engine/shadermanager.h"
 #include "std/errorcodes.h"
 #include "std/print.h"
 #include "std/props.h"
@@ -34,7 +34,7 @@ main(int argc, char* argv[])
   char        windowname[64]    = "clocker";
   int         window_width      = 800;
   int         window_height     = 600;
-  bool        recompile_shaders = 0, resizable_window = 0;
+  bool        recompile_shaders = 1, resizable_window = 0;
   nv_option_t options[] = {
     { NV_OP_TYPE_STRING, "wn", "window-name", windowname, sizeof(windowname) },
     { NV_OP_TYPE_INT, "ww", "window-width", &window_width, 0 },
@@ -60,14 +60,21 @@ main(int argc, char* argv[])
   nv_initialize_context(windowname, (int)window_size.width, (int)window_size.height);
   nvvk_context_initialize(&nvvk_context);
 
+  nvsm_ctx_t nvsmctx = nv_zero_init(nvsm_ctx_t);
+  nvsm_init(&nvsmctx);
+
+  nvsmctx.list_file = "Shaders/shaderlist";
+
   if (recompile_shaders)
   {
-    nvsm_compile_all();
+    nvsm_compile_shaders(&nvsmctx);
   }
   else
   {
-    nvsm_compile_updated();
+    nvsm_compile_shaders_force(&nvsmctx, true);
   }
+
+  nvsm_create_shader_modules(&nvsmctx);
 
   nv_renderer_config rdconf   = nv_renderer_config_init();
   rdconf.vsync_enabled        = 1;
@@ -80,9 +87,9 @@ main(int argc, char* argv[])
   nv_errorc code = NOVA_SUCCESS;
 
   nv_renderer_t rdr;
-  if ((code = nv_renderer_init(&rdconf, &rdr)) != NOVA_SUCCESS)
+  if ((code = nv_renderer_init(&nvsmctx, &rdconf, &rdr)) != NOVA_SUCCESS)
   {
-    nv_log_error("Error in initializing renderer (rval:%s)\n", nv_error_str(code));
+    nv_log_error("Fatal error in initializing renderer (rval:%s)\n", nv_error_str(code));
     return code;
   }
 
@@ -159,7 +166,7 @@ main(int argc, char* argv[])
   }
 
   nv_input_shutdown();
-
+  nvsm_shutdown(&nvsmctx);
   ctext_destroy_font(&amongus);
   nv_renderer_destroy(&rdr);
 }
