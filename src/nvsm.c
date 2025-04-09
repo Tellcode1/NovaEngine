@@ -297,6 +297,7 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   u32 file_canary = 0;
   if (fread(&file_canary, sizeof(canary), 1, cache_file) != 1 || file_canary != canary)
   {
+    fclose(cache_file);
     return NOVA_ERROR_CODE_INVALID_CACHE;
   }
 
@@ -311,6 +312,7 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   size_t list_file_mtime = 0;
   if (fread(&list_file_mtime, sizeof(list_file_mtime), 1, cache_file) != 1 || list_file_mtime != get_last_modified_time(list_file_path))
   {
+    fclose(cache_file);
     return NOVA_ERROR_CODE_INVALID_CACHE;
   }
 
@@ -319,11 +321,16 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   /* currently, the number of *expected* entries, not number of valid entries */
   if ((fread(&file->num_entries, sizeof(file->num_entries), 1, cache_file) != 1) || (file->num_entries == 0))
   {
+    fclose(cache_file);
     return NOVA_ERROR_CODE_INVALID_CACHE;
   }
 
   file->entries = (nvsm_cache_file_entry_t*)nv_calloc(file->num_entries * sizeof(nvsm_cache_file_entry_t));
-  nv_assert_and_ret(file->entries != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+  if (file->entries == NULL)
+  {
+    nv_assert(fclose(cache_file) == 0);
+    nv_assert_and_ret(false, NOVA_ERROR_CODE_MALLOC_FAILED);
+  }
 
   /* we did not read as many entries as the header reported. Maybe the file wasn't written fully when the program terminated. */
   if (fread(file->entries, sizeof(nvsm_cache_file_entry_t), file->num_entries, cache_file) != file->num_entries)

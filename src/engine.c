@@ -146,8 +146,9 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
   obj->transform.size     = size;
   obj->transform.rotation = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
 
-  obj->spr_renderer                      = nv_zero_init(nv_sprite_renderer);
-  obj->spr_renderer.spr                  = nv_sprite_empty;
+  obj->spr_renderer = nv_zero_init(nv_sprite_renderer);
+  // TODO: remove things when they stop working? That's the best strategy!
+  // obj->spr_renderer.spr                  = nv_sprite_empty;
   obj->spr_renderer.tex_coord_multiplier = (vec2f){ 1.0f, 1.0f };
   obj->spr_renderer.color                = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
 
@@ -583,7 +584,7 @@ nvui_shutdown(void)
 }
 
 nvui_button*
-nvui_create_button(nv_sprite* spr)
+nvui_create_button(nv_sprite_t* spr)
 {
   if (!nvui_ctx.active)
   {
@@ -600,7 +601,7 @@ nvui_create_button(nv_sprite* spr)
 }
 
 nvui_slider*
-nvui_create_slider(void)
+nvui_create_slider(nv_sprite_t* foreground, nv_sprite_t* background)
 {
   if (!nvui_ctx.active)
   {
@@ -615,8 +616,8 @@ nvui_create_slider(void)
   slider.value              = 0.0f;
   slider.bg_color           = (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f };
   slider.slider_color       = (vec4f){ 1.0f, 0.0f, 0.0f, 1.0f };
-  slider.bg_sprite          = nv_sprite_empty;
-  slider.slider_sprite      = nv_sprite_empty;
+  slider.bg_sprite          = foreground;
+  slider.slider_sprite      = background;
   slider.interactable       = 0;
   nv_list_push_back(&nvui_ctx.sliders, &slider);
   return (nvui_slider*)nv_list_get(&nvui_ctx.sliders, nv_list_size(&nvui_ctx.sliders) - 1);

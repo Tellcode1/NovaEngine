@@ -25,7 +25,7 @@ struct nvui_button
   vec4f                color;
   nvui_button_on_hover on_hover;
   nvui_button_on_click on_click;
-  nv_sprite*           spr;
+  nv_sprite_t*         spr;
   bool                 was_hovered; // was it being hovered in this frame?
   bool                 was_clicked; // was the button pressed?
 };
@@ -34,7 +34,7 @@ struct nvui_slider
 {
   nv_transform transform;
   vec4f        bg_color, slider_color;
-  nv_sprite *  bg_sprite, *slider_sprite;
+  nv_sprite_t *bg_sprite, *slider_sprite;
   flt_t        min, max, value;
   bool         moved;        // was the slider's handle moved
   bool         interactable; // whether this slider can be controlled by the mouse.
@@ -44,9 +44,9 @@ struct nvui_slider
 extern void nvui_init(void);
 extern void nvui_shutdown(void);
 
-extern nvui_button* nvui_create_button(nv_sprite* spr);
+extern nvui_button* nvui_create_button(nv_sprite_t* spr);
 
-extern nvui_slider* nvui_create_slider(void);
+nvui_slider* nvui_create_slider(nv_sprite_t* foreground, nv_sprite_t* background);
 
 extern void nvui_destroy_button(nvvk_ctx_t* nvvkctx, nvui_button* obj);
 extern void nvui_destroy_slider(nvvk_ctx_t* nvvkctx, nvui_slider* obj);

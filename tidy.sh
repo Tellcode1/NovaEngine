@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd "$(dirname "$0")/.." || exit 1
+cd "$(dirname "$0")" || exit 1
 
 # https://stackoverflow.com/a/72234354
 # make all --always-make --dry-run CC=clang CXX=clang++ \
@@ -9,12 +9,14 @@ cd "$(dirname "$0")/.." || exit 1
 #  | jq -nR '[inputs|{directory:".", command:., file: match(" [^ ]+$").string[1:]}]' \
 #  > build/compile_commands.json
 
+echo $(dirname $0)
+
 DIRECTORIES=(
-    "src/**"
+    "src"
     "ssl"
 )
 
-if ! command -v clang &> /dev/null; then
+if ! command -v clang-tidy &> /dev/null; then
     echo "clang-tidy not installed. install it you dumbass"
     exit 1
 fi
@@ -28,7 +30,7 @@ cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXP
 
 for TARGET_DIR in "${DIRECTORIES[@]}"; do
     if [ ! -d "$TARGET_DIR" ]; then
-        echo "dir '$TARGET_DIR' does not exist"
+        echo "Directory '$TARGET_DIR' does not exist. Skipping..."
         continue
     fi
 
@@ -39,8 +41,13 @@ for TARGET_DIR in "${DIRECTORIES[@]}"; do
     fi
 
     for FILE in $FILES; do
-        echo "tidying $FILE"
+        echo "Tidying $FILE"
         clang-tidy -header-filter='^(?!.*[/\\]external[/\\]).*$' -p build/ --config-file=.clang-tidy --fix-errors "$FILE" &
+
+        # max number of parallel commands is set to 4
+        if (( $(jobs -r | wc -l) >= 4 )); then
+            wait -n
+        fi
     done
 done
 

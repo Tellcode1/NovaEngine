@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mutex.h>
 #include <errno.h>
 #include <limits.h>
@@ -11,6 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "SDL_pixels.h"
+#include "SDL_surface.h"
 #include "common/format.h"
 #include "common/image.h"
 #include "common/mem.h"
@@ -44,37 +47,34 @@ align_up_size(size_t size, size_t alignment)
   return (size + alignment - 1) & ~(alignment - 1);
 }
 
-// nv_image_t
-#include <jpeglib.h>
-#include <png.h>
-
-static inline const char*
-get_file_extension(const char* path)
-{
-  const char* dot = nv_strrchr(path, '.');
-  // Imagine someone actually uses this project.
-  // And then they see this.
-  if (!dot || dot == path)
-  {
-    return "piss";
-  }
-  return dot + 1;
-}
-
 nv_image_t
 nv_image_load(const char* path)
 {
-  const char* ext = get_file_extension(path);
-  if (nv_strcmp(ext, "jpeg") == 0 || nv_strcmp(ext, "jpg") == 0)
-  {
-    return nv_image_load_jpeg(path);
-  }
-  else if (nv_strcmp(ext, "png") == 0)
-  {
-    return nv_image_load_png(path);
-  }
-  nv_assert(0);
-  return nv_zero_init(nv_image_t);
+  SDL_Surface* surface = IMG_Load(path);
+  nv_assert_and_ret(surface != NULL, nv_zero_init(nv_image_t));
+
+  SDL_LockSurface(surface);
+
+  const size_t surface_size_bytes = surface->w * surface->h * surface->format->BytesPerPixel;
+
+  nv_image_t image;
+  image.width  = (size_t)surface->w;
+  image.height = (size_t)surface->h;
+  nv_assert_and_ret(image.width != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image_t));
+  nv_assert_and_ret(image.height != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image_t));
+
+  image.format = nv_sdl_format_to_nv_format((SDL_Format_)surface->format->format);
+  nv_assert_and_ret(image.format != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image_t));
+
+  image.data = nv_calloc(surface_size_bytes);
+  nv_assert_and_ret(image.data != NULL, nv_zero_init(nv_image_t));
+
+  nv_memcpy(image.data, surface->pixels, surface_size_bytes);
+
+  SDL_UnlockSurface(surface);
+  SDL_FreeSurface(surface);
+
+  return image;
 }
 
 unsigned char*
@@ -241,189 +241,28 @@ nv_image_bilinear_filter(nv_image_t* dst, const nv_image_t* src, flt_t scale)
   }
 }
 
-nv_image_t
-nv_image_load_png(const char* path)
+SDL_Surface*
+_nv_image_create_surface(const nv_image_t* tex)
 {
-  nv_image_t texture = nv_zero_init(nv_image_t);
+  nv_assert_and_ret(tex != NULL, NULL);
+  nv_assert_and_ret(tex->width != 0, NULL);
+  nv_assert_and_ret(tex->height != 0, NULL);
+  nv_assert_and_ret(tex->format != NOVA_FORMAT_UNDEFINED, NULL);
+  nv_assert_and_ret(tex->data != NULL, NULL);
 
-  FILE* f = fopen(path, "rb");
-  if (f == NULL)
-  {
-    return texture;
-  }
+  SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+      (void*)tex->data,
+      (int)tex->width,
+      (int)tex->height,
+      nv_format_get_bytes_per_pixel(tex->format) * 8,
+      (int)(tex->width * nv_format_get_bytes_per_pixel(tex->format)),
+      0,
+      0,
+      0,
+      0);
+  nv_assert_and_ret(surface != NULL, NULL);
 
-  png_struct* png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-  if (png == NULL)
-  {
-    NOVA_CALL_FILE_FN(fclose(f));
-    return texture;
-  }
-
-  png_info* info = png_create_info_struct(png);
-  if (info == NULL)
-  {
-    NOVA_CALL_FILE_FN(fclose(f));
-    return texture;
-  }
-
-  png_init_io(png, f);
-  png_read_info(png, info);
-
-  if (setjmp(png_jmpbuf(png)))
-  {
-    nv_assert(0);
-  }
-
-  texture.width       = png_get_image_width(png, info);
-  texture.height      = png_get_image_height(png, info);
-  png_byte color_type = png_get_color_type(png, info);
-  png_byte bit_depth  = png_get_bit_depth(png, info);
-
-  if (texture.width == 0 || texture.height == 0)
-  {
-    nv_log_error("zero w/h\n");
-    NOVA_CALL_FILE_FN(fclose(f));
-    return texture;
-  }
-
-  if (color_type == PNG_COLOR_TYPE_PALETTE)
-  {
-    png_set_palette_to_rgb(png);
-  }
-
-  // if image has less than 8 bits per pixel, increase it to 8 bpp
-  if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
-  {
-    png_set_expand_gray_1_2_4_to_8(png);
-  }
-
-  if (png_get_valid(png, info, PNG_INFO_tRNS))
-  {
-    png_set_tRNS_to_alpha(png);
-  }
-
-  png_read_update_info(png, info);
-
-  int channels = png_get_channels(png, info);
-
-  switch (channels)
-  {
-    case 1: texture.format = NOVA_FORMAT_R8; break;
-    case 2: texture.format = NOVA_FORMAT_RG8; break;
-    case 3: texture.format = NOVA_FORMAT_RGB8; break;
-    case 4: texture.format = NOVA_FORMAT_RGBA8; break;
-    default:
-      nv_log_error("unsupported file(png) format: channels = %d\n", channels);
-      fclose(f);
-      png_destroy_read_struct(&png, &info, NULL);
-      return nv_zero_init(nv_image_t);
-      break;
-  }
-
-  size_t rowbytes = png_get_rowbytes(png, info);
-  texture.data    = (unsigned char*)nv_malloc(rowbytes * texture.height * channels);
-  nv_assert(texture.data != NULL);
-
-  u8** row_pointers = nv_malloc(sizeof(u8*) * texture.height);
-  for (size_t y = 0; y < texture.height; y++)
-  {
-    row_pointers[y] = texture.data + y * texture.width * nv_format_get_bytes_per_pixel(texture.format);
-  }
-
-  png_read_image(png, row_pointers);
-
-  png_destroy_read_struct(&png, &info, NULL);
-  fclose(f);
-  nv_free(row_pointers);
-
-  return texture;
-}
-
-nv_image_t
-nv_image_load_jpeg(const char* path)
-{
-  struct jpeg_decompress_struct cinfo;
-  struct jpeg_error_mgr         jerr;
-  FILE*                         f   = NULL;
-  nv_image_t                    img = nv_zero_init(nv_image_t);
-
-  if (!path)
-  {
-    nv_log_error("invalid input path (NULL)\n");
-    return img;
-  }
-
-  if ((f = fopen(path, "rb")) == NULL)
-  {
-    nv_log_error("couldn't open file \"%s\". Are you sure that it exists?", path);
-    return img;
-  }
-
-  cinfo.err = jpeg_std_error(&jerr);
-  jpeg_create_decompress(&cinfo);
-
-  jpeg_stdio_src(&cinfo, f);
-  if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK)
-  {
-    nv_log_error("failed to read JPEG header from \"%s\"", path);
-    jpeg_destroy_decompress(&cinfo);
-    fclose(f);
-    return img;
-  }
-
-  jpeg_start_decompress(&cinfo);
-
-  img.width  = cinfo.output_width;
-  img.height = cinfo.output_height;
-
-  switch (cinfo.output_components)
-  {
-    case 1: img.format = NOVA_FORMAT_R8; break;
-    case 3: img.format = NOVA_FORMAT_RGB8; break;
-    default:
-      nv_log_error("invalid number of channels: %d\n", cinfo.output_components);
-      jpeg_destroy_decompress(&cinfo);
-      fclose(f);
-      return img;
-  }
-
-  const size_t bytes_per_pixel = nv_format_get_bytes_per_pixel(img.format);
-  if (bytes_per_pixel == 0)
-  {
-    nv_log_error("invalid bytes per pixel for format.\n");
-    jpeg_destroy_decompress(&cinfo);
-    fclose(f);
-    return img;
-  }
-
-  img.data = (unsigned char*)nv_malloc(img.width * img.height * bytes_per_pixel);
-  if (!img.data)
-  {
-    nv_log_error("malloc for imagedata failed\n");
-    jpeg_destroy_decompress(&cinfo);
-    fclose(f);
-    return img;
-  }
-
-  unsigned char* bufarr[1];
-  for (int i = 0; i < (int)cinfo.output_height; i++)
-  {
-    bufarr[0] = img.data + i * img.width * bytes_per_pixel;
-    if (jpeg_read_scanlines(&cinfo, bufarr, 1) != 1)
-    {
-      nv_log_error("failed to read scanline %d\n", i);
-      nv_free(img.data);
-      jpeg_destroy_decompress(&cinfo);
-      fclose(f);
-      return nv_zero_init(nv_image_t);
-    }
-  }
-
-  jpeg_finish_decompress(&cinfo);
-  jpeg_destroy_decompress(&cinfo);
-  fclose(f);
-
-  return img;
+  return surface;
 }
 
 void
@@ -434,132 +273,80 @@ nv_image_write_png(const nv_image_t* tex, const char* path)
     return;
   }
 
-  FILE* f = fopen(path, "wb");
-  if (!f)
+  SDL_Surface* surface = _nv_image_create_surface(tex);
+  nv_assert_and_ret(surface != NULL, );
+
+  if (IMG_SavePNG(surface, path) != 0)
   {
-    nv_log_error("Failed to open file: %s\n", path);
+    nv_log_error("Failed in writing image %s. Perhaps its parent directories do not exist?. SDL reports: %s\n", path, IMG_GetError());
+  }
+
+  SDL_FreeSurface(surface);
+}
+
+void
+nv_image_write_jpeg(const nv_image_t* tex, const char* path, int quality)
+{
+  if (tex == NULL || path == NULL || tex->data == NULL)
+  {
     return;
   }
 
-  png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-  if (!png)
+  SDL_Surface* surface = _nv_image_create_surface(tex);
+  nv_assert_and_ret(surface != NULL, );
+
+  if (IMG_SaveJPG(surface, path, quality) != 0)
   {
-    nv_log_error("png error\n");
-    fclose(f);
-    return;
+    nv_log_error("Failed in writing image %s. Perhaps its parent directories do not exist?. SDL reports: %s\n", path, IMG_GetError());
   }
 
-  png_infop info = png_create_info_struct(png);
-  if (!info)
-  {
-    nv_log_error("png error\n");
-    png_destroy_write_struct(&png, NULL);
-    fclose(f);
-    return;
-  }
-
-  if (setjmp(png_jmpbuf(png)))
-  {
-    nv_log_error("setjmp error\n");
-    png_destroy_write_struct(&png, &info);
-    fclose(f);
-    return;
-  }
-
-  png_init_io(png, f);
-
-  const int numc    = nv_format_get_num_channels(tex->format);
-  int       coltype = -1;
-  switch (numc)
-  {
-    case 1: coltype = PNG_COLOR_TYPE_GRAY; break;
-    case 3: coltype = PNG_COLOR_TYPE_RGB; break;
-    case 4: coltype = PNG_COLOR_TYPE_RGBA; break;
-    default:
-      nv_log_error("Unsupported number of channels: %i\n", numc);
-      png_destroy_write_struct(&png, &info);
-      fclose(f);
-      return;
-  }
-
-  const int bytesperpixel = nv_format_get_bytes_per_pixel(tex->format);
-  if (bytesperpixel <= 0)
-  {
-    nv_log_error("invalid bytes per pixel: %i\n", bytesperpixel);
-    png_destroy_write_struct(&png, &info);
-    fclose(f);
-    return;
-  }
-
-  png_set_IHDR(png, info, tex->width, tex->height, bytesperpixel * 8, coltype, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-
-  png_write_info(png, info);
-
-  png_bytep* row_pointers = (png_bytep*)nv_malloc(sizeof(png_bytep) * tex->height);
-  if (!row_pointers)
-  {
-    nv_log_error("malloc row_pointers failed\n");
-    png_destroy_write_struct(&png, &info);
-    fclose(f);
-    return;
-  }
-
-  for (size_t y = 0; y < tex->height; y++)
-  {
-    row_pointers[y] = tex->data + y * tex->width * bytesperpixel;
-  }
-
-  png_write_image(png, row_pointers);
-  nv_free(row_pointers);
-
-  png_write_end(png, NULL);
-
-  png_destroy_write_struct(&png, &info);
-  fclose(f);
+  SDL_FreeSurface(surface);
 }
 
 // nv_image_t
 
-void
-nv_format_to_string(nv_format format, const char** dst)
+const char*
+nv_format_to_string(nv_format format)
 {
   switch (format)
   {
-    case NOVA_FORMAT_UNDEFINED: *dst = "NOVA_FORMAT_UNDEFINED"; return;
-    case NOVA_FORMAT_R8: *dst = "NOVA_FORMAT_R8"; return;
-    case NOVA_FORMAT_RG8: *dst = "NOVA_FORMAT_RG8"; return;
-    case NOVA_FORMAT_RGB8: *dst = "NOVA_FORMAT_RGB8"; return;
-    case NOVA_FORMAT_RGBA8: *dst = "NOVA_FORMAT_RGBA8"; return;
-    case NOVA_FORMAT_BGR8: *dst = "NOVA_FORMAT_BGR8"; return;
-    case NOVA_FORMAT_BGRA8: *dst = "NOVA_FORMAT_BGRA8"; return;
-    case NOVA_FORMAT_RGB16: *dst = "NOVA_FORMAT_RGB16"; return;
-    case NOVA_FORMAT_RGBA16: *dst = "NOVA_FORMAT_RGBA16"; return;
-    case NOVA_FORMAT_RG32: *dst = "NOVA_FORMAT_RG32"; return;
-    case NOVA_FORMAT_RGB32: *dst = "NOVA_FORMAT_RGB32"; return;
-    case NOVA_FORMAT_RGBA32: *dst = "NOVA_FORMAT_RGBA32"; return;
-    case NOVA_FORMAT_R8_SINT: *dst = "NOVA_FORMAT_R8_SINT"; return;
-    case NOVA_FORMAT_RG8_SINT: *dst = "NOVA_FORMAT_RG8_SINT"; return;
-    case NOVA_FORMAT_RGB8_SINT: *dst = "NOVA_FORMAT_RGB8_SINT"; return;
-    case NOVA_FORMAT_RGBA8_SINT: *dst = "NOVA_FORMAT_RGBA8_SINT"; return;
-    case NOVA_FORMAT_R8_UINT: *dst = "NOVA_FORMAT_R8_UINT"; return;
-    case NOVA_FORMAT_RG8_UINT: *dst = "NOVA_FORMAT_RG8_UINT"; return;
-    case NOVA_FORMAT_RGB8_UINT: *dst = "NOVA_FORMAT_RGB8_UINT"; return;
-    case NOVA_FORMAT_RGBA8_UINT: *dst = "NOVA_FORMAT_RGBA8_UINT"; return;
-    case NOVA_FORMAT_R8_SRGB: *dst = "NOVA_FORMAT_R8_SRGB"; return;
-    case NOVA_FORMAT_RG8_SRGB: *dst = "NOVA_FORMAT_RG8_SRGB"; return;
-    case NOVA_FORMAT_RGB8_SRGB: *dst = "NOVA_FORMAT_RGB8_SRGB"; return;
-    case NOVA_FORMAT_RGBA8_SRGB: *dst = "NOVA_FORMAT_RGBA8_SRGB"; return;
-    case NOVA_FORMAT_BGR8_SRGB: *dst = "NOVA_FORMAT_BGR8_SRGB"; return;
-    case NOVA_FORMAT_BGRA8_SRGB: *dst = "NOVA_FORMAT_BGRA8_SRGB"; return;
-    case NOVA_FORMAT_D16: *dst = "NOVA_FORMAT_D16"; return;
-    case NOVA_FORMAT_D24: *dst = "NOVA_FORMAT_D24"; return;
-    case NOVA_FORMAT_D32: *dst = "NOVA_FORMAT_D32"; return;
-    case NOVA_FORMAT_D24_S8: *dst = "NOVA_FORMAT_D24_S8"; return;
-    case NOVA_FORMAT_D32_S8: *dst = "NOVA_FORMAT_D32_S8"; return;
-    case NOVA_FORMAT_BC1: *dst = "NOVA_FORMAT_BC1"; return;
-    case NOVA_FORMAT_BC3: *dst = "NOVA_FORMAT_BC3"; return;
-    case NOVA_FORMAT_BC7: *dst = "NOVA_FORMAT_BC7"; return;
+    case NOVA_FORMAT_UNDEFINED: return "NOVA_FORMAT_UNDEFINED";
+    case NOVA_FORMAT_R8: return "NOVA_FORMAT_R8";
+    case NOVA_FORMAT_RG8: return "NOVA_FORMAT_RG8";
+    case NOVA_FORMAT_RGB8: return "NOVA_FORMAT_RGB8";
+    case NOVA_FORMAT_RGBA8: return "NOVA_FORMAT_RGBA8";
+    case NOVA_FORMAT_BGR8: return "NOVA_FORMAT_BGR8";
+    case NOVA_FORMAT_BGRA8: return "NOVA_FORMAT_BGRA8";
+    case NOVA_FORMAT_RGB16: return "NOVA_FORMAT_RGB16";
+    case NOVA_FORMAT_RGBA16: return "NOVA_FORMAT_RGBA16";
+    case NOVA_FORMAT_RG32: return "NOVA_FORMAT_RG32";
+    case NOVA_FORMAT_RGB32: return "NOVA_FORMAT_RGB32";
+    case NOVA_FORMAT_RGBA32: return "NOVA_FORMAT_RGBA32";
+    case NOVA_FORMAT_R8_SINT: return "NOVA_FORMAT_R8_SINT";
+    case NOVA_FORMAT_RG8_SINT: return "NOVA_FORMAT_RG8_SINT";
+    case NOVA_FORMAT_RGB8_SINT: return "NOVA_FORMAT_RGB8_SINT";
+    case NOVA_FORMAT_RGBA8_SINT: return "NOVA_FORMAT_RGBA8_SINT";
+    case NOVA_FORMAT_R8_UINT: return "NOVA_FORMAT_R8_UINT";
+    case NOVA_FORMAT_RG8_UINT: return "NOVA_FORMAT_RG8_UINT";
+    case NOVA_FORMAT_RGB8_UINT: return "NOVA_FORMAT_RGB8_UINT";
+    case NOVA_FORMAT_RGBA8_UINT: return "NOVA_FORMAT_RGBA8_UINT";
+    case NOVA_FORMAT_R8_SRGB: return "NOVA_FORMAT_R8_SRGB";
+    case NOVA_FORMAT_RG8_SRGB: return "NOVA_FORMAT_RG8_SRGB";
+    case NOVA_FORMAT_RGB8_SRGB: return "NOVA_FORMAT_RGB8_SRGB";
+    case NOVA_FORMAT_RGBA8_SRGB: return "NOVA_FORMAT_RGBA8_SRGB";
+    case NOVA_FORMAT_BGR8_SRGB: return "NOVA_FORMAT_BGR8_SRGB";
+    case NOVA_FORMAT_BGRA8_SRGB: return "NOVA_FORMAT_BGRA8_SRGB";
+    case NOVA_FORMAT_D16: return "NOVA_FORMAT_D16";
+    case NOVA_FORMAT_D24: return "NOVA_FORMAT_D24";
+    case NOVA_FORMAT_D32: return "NOVA_FORMAT_D32";
+    case NOVA_FORMAT_D24_S8: return "NOVA_FORMAT_D24_S8";
+    case NOVA_FORMAT_D32_S8: return "NOVA_FORMAT_D32_S8";
+    case NOVA_FORMAT_BC1: return "NOVA_FORMAT_BC1";
+    case NOVA_FORMAT_BC3: return "NOVA_FORMAT_BC3";
+    case NOVA_FORMAT_BC7: return "NOVA_FORMAT_BC7";
+    default: return "(NotAFormat)";
   }
+  return "(NotAFormat)";
 }
 
 bool
@@ -723,6 +510,34 @@ nv_format_get_num_channels(nv_format fmt)
     case NOVA_FORMAT_BC7:
     case NOVA_FORMAT_UNDEFINED:
     default: return 0;
+  }
+}
+
+nv_format
+nv_sdl_format_to_nv_format(SDL_Format_ format)
+{
+  switch (format)
+  {
+    /* TODO: Add more? I wasn't able to find any more though */
+    case SDL_PIXELFORMAT_RGB24: return NOVA_FORMAT_RGB8;
+    case SDL_PIXELFORMAT_RGBA32: return NOVA_FORMAT_RGBA8;
+    case SDL_PIXELFORMAT_ABGR32: return NOVA_FORMAT_BGRA8;
+
+    case SDL_PIXELFORMAT_YV12:
+    case SDL_PIXELFORMAT_IYUV:
+    default: return NOVA_FORMAT_UNDEFINED;
+  }
+}
+
+SDL_Format_
+nv_format_to_sdl_format(nv_format format)
+{
+  switch (format)
+  {
+    case NOVA_FORMAT_RGB8: return SDL_PIXELFORMAT_RGB24;
+    case NOVA_FORMAT_RGBA8: return SDL_PIXELFORMAT_RGBA32;
+    case NOVA_FORMAT_BGRA8: return SDL_PIXELFORMAT_ABGR32;
+    default: return SDL_PIXELFORMAT_UNKNOWN;
   }
 }
 
@@ -983,7 +798,8 @@ nv_list_init(size_t typesize, size_t init_capacity, nv_allocator_t* allocator, n
   nv_assert_and_ret(typesize > 0, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(allocator != NULL, NOVA_ERROR_CODE_INVALID_ARG);
 
-  *vec          = nv_zero_init(nv_list_t);
+  *vec = nv_zero_init(nv_list_t);
+
   vec->size     = 0;
   vec->typesize = typesize;
   vec->canary   = CONT_CANARY;

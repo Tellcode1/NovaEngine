@@ -8,7 +8,9 @@ find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIRS})
 
 find_package(SDL2 REQUIRED)
+find_package(SDL2_image REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
+include_directories(${SDL2_image_INCLUDE_DIRS})
 
 find_package(Freetype REQUIRED)
 include_directories(${FREETYPE_INCLUDE_DIRS})
@@ -31,7 +33,6 @@ set(SOURCES
     src/nvsm.c
     src/fontc.c
     src/common.c
-    ssl/ssl.c
 )
 
 set(CLAY_INCLUDE_ALL_EXAMPLES OFF)
@@ -57,6 +58,7 @@ set(LIBS
     volk
     m
     SDL2
+    SDL2_image
     freetype
     box2d
     png

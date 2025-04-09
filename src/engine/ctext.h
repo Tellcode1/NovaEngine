@@ -67,7 +67,7 @@ extern void ctext_load_font(struct nvvk_ctx_t* nvvkctx, struct nv_renderer_t* rd
 */
 extern int ctext_validate_font(const cfont_t* fnt);
 
-extern void ctext_destroy_font(nvvk_ctx_t*nvvkctx, cfont_t* fnt);
+extern void ctext_destroy_font(nvvk_ctx_t* nvvkctx, cfont_t* fnt);
 
 extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...);
 

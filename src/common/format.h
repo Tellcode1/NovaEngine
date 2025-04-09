@@ -8,7 +8,13 @@
 NOVA_HEADER_START
 
 typedef uint32_t VkFormat_;
+typedef uint32_t SDL_Format_;
 
+/**
+ * The number in each enum defines the BITS PER CHANNEL of the format
+ * For example, NOVA_FORMAT_R8 is a single channel, 8 bit (1 byte) format
+ * Also, NOVA_FORMAT_RGBA32 is a quad channel, 32(bitsperchannel) * 4(pixels) bit pixel size format with each channel being given 32 bits (4 bytes)
+ */
 typedef enum nv_format
 {
   NOVA_FORMAT_UNDEFINED = 0,
@@ -58,14 +64,19 @@ typedef enum nv_format
   NOVA_FORMAT_BC7,
 } nv_format;
 
-extern VkFormat_ nv_format_to_vk_format(nv_format format);
+extern VkFormat_   nv_format_to_vk_format(nv_format format);
+extern SDL_Format_ nv_format_to_sdl_format(nv_format format);
 
 extern nv_format nv_vk_format_to_nv_format(VkFormat_ format);
+extern nv_format nv_sdl_format_to_nv_format(SDL_Format_ format);
 
 // dst is a pointer to a const char *
 // like:
 // const char *str; nv_FormatToString(NOVA_FORMAT_R8, &str);
-extern void nv_format_to_string(nv_format format, const char** dst);
+/**
+ * This function must never return NULL
+ */
+extern const char* nv_format_to_string(nv_format format);
 
 extern bool nv_format_has_color_channel(nv_format fmt);
 

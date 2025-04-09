@@ -5,8 +5,8 @@
 
 #include "../common/format.h"
 #include "../external/volk/volk.h"
-#include "../std/errorcodes.h"
 #include "../std/stdafx.h"
+#include "types.h"
 
 NOVA_HEADER_START
 
@@ -16,53 +16,6 @@ struct nv_ctx_t;
 #ifndef NOVA_VK_ALLOCATOR
 #  define NOVA_VK_ALLOCATOR NULL
 #endif
-
-/* Return the result, but if it was handled, return whatever you want. */
-typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* __restrict__ FILE, const char* __restrict__ FUNC, unsigned long LINE);
-
-/* did you notice that the vulkan context is entirely independant of the global context? */
-/* beauty. */
-typedef struct nvvk_ctx_t
-{
-  VkInstance               instance;
-  VkDevice                 device;
-  VkPhysicalDevice         phys_device;
-  VkSurfaceKHR             surface;
-  VkDebugUtilsMessengerEXT debug_messenger;
-
-  nv_format swap_chain_image_format;
-  u32       swap_chain_color_space;
-  u32       swap_chain_image_count;
-  u32       samples;
-
-  u32 graphics_family_index;
-  u32 present_family_index;
-  u32 compute_family_index;
-  u32 transfer_family_index;
-  u32 graphics_and_compute_family_index;
-
-  VkQueue graphics_queue;
-  VkQueue graphics_and_compute_queue;
-  VkQueue present_queue;
-  VkQueue compute_queue;
-  VkQueue transfer_queue;
-
-  u32           max_samples;
-  unsigned char supports_multisampling;
-  flt_t         max_anisotropy;
-
-  VkCommandPool   cmd_pool;
-  VkCommandBuffer buffer;
-
-  // To not cause NULLptr dereference.
-  // SetResultCheckFunc also checks for NULLptr
-  // and handles it.
-  nv_gpu_result_check_fn result_fn;
-  u32                    flag_register;
-} nvvk_ctx_t;
-
-extern nv_errorc nvvk_ctx_init(struct nv_ctx_t* nvctx, nvvk_ctx_t* ctx);
-extern void      nvvk_ctx_destroy(nvvk_ctx_t* ctx);
 
 extern const char* nvvk_vk_result_to_string(VkResult r);
 

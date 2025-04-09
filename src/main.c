@@ -1,10 +1,12 @@
 #include "GPU/vk.h"
+#include "common/image.h"
 #include "engine/camera.h"
 #include "engine/ctext.h"
 #include "engine/engine.h"
 #include "engine/input.h"
 #include "engine/nvsm.h"
 #include "engine/renderer.h"
+#include "engine/sprite.h"
 #include "std/errorcodes.h"
 #include "std/print.h"
 #include "std/props.h"
@@ -107,13 +109,22 @@ main(int argc, char* argv[])
   real_t       totalTime  = 0.0;
   u32          numFrames  = 0;
 
-  cfont_t amongus;
+  cfont_t amongus = nv_zero_init(cfont_t);
 
   int curr_showing_fps = 0;
 
   nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
 
   ctext_load_font(&nvvkctx, &rdr, "Assets/roboto.ttf", 128, &amongus);
+
+  nv_sprite_t angwy = nv_zero_init(nv_sprite_t);
+  if ((code = nv_sprite_load_from_disk(&rdr, "/home/arch/Documents/iwanttokms.png", &angwy)) != NOVA_SUCCESS)
+  {
+    return code;
+  }
+
+  nv_image_t angwy_img = nv_image_load("/home/arch/Documents/iwanttokms.png");
+  nv_image_write_png(&angwy_img, "piss.png");
 
   while (nv_running(&ctx))
   {
@@ -156,9 +167,9 @@ main(int argc, char* argv[])
 
       nv_renderer_render_quad(
           &rdr,
-          nv_sprite_empty,
+          &angwy,
           (vec2f){ 1.0f, 1.0f },
-          (vec3f){ sinf((float)_nv_timer_get_currtime()), 0.0f, 0.0f },
+          (vec3f){ 0.5F * sinf(0.5F * (float)_nv_timer_get_currtime()), 0.5F * cosf(0.5F * (float)_nv_timer_get_currtime()), 0.0f },
           (vec3f){ 1.0f, 1.0f, 1.0f },
           (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
           0);
@@ -166,6 +177,8 @@ main(int argc, char* argv[])
       nv_renderer_end(&rdr);
     }
   }
+
+  nv_sprite_destroy(&nvvkctx, &angwy);
 
   nv_input_shutdown(&inputctx);
   nvsm_shutdown(&nvvkctx, &nvsmctx);

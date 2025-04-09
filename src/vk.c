@@ -5,7 +5,9 @@
 #include "GPU/memory.h"
 #include "GPU/pipeline.h"
 #include "GPU/texture.h"
+#include "GPU/types.h"
 #include "GPU/vk.h"
+#include "SDL_pixels.h"
 #include "common/format.h"
 #include "common/image.h"
 #include "common/mem.h"
@@ -20,6 +22,7 @@
 #include "engine/input.h"
 #include "engine/nvsm.h"
 #include "engine/renderer.h"
+#include "engine/sprite.h"
 #include "engine/sprite_renderer.h"
 #include "engine/ui.h"
 #include "std/errorcodes.h"
@@ -174,8 +177,13 @@ nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd)
 // }
 
 void
-nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer)
+nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer)
 {
+  if (!spr)
+  {
+    spr = &rd->sprite_empty;
+  }
+
   nv_draw_call_t drawcall = (nv_draw_call_t){ .type     = NOVA_DRAWCALL_QUAD,
                               .layer    = layer,
                               .drawcall = { .quad = { .spr = spr, .tex_multiplier = tex_coord_multiplier, .pos = position, .siz = size, .col = color, }, }, };
@@ -295,6 +303,7 @@ static inline nv_errorc
 nv_renderer_prepare_quad_renderer(nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
 
   void* memcpy_ret = nv_memcpy(
       quad_vertices,
@@ -376,7 +385,7 @@ nv_renderer_destroy(nv_renderer_t* rd)
     }
   }
 
-  nv_sprite_destroy(rd->nvvkctx, nv_sprite_empty);
+  nv_sprite_destroy(rd->nvvkctx, &rd->sprite_empty);
 
   nv_camera_destroy(rd->nvvkctx, &camera);
 
@@ -452,7 +461,7 @@ create_optional_images(nv_renderer_t* rd)
         rd->render_extent.width,
         rd->render_extent.height,
         rd->nvvkctx->swap_chain_image_format,
-        rd->nvvkctx->samples,
+        rd->samples,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &color_image_size,
         &rd->color_image.image,
@@ -473,7 +482,7 @@ create_optional_images(nv_renderer_t* rd)
 
     const nv_gpu_texture_create_info image_info = {
       .format      = NOVA_FORMAT_D32,
-      .samples     = rd->nvvkctx->samples,
+      .samples     = rd->samples,
       .type        = VK_IMAGE_TYPE_2D,
       .usage       = NOVA_GPU_TEXTURE_USAGE_DEPTH_TEXTURE,
       .extent      = (nv_extent3D){ .width = rd->render_extent.width, .height = rd->render_extent.height, .depth = 1 },
@@ -507,6 +516,7 @@ static inline nv_errorc
 create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(rd->render_pass != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
 
   nv_assert_and_ret(rd->render_extent.width != 0, NOVA_ERROR_CODE_INVALID_ARG);
@@ -675,6 +685,7 @@ static inline nv_errorc
 nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer_config* conf)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(conf != NULL, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(rd->nvvkctx->instance != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->device != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -724,7 +735,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
     conf_samples = (VkSampleCountFlagBits)conf->samples;
   }
   const VkSampleCountFlagBits _samples = conf->multisampling_enable ? conf_samples : VK_SAMPLE_COUNT_1_BIT;
-  rd->nvvkctx->samples                 = _samples;
+  rd->samples                          = _samples;
 
   if (conf->multisampling_enable)
   {
@@ -778,7 +789,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   nv_assert_and_ret(rpi.depth_buffer_format != NOVA_FORMAT_UNDEFINED, NOVA_ERROR_CODE_BROKEN_STATE);
 
   rpi.subpass = 0;
-  rpi.samples = rd->nvvkctx->samples;
+  rpi.samples = rd->samples;
   nv_gpu_create_render_pass(rd->nvvkctx, &rpi, &rd->render_pass, rd->nvvkctx->flag_register);
 
   if ((code = create_optional_images(rd)) != NOVA_ERROR_CODE_SUCCESS)
@@ -892,8 +903,10 @@ nv_renderer_init(nv_ctx_t* ctx, nvvk_ctx_t* nvvkctx, nvsm_ctx_t* nvsmctx, const 
   }
 
   const unsigned char empty_data[3] = { 255, 255, 255 }; // fill rgb with 255 so it's white
-  nv_sprite_empty                   = nv_sprite_load_from_memory(dst, empty_data, 1, 1, NOVA_FORMAT_RGB8);
-  nv_assert_and_ret(nv_sprite_empty != NULL, NOVA_ERROR_CODE_INVALID_RETVAL);
+  if ((code = nv_sprite_load_from_memory(dst, empty_data, 1, 1, NOVA_FORMAT_RGB8, &dst->sprite_empty)) != NOVA_SUCCESS)
+  {
+    return code;
+  }
 
   if ((code = nv_camera_init(dst->nvvkctx, &camera)) != NOVA_ERROR_CODE_SUCCESS)
   {
@@ -922,6 +935,7 @@ static inline nv_errorc
 _nvvk_renderer_resize(nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(rd->nvvkctx->instance != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->device != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->phys_device != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -1252,10 +1266,6 @@ nv_renderer_end(nv_renderer_t* rd)
 // nvgfx ^^
 
 // engine
-u32           MAX_SAMPLES;
-unsigned char SUPPORTS_MULTISAMPLING;
-flt_t         MAX_ANISOTROPY;
-
 static SDL_UNUSED const char* ValidationLayers[] = {
   "VK_LAYER_KHRONOS_validation",
 };
@@ -1291,10 +1301,10 @@ static const VkPhysicalDeviceFeatures WantedFeatures = {
 static inline void
 _VK_DEBUG_LOG(bool is_error_msg, const char* fmt, ...)
 {
-  const char* preceder = is_error_msg ? " err: " : " vkdebug: ";
+  const char* preceder = is_error_msg ? " vkerr: " : " vkdebug: ";
   va_list     args;
   va_start(args, fmt);
-  _nv_log(args, __FILE__, __LINE__, "<dbg>", preceder, fmt, is_error_msg);
+  nv_log_va(__FILE__, __LINE__, "_", preceder, is_error_msg, fmt, args);
   va_end(args);
 }
 
@@ -1979,38 +1989,40 @@ nvvk_ctx_init(nv_ctx_t* nvctx, nvvk_ctx_t* dst)
   VkPhysicalDeviceProperties props;
   vkGetPhysicalDeviceProperties(dst->phys_device, &props);
 
-  MAX_ANISOTROPY         = props.limits.maxSamplerAnisotropy;
-  SUPPORTS_MULTISAMPLING = true;
+  dst->max_anisotropy = props.limits.maxSamplerAnisotropy;
+
+  // TODO: is this correct?
+  dst->supports_multisampling = true;
 
   const VkSampleCountFlags vk_samples = props.limits.framebufferColorSampleCounts;
   if (vk_samples & VK_SAMPLE_COUNT_64_BIT)
   {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_64_BIT;
+    dst->max_samples = VK_SAMPLE_COUNT_64_BIT;
   }
   else if (vk_samples & VK_SAMPLE_COUNT_32_BIT)
   {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_32_BIT;
+    dst->max_samples = VK_SAMPLE_COUNT_32_BIT;
   }
   else if (vk_samples & VK_SAMPLE_COUNT_16_BIT)
   {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_16_BIT;
+    dst->max_samples = VK_SAMPLE_COUNT_16_BIT;
   }
   else if (vk_samples & VK_SAMPLE_COUNT_8_BIT)
   {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_8_BIT;
+    dst->max_samples = VK_SAMPLE_COUNT_8_BIT;
   }
   else if (vk_samples & VK_SAMPLE_COUNT_4_BIT)
   {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_4_BIT;
+    dst->max_samples = VK_SAMPLE_COUNT_4_BIT;
   }
   else if (vk_samples & VK_SAMPLE_COUNT_2_BIT)
   {
-    MAX_SAMPLES = VK_SAMPLE_COUNT_2_BIT;
+    dst->max_samples = VK_SAMPLE_COUNT_2_BIT;
   }
   else
   {
-    MAX_SAMPLES            = VK_SAMPLE_COUNT_1_BIT;
-    SUPPORTS_MULTISAMPLING = false;
+    dst->max_samples            = VK_SAMPLE_COUNT_1_BIT;
+    dst->supports_multisampling = false;
   }
 
   return NOVA_SUCCESS;
@@ -2789,6 +2801,7 @@ nv_errorc
 ctext_init(struct nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
 
   rd->ctext = nv_calloc(sizeof(nv_ctext_module));
   nv_assert_and_ret(rd->ctext != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
@@ -2819,13 +2832,12 @@ ctext_init(struct nv_renderer_t* rd)
   nv_allocate_descriptor_set(rd->nvvkctx, &g_pool, bindings, nv_arrlen(bindings), &ctext->desc_set);
   nv_assert_and_ret(ctext->desc_set != NULL, NOVA_ERROR_CODE_INVALID_RETVAL);
 
-  nv_assert_and_ret(nv_sprite_empty != NULL, NOVA_ERROR_CODE_INVALID_RETVAL);
-  nv_assert_and_ret(nv_sprite_get_sampler(nv_sprite_empty) != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
-  nv_assert_and_ret(nv_sprite_get_vk_image_view(nv_sprite_empty) != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_sprite_get_sampler(&rd->sprite_empty) != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_sprite_get_vk_image_view(&rd->sprite_empty) != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
 
   const VkDescriptorImageInfo empty_img_info = {
-    .sampler     = nv_sprite_get_sampler(nv_sprite_empty),
-    .imageView   = nv_sprite_get_vk_image_view(nv_sprite_empty),
+    .sampler     = nv_sprite_get_sampler(&rd->sprite_empty),
+    .imageView   = nv_sprite_get_vk_image_view(&rd->sprite_empty),
     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
 
@@ -2883,11 +2895,17 @@ ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox)
 int
 nv_descriptor_set_submit_write(nvvk_ctx_t* nvvkctx, nv_descriptor_set_t* set, const VkWriteDescriptorSet* write)
 {
+  nv_assert_and_ret(nvvkctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(write != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(set != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(set->writes != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
+
   set->writes = nv_realloc(set->writes, (set->nwrites + 1) * sizeof(VkWriteDescriptorSet));
-  nv_assert(set->writes != NULL);
+  nv_assert_and_ret(set->writes != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+
   if (!nv_memcpy(&set->writes[set->nwrites], write, sizeof(VkWriteDescriptorSet)))
   {
-    return -1;
+    return NOVA_ERROR_CODE_EXTERNAL;
   }
   set->nwrites++;
   vkUpdateDescriptorSets(nvvkctx->device, 1, write, 0, 0);
@@ -3202,7 +3220,7 @@ __BakeUnlitPipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
 
   pc.extent.width  = RenderExtent.width;
   pc.extent.height = RenderExtent.height;
-  pc.samples       = rd->nvvkctx->samples;
+  pc.samples       = rd->samples;
   nv_gpu_create_pipeline_layout(rd->nvvkctx, &pc, &g_Pipelines.unlit.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.unlit.pipeline_layout;
   nv_gpu_create_graphics_pipeline(rd->nvvkctx, &pc, &g_Pipelines.unlit.pipeline, 0);
@@ -3262,7 +3280,7 @@ __BakeCtextPipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   pc.extent.width                = RenderExtent.width;
   pc.extent.height               = RenderExtent.height;
   pc.blend_state                 = &blend;
-  pc.samples                     = rd->nvvkctx->samples;
+  pc.samples                     = rd->samples;
 
   nv_gpu_create_pipeline_layout(rd->nvvkctx, &pc, &g_Pipelines.ctext.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.ctext.pipeline_layout;
@@ -3321,7 +3339,7 @@ __BakeDebugLinePipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   pc.extent.width                = RenderExtent.width;
   pc.extent.height               = RenderExtent.height;
   pc.blend_state                 = &blend;
-  pc.samples                     = rd->nvvkctx->samples;
+  pc.samples                     = rd->samples;
 
   nv_gpu_create_pipeline_layout(rd->nvvkctx, &pc, &g_Pipelines.line.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.line.pipeline_layout;
@@ -3334,6 +3352,7 @@ nv_errorc
 nv_vk_bake_global_pipelines(nvsm_ctx_t* ctx, nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
   nv_assert_and_ret(rd->render_extent.width != 0, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->render_extent.height != 0, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->render_pass != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -3401,7 +3420,7 @@ nv_gpu_create_graphics_pipeline(nvvk_ctx_t* nvvkctx, const nv_gpu_pipeline_creat
 
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
   {
-    // Vulkan requires nvvkctx->samples to not be 1.
+    // Vulkan requires samples to not be 1.
     NVVK_NOT_EQUAL_TO(pCreateInfo->samples, VK_SAMPLE_COUNT_1_BIT);
   }
 
@@ -3519,7 +3538,7 @@ nv_gpu_create_graphics_pipeline(nvvk_ctx_t* nvvkctx, const nv_gpu_pipeline_creat
     }
 
     const VkShaderStageFlagBits stage = (VkShaderStageFlagBits)_nvsm_shader_stage_from_string(pCreateInfo->p_shaders[i]->stage);
-    if (stage == (VkShaderStageFlagBits)-1)
+    if ((int)stage == -1)
     {
       nv_log_error("Error in parsing stage for shader %i(%p): \"%s\"", i, pCreateInfo->p_shaders[i], pCreateInfo->p_shaders[i]->stage);
       continue;
@@ -3793,7 +3812,8 @@ nv_gpu_create_swapchain(nvvk_ctx_t* nvvkctx, nv_gpu_swapchain_create_info const*
 
   if (!found_present_mode)
   {
-    nv_log_error("Present mode %s unavailable. Using %s.\n", _nv_gpu_present_mode_to_string(pCreateInfo->present_mode), _nv_gpu_present_mode_to_string(fallback_present_mode));
+    nv_log_warning(
+        "Present mode %s unavailable. Using %s.\n", _nv_gpu_present_mode_to_string(pCreateInfo->present_mode), _nv_gpu_present_mode_to_string(fallback_present_mode));
     present_mode = fallback_present_mode;
   }
 
@@ -4244,9 +4264,8 @@ nv_vk_get_supported_format_for_draw(nvvk_ctx_t* nvvkctx, nv_format fmt)
   if ((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0)
   {
     // format not supported
-    const char* fmt_str;
-    nv_format_to_string(fmt, &fmt_str);
-    nv_log_warning("Format %i (%s) unsupported. Using NOVA_FORMAT_RGBA8\n", fmt, fmt_str);
+    // TODO: Make something that selects a format with the same number of channels as the format needed.
+    nv_log_warning("Format %i (%s) unsupported. Using NOVA_FORMAT_RGBA8\n", fmt, nv_format_to_string(fmt));
     return NOVA_FORMAT_RGBA8;
   }
 
@@ -5069,7 +5088,7 @@ nv_format_to_vk_format(nv_format format)
 }
 
 nv_format
-nv_vk_format_to_nv_format(uint32_t format)
+nv_vk_format_to_nv_format(VkFormat_ format)
 {
   switch (format)
   {
@@ -5119,28 +5138,24 @@ nv_vk_format_to_nv_format(uint32_t format)
 }
 
 // SPRITE
-struct nv_sprite
+
+nv_errorc
+nv_sprite_load_from_memory(nv_renderer_t* rd, const unsigned char* data, size_t w, size_t h, nv_format fmt, nv_sprite_t* dst)
 {
-  size_t               w, h;
-  size_t               rcount;
-  nv_format            fmt;
-  nv_gpu_texture       tex;
-  nv_gpu_memory_t      mem;
-  nv_gpu_sampler       sampler;
-  nv_descriptor_set_t* set;
-};
+  nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(data != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(w != 0, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(h != 0, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(fmt != NOVA_FORMAT_UNDEFINED, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(dst != NULL, NOVA_ERROR_CODE_INVALID_ARG);
 
-nv_sprite* nv_sprite_empty = NULL;
+  nv_bzero(dst, sizeof(nv_sprite_t));
 
-nv_sprite*
-nv_sprite_load_from_memory(nv_renderer_t* rd, const unsigned char* data, size_t w, size_t h, nv_format fmt)
-{
-  nv_sprite* spr = nv_calloc(sizeof(struct nv_sprite));
-
-  spr->rcount = 1;
+  dst->rcount = 1;
 
   fmt      = nv_vk_get_supported_format_for_draw(rd->nvvkctx, fmt);
-  spr->fmt = fmt;
+  dst->fmt = fmt;
 
   nv_gpu_texture_create_info tex_info = {
     .format      = fmt,
@@ -5151,15 +5166,16 @@ nv_sprite_load_from_memory(nv_renderer_t* rd, const unsigned char* data, size_t 
     .arraylayers = 1,
     .miplevels   = 1,
   };
-  nv_gpu_create_texture(rd->nvvkctx, &tex_info, &spr->tex);
+  nv_gpu_create_texture(rd->nvvkctx, &tex_info, &dst->tex);
 
   VkMemoryRequirements mem_req;
-  vkGetImageMemoryRequirements(rd->nvvkctx->device, nv_gpu_texture_get(&spr->tex), &mem_req);
-  nv_gpu_allocate_memory(rd->nvvkctx, mem_req.size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE, &spr->mem);
-  nv_gpu_bind_texture_to_memory(rd->nvvkctx, &spr->mem, 0, &spr->tex);
+  vkGetImageMemoryRequirements(rd->nvvkctx->device, nv_gpu_texture_get(&dst->tex), &mem_req);
+
+  nv_gpu_allocate_memory(rd->nvvkctx, mem_req.size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE, &dst->mem);
+  nv_gpu_bind_texture_to_memory(rd->nvvkctx, &dst->mem, 0, &dst->tex);
 
   const nv_image_t img = (const nv_image_t){ .width = w, .height = h, .format = fmt, .data = (unsigned char*)data };
-  nv_gpu_write_to_texture(rd->nvvkctx, &spr->tex, &img);
+  nv_gpu_write_to_texture(rd->nvvkctx, &dst->tex, &img);
 
   nv_gpu_sampler_create_info sampler_info = {
     .filter         = VK_FILTER_NEAREST,
@@ -5170,7 +5186,7 @@ nv_sprite_load_from_memory(nv_renderer_t* rd, const unsigned char* data, size_t 
     .min_lod        = 0.0f,
     .max_lod        = VK_LOD_CLAMP_NONE,
   };
-  nv_gpu_create_sampler(rd, &sampler_info, &spr->sampler);
+  nv_gpu_create_sampler(rd, &sampler_info, &dst->sampler);
 
   VkDescriptorSetLayoutBinding binding = (VkDescriptorSetLayoutBinding){
     .binding         = 0,
@@ -5178,53 +5194,84 @@ nv_sprite_load_from_memory(nv_renderer_t* rd, const unsigned char* data, size_t 
     .descriptorCount = 1,
     .stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT,
   };
-  nv_allocate_descriptor_set(rd->nvvkctx, &g_pool, &binding, 1, &spr->set);
+  nv_allocate_descriptor_set(rd->nvvkctx, &g_pool, &binding, 1, &dst->set);
 
   VkDescriptorImageInfo desc_img = {
-    .sampler     = nv_gpu_sampler_get(&spr->sampler),
-    .imageView   = nv_sprite_get_vk_image_view(spr),
+    .sampler     = nv_gpu_sampler_get(&dst->sampler),
+    .imageView   = nv_sprite_get_vk_image_view(dst),
     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
 
   VkWriteDescriptorSet write = {
     .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-    .dstSet          = spr->set->set,
+    .dstSet          = dst->set->set,
     .dstBinding      = 0,
     .dstArrayElement = 0,
     .descriptorCount = 1,
     .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     .pImageInfo      = &desc_img,
   };
-  nv_descriptor_set_submit_write(rd->nvvkctx, spr->set, &write);
+  nv_descriptor_set_submit_write(rd->nvvkctx, dst->set, &write);
 
-  return spr;
+  return NOVA_SUCCESS;
 }
 
-nv_sprite*
-nv_sprite_load_from_disk(struct nv_renderer_t* rd, const char* path)
+nv_errorc
+nv_sprite_load_from_disk(struct nv_renderer_t* rd, const char* path, nv_sprite_t* dst)
 {
+  nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(nvvk_ctx_is_valid(rd->nvvkctx) == true, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(path != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_assert_and_ret(dst != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+
+  nv_bzero(dst, sizeof(nv_sprite_t));
+
   nv_image_t tex = nv_image_load(path);
-  nv_sprite* spr = nv_sprite_load_from_memory(rd, tex.data, tex.width, tex.height, tex.format);
-  spr->rcount    = 1;
-  nv_free(tex.data);
-  return spr;
+
+  // TODO: should these be io errors?
+  // I mean a read from the disk probably failed
+  // TODO: this will be fixed by returning an error code from image loading function
+
+  nv_assert_and_ret(tex.width != 0, NOVA_ERROR_CODE_IO_ERROR);
+  nv_assert_and_ret(tex.height != 0, NOVA_ERROR_CODE_IO_ERROR);
+  nv_assert_and_ret(tex.data != NULL, NOVA_ERROR_CODE_IO_ERROR);
+  nv_assert_and_ret(tex.format != NOVA_FORMAT_UNDEFINED, NOVA_ERROR_CODE_IO_ERROR);
+
+  nv_errorc code = nv_sprite_load_from_memory(rd, tex.data, tex.width, tex.height, tex.format, dst);
+  if (code != NOVA_SUCCESS)
+  {
+    return code;
+  }
+
+  dst->rcount = 1;
+  if (tex.data)
+  {
+    nv_free(tex.data);
+  }
+
+  return code;
 }
 
 void
-nv_sprite_destroy(nvvk_ctx_t* nvvkctx, nv_sprite* spr)
+nv_sprite_destroy(nvvk_ctx_t* nvvkctx, nv_sprite_t* spr)
 {
+  if (!spr)
+  {
+    return;
+  }
+
   nv_gpu_destroy_texture(nvvkctx, &spr->tex);
   nv_gpu_free_memory(nvvkctx, &spr->mem);
 }
 
 void
-nv_sprite_lock(nv_sprite* spr)
+nv_sprite_lock(nv_sprite_t* spr)
 {
   spr->rcount++;
 }
 
 void
-nv_sprite_release(nvvk_ctx_t* nvvkctx, nv_sprite* spr)
+nv_sprite_release(nvvk_ctx_t* nvvkctx, nv_sprite_t* spr)
 {
   spr->rcount--;
   if (spr->rcount <= 0)
@@ -5234,7 +5281,7 @@ nv_sprite_release(nvvk_ctx_t* nvvkctx, nv_sprite* spr)
 }
 
 void
-nv_sprite_get_dimensions(const nv_sprite* spr, size_t* w, size_t* h)
+nv_sprite_get_dimensions(const nv_sprite_t* spr, size_t* w, size_t* h)
 {
   if (w)
   {
@@ -5247,31 +5294,31 @@ nv_sprite_get_dimensions(const nv_sprite* spr, size_t* w, size_t* h)
 }
 
 VkImage
-nv_sprite_get_vk_image(const nv_sprite* spr)
+nv_sprite_get_vk_image(const nv_sprite_t* spr)
 {
   return nv_gpu_texture_get(&spr->tex);
 }
 
 VkImageView
-nv_sprite_get_vk_image_view(const nv_sprite* spr)
+nv_sprite_get_vk_image_view(const nv_sprite_t* spr)
 {
   return nv_gpu_texture_get_view(&spr->tex);
 }
 
 VkDescriptorSet
-nv_sprite_get_descriptor_set(const nv_sprite* spr)
+nv_sprite_get_descriptor_set(const nv_sprite_t* spr)
 {
   return spr->set->set;
 }
 
 VkSampler
-nv_sprite_get_sampler(const nv_sprite* spr)
+nv_sprite_get_sampler(const nv_sprite_t* spr)
 {
   return nv_gpu_sampler_get(&spr->sampler);
 }
 
 nv_format
-nv_sprite_get_format(const nv_sprite* spr)
+nv_sprite_get_format(const nv_sprite_t* spr)
 {
   return spr->fmt;
 }

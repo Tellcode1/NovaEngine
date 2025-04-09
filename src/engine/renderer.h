@@ -92,10 +92,10 @@ struct nv_ctext_module
 
 struct nv_quad_draw_call_t
 {
-  nv_sprite* spr;
-  vec3f      siz, pos;
-  vec2f      tex_multiplier;
-  vec4f      col;
+  nv_sprite_t* spr;
+  vec3f        siz, pos;
+  vec2f        tex_multiplier;
+  vec4f        col;
 };
 
 struct nv_line_draw_call_t
@@ -129,6 +129,10 @@ struct nv_renderer_t
 
   unsigned       flags;
   nv_buffer_mode buffer_mode;
+
+  nv_sprite_t sprite_empty;
+
+  nv_sample_count samples;
 
   VkRenderPass render_pass;
   nv_extent2d  render_extent;
@@ -179,7 +183,7 @@ extern VkCommandBuffer    nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
 extern VkRenderPass       nv_renderer_get_render_pass(const nv_renderer_t* rd);
 extern struct nv_extent2d nv_renderer_get_render_extent(const nv_renderer_t* rd);
 
-extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
+extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
 extern void nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, int layer);
 
 extern nv_extent2d nv_get_window_size(nv_ctx_t* ctx);
