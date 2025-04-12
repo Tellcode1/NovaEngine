@@ -34,7 +34,7 @@ for TARGET_DIR in "${DIRECTORIES[@]}"; do
         continue
     fi
 
-    FILES=$(find "$TARGET_DIR" -type f \( -name "*.h" -o -name "*.c" \) ! -path "*/external/*")
+    FILES=$(find "$TARGET_DIR" -type f \( -name "*.h" -o -name "*.c" \) ! -path "*/external/*" ! -path "*/build/*")
 
     if [ -z "$FILES" ]; then
         continue

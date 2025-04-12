@@ -10,3 +10,6 @@
 [submodule "src/external/clay"]
 	path = src/external/clay
 	url = https://github.com/nicbarker/clay
+[submodule "src/external/glslang"]
+	path = src/external/glslang
+	url = https://github.com/KhronosGroup/glslang.git

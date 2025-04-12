@@ -4,13 +4,29 @@ project(main)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+set(NOVA_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(NOVA_BUILD_EXAMPLE true CACHE BOOL "Enable example build")
+set(NOVA_SANITIZE false CACHE BOOL "Enable address sanitizer on debug builds")
+
+if(NOT CMAKE_BUILD_TYPE)
+    message(STATUS "No build type specified, set to Debug")
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+endif()
+
+# We don't wanna enable address sanitizer on release builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOVA_SANITIZE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+endif()
+
 find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIRS})
 
 find_package(SDL2 REQUIRED)
-find_package(SDL2_image REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
-include_directories(${SDL2_image_INCLUDE_DIRS})
 
 find_package(Freetype REQUIRED)
 include_directories(${FREETYPE_INCLUDE_DIRS})
@@ -18,9 +34,7 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 find_package(OpenMP REQUIRED)
 
 # Box2D uses C17 but still complains about C11 features.
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition")
-
-set(NOVA_BUILD_EXAMPLE true CACHE BOOL "Enable example build" )
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition")
 
 # The name of the output
 set(OUTPUT
@@ -32,7 +46,6 @@ set(SOURCES
     src/vk.c
     src/nvsm.c
     src/fontc.c
-    src/common.c
 )
 
 set(CLAY_INCLUDE_ALL_EXAMPLES OFF)
@@ -42,45 +55,57 @@ set(CLAY_INCLUDE_RAYLIB_EXAMPLES OFF)
 set(CLAY_INCLUDE_SDL2_EXAMPLES OFF)
 set(CLAY_INCLUDE_SDL3_EXAMPLES OFF)
 
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/box2d)
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/volk)
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/external/clay)
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/std)
+set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
+set(ENABLE_SPVREMAPPER OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
+set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
 
-if (NOVA_BUILD_EXAMPLE)
-    add_executable(nova_example ${CMAKE_CURRENT_LIST_DIR}/src/main.c)
+add_subdirectory(${NOVA_ROOT_DIR}/src/external/box2d)
+add_subdirectory(${NOVA_ROOT_DIR}/src/external/volk)
+add_subdirectory(${NOVA_ROOT_DIR}/src/external/clay)
+add_subdirectory(${NOVA_ROOT_DIR}/src/external/glslang)
+add_subdirectory(${NOVA_ROOT_DIR}/src/std)
+
+if(NOVA_BUILD_EXAMPLE)
+    add_executable(nova_example ${NOVA_ROOT_DIR}/src/main.c)
 endif()
 
 add_library(Nova STATIC ${SOURCES})
+
+set(GLSLANG_LIBS
+    glslang
+    OSDependent
+    glslang-default-resource-limits
+    MachineIndependent
+    SPIRV)
 
 set(LIBS
     nvstd
     volk
     m
     SDL2
-    SDL2_image
     freetype
     box2d
-    png
-    jpeg
     OpenMP::OpenMP_C
+    ${GLSLANG_LIBS}
 )
 
-add_executable(fontc src/fontc.c src/common.c)
+add_executable(fontc src/fontc.c)
 target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
 target_link_options(fontc PRIVATE ${CFLAGS} -fopenmp)
 target_compile_options(fontc PRIVATE ${LFLAGS} -fopenmp)
-target_link_libraries(fontc ${LIBS})
+target_link_libraries(fontc nvstd freetype OpenMP::OpenMP_C)
 
-target_precompile_headers(Nova PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src/std/stdafx.h)
+target_precompile_headers(Nova PUBLIC ${NOVA_ROOT_DIR}/src/std/stdafx.h)
 target_link_options(Nova PRIVATE ${LFLAGS} -g)
 target_compile_options(Nova PRIVATE ${CFLAGS} -g)
-target_compile_definitions(Nova PRIVATE ) # avoid making multiple main's 
 target_link_libraries(Nova ${LIBS})
 
-file(COPY ${CMAKE_CURRENT_LIST_DIR}/src/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
-file(COPY ${CMAKE_CURRENT_LIST_DIR}/src/Shaders DESTINATION ${CMAKE_BINARY_DIR}/)
+file(COPY ${NOVA_ROOT_DIR}/src/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
+file(COPY ${NOVA_ROOT_DIR}/src/Shaders DESTINATION ${CMAKE_BINARY_DIR}/)
 
-if (NOVA_BUILD_EXAMPLE)
+if(NOVA_BUILD_EXAMPLE)
     target_link_libraries(nova_example Nova)
 endif()

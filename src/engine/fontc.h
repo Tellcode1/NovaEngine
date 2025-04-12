@@ -3,7 +3,6 @@
 
 // implementation: vk.c
 
-#include "../containers/rectpack.h"
 #include "../std/semver.h"
 #include "../std/stdafx.h"
 
@@ -26,7 +25,7 @@ typedef enum fontc_err_t
   FONTC_FONT_FILE_NOT_VALID               = -2,
   FONTC_OTHER_IO_ERROR                    = -1,
   FONTC_FREETYPE_ERROR                    = 1,
-  FONTC_MEMORY_ALLOCATION_FAILED          = 2,
+  FONTC_MALLOC_FAILED                     = 2,
   FONTC_COMPRESSION_FAILED                = 3,
   FONTC_DECOMPRESSION_FAILED              = 4,
   FONTC_ATLAS_ERROR                       = 5,
@@ -37,15 +36,15 @@ typedef enum fontc_err_t
 
 struct fontc_file_header_t
 {
-  int       magic;
+  u32       magic;
   version_t version;
-  int       pixel_size;
-  int       float_size;
+  u32       pixel_size;
+  u32       float_size;
   flt_t     line_height, space_width;
-  int       bmpwidth, bmpheight;
-  int       img_compressed_sz, glyphs_compressed_sz;
-  int       numglyphs;
-  int       magic2;
+  u32       bmpwidth, bmpheight;
+  u32       img_compressed_sz, glyphs_compressed_sz;
+  u32       numglyphs;
+  u32       magic2;
 };
 
 struct fontc_glyph_t
@@ -64,7 +63,7 @@ struct fontc_file_t
 };
 
 extern fontc_err_t fontc_read_font(const char* path, fontc_file_t* file);
-extern fontc_err_t fontc_bake_font_to_cache(const char* font_path, int pixel_size, int init_atlas_w, int init_atlas_h, int num_threads, fontc_file_t* out_file);
+extern fontc_err_t fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_atlas_w, size_t init_atlas_h, size_t num_threads, fontc_file_t* out_file);
 extern fontc_err_t fontc_write_font_file(const char* out, fontc_file_t* file);
 extern void        fontc_clean_font_file(fontc_file_t* file);
 
@@ -73,7 +72,7 @@ extern void        fontc_clean_font_file(fontc_file_t* file);
  * Will bake the file if needed. Load the cache if available.
  * Pass in the path to the font TTF or OTF FILE!!
  */
-extern fontc_err_t fontc_load_font(const char* font_source_path, int pixel_size, fontc_file_t* f_file);
+extern fontc_err_t fontc_load_font(const char* font_source_path, size_t pixel_size, fontc_file_t* f_file);
 
 NOVA_HEADER_END
 

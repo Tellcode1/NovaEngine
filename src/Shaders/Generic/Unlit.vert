@@ -1,5 +1,3 @@
-// output: Shaders/Generic/Unlit.vert.spv stage: vert name: Unlit/vert
-
 #version 450 core
 
 layout(location=0) in

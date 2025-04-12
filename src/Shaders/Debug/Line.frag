@@ -1,5 +1,3 @@
-// output: Shaders/Debug/Line.frag.spv stage: frag name: Debug/Line/frag
-
 #version 450 core
 
 layout(location = 0) out vec4 o_color;

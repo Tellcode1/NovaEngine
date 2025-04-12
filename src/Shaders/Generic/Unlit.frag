@@ -1,5 +1,3 @@
-// output: Shaders/Generic/Unlit.frag.spv stage: frag name: Unlit/frag
-
 #version 450 core
 
 layout(location = 0) out vec4 o_color;

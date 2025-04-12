@@ -28,6 +28,9 @@
 *   Offloaded image reading/writing to SDL_image. We do not need more responsibilities.
 *   Improved error handling a little in the renderer initialization.
 *   The core path now runs even if no memory is available. The program exits safely.
+*   Heavily improved nvsm. Now onto fontc and the common containers. The containers should be defined enough so that they can be incorporated into the standard
+*   Moved containers into the standard library
+*   Moved common/ directly into the standard library
 
 ### Fixed
 *   Fixed incorrect calculating of highest power of input in itoa.

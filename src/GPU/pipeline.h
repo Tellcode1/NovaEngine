@@ -9,14 +9,13 @@
 #include "../std/print.h"
 #include "../std/stdafx.h"
 #include "vk.h"
-#include "vkstdafx.h"
 
 NOVA_HEADER_START
 
 struct nvsm_ctx_t;
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((unsigned long)(ptr) == 0UL)                                                                                                                                            \
+  if ((ptr) == (VK_NULL_HANDLE))                                                                                                                                              \
   nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
   if ((val) == (to))                                                                                                                                                          \
@@ -40,7 +39,7 @@ typedef u32 nvvk_pipeline_flags;
 #define nvvk_result_check(ctx, func) (ctx).result_fn((func), nv_basename(__FILE__), #func, __LINE__)
 
 static VkResult
-_nvvk_default_result_check_fn(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE)
+_nvvk_default_result_check_fn(const VkResult result, const char* file, const char* func, unsigned long line)
 {
   if (result == VK_SUCCESS)
   {
@@ -49,15 +48,17 @@ _nvvk_default_result_check_fn(const VkResult result, const char* FILE, const cha
 
   struct tm* time = _nv_get_time();
 
-  const char* errstr = "err";
+  const char* errstr = "vkerr";
   if (result >= 0)
   {
-    errstr = "warn";
+    errstr = "vkwarn";
   }
+
+  const char* result_string = nvvk_vk_result_to_string(result);
 
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors
-  nv_printf("[%d:%d:%d] [%s:%li] vk%s: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, FILE, LINE, errstr, FUNC, nvvk_vk_result_to_string(result));
+  nv_printf("[%d:%d:%d] [%s:%li] %s: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, file, line, errstr, func, result_string);
 
   return result;
 }
@@ -157,11 +158,11 @@ struct nv_gpu_pipeline_create_info
   const VkPushConstantRange*               p_push_constants;
   const struct nvsm_shader_t* const*       p_shaders;
 
-  int n_attribute_descriptions;
-  int n_binding_descriptions;
-  int n_descriptor_layouts;
-  int n_push_constants;
-  int n_shaders;
+  size_t n_attribute_descriptions;
+  size_t n_binding_descriptions;
+  size_t n_descriptor_layouts;
+  size_t n_push_constants;
+  size_t n_shaders;
 };
 
 struct nv_gpu_swapchain_create_info

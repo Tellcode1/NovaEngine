@@ -7,14 +7,14 @@
 #include "GPU/texture.h"
 #include "GPU/types.h"
 #include "GPU/vk.h"
-#include "SDL_pixels.h"
-#include "common/format.h"
-#include "common/image.h"
-#include "common/mem.h"
-#include "containers/atlas.h"
-#include "containers/hashmap.h"
-#include "containers/list.h"
-#include "containers/string.h"
+
+#include "std/format.h"
+#include "std/image.h"
+
+#include "std/containers/atlas.h"
+#include "std/containers/hashmap.h"
+#include "std/containers/list.h"
+
 #include "engine/camera.h"
 #include "engine/ctext.h"
 #include "engine/engine.h"
@@ -25,6 +25,8 @@
 #include "engine/sprite.h"
 #include "engine/sprite_renderer.h"
 #include "engine/ui.h"
+
+#include "std/alloc.h"
 #include "std/errorcodes.h"
 #include "std/math/math.h"
 #include "std/stdafx.h"
@@ -36,19 +38,12 @@
 #define HAS_FLAG(flag) ((nvvkctx->flag_register & flag) || (flags & flag))
 #define STR(s) #s
 
-// nv_pipelines.h
-nv_baked_pipelines g_Pipelines;
-
-// nv_pipelines.h
-
-// renderer.h
-
+/**
+ * Remove these global variables
+ */
+nv_baked_pipelines   g_Pipelines;
 nv_descriptor_pool_t g_pool;
 nv_camera_t          camera;
-
-// renderer.h
-
-// nvgfx vv
 
 nv_extent2d
 nv_get_window_size(nv_ctx_t* ctx)
@@ -109,7 +104,7 @@ struct ctext_label_t
   ctext_vert_align v_align;
   flt_t            scale;
   int              index;
-  nv_string_t      text;
+  char*            text;
   cfont_t*         fnt;
   nv_object*       obj;
 };
@@ -140,7 +135,12 @@ nv_renderer_get_frame(const nv_renderer_t* rd)
 VkCommandBuffer
 nv_renderer_get_draw_buffer(const nv_renderer_t* rd)
 {
-  return *(VkCommandBuffer*)nv_list_get(&rd->draw_cmd_buffers, rd->frame);
+  VkCommandBuffer* access = (VkCommandBuffer*)nv_list_get(&rd->draw_cmd_buffers, rd->frame);
+  if (access)
+  {
+    return *access;
+  }
+  return VK_NULL_HANDLE;
 }
 
 VkRenderPass
@@ -209,9 +209,13 @@ __drawcall_compar(const void* obj1, const void* obj2)
 static inline void
 _nv_renderer_flush_renders(nv_renderer_t* rd)
 {
-  const uint32_t        camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
-  const VkCommandBuffer cmd              = nv_renderer_get_draw_buffer(rd);
-  const VkDescriptorSet camera_set       = camera.sets->set;
+  const uint32_t camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
+
+  const VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
+  nv_assert_and_ret(cmd != VK_NULL_HANDLE, );
+
+  const VkDescriptorSet camera_set = camera.sets->set;
+  nv_assert_and_ret(camera_set != VK_NULL_HANDLE, );
 
   bool bound_quad_state = 0;
 
@@ -219,11 +223,12 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
 
   nv_draw_call_type state = NOVA_DRAWCALL_INVALID;
 
-  for (int i = 0; i < (int)nv_list_size(&rd->drawcalls); i++)
+  for (size_t i = 0; i < nv_list_size(&rd->drawcalls); i++)
   {
     const nv_draw_call_t* drawcall = &((nv_draw_call_t*)nv_list_data(&rd->drawcalls))[i];
+    nv_assert_and_exec(drawcall != NULL, { continue; })
 
-    if (drawcall->type == NOVA_DRAWCALL_QUAD)
+        if (drawcall->type == NOVA_DRAWCALL_QUAD)
     {
       // if (!nv_Quad_Visible(&drawcall->drawcall.quad.pos,
       // &drawcall->drawcall.quad.siz)) {
@@ -430,7 +435,7 @@ create_optional_images(nv_renderer_t* rd)
   nv_assert_and_ret(rd->swapchain != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->render_extent.width != 0, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->render_extent.height != 0, NOVA_ERROR_CODE_BROKEN_STATE);
-  nv_assert_and_ret(nv_list_is_initialized(&rd->render_data) == NOVA_ERROR_CODE_SUCCESS, NOVA_ERROR_CODE_MALLOC_FAILED);
+  nv_assert_and_ret(nv_list_is_valid(&rd->render_data), NOVA_ERROR_CODE_MALLOC_FAILED);
   nv_assert_and_ret(rd->nvvkctx != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->instance != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->device != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -524,12 +529,12 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 
   nv_list_t attachments;
   nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
-  if ((code = nv_list_init(sizeof(nv_gpu_texture*), 3, nv_allocator_get_default(), &attachments)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = nv_list_init(sizeof(nv_gpu_texture*), 3, nv_allocator_c, NULL, &attachments)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
 
-  for (int i = 0; i < (int)rd->nvvkctx->swap_chain_image_count; i++)
+  for (size_t i = 0; i < rd->nvvkctx->swap_chain_image_count; i++)
   {
     nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, i);
     nv_assert_and_ret(data != NULL, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -608,7 +613,7 @@ nv_renderer_initialize_graphics_singleton(nvvk_ctx_t* nvvkctx)
   nv_assert_and_ret(queue_count != 0, NOVA_ERROR_CODE_EXTERNAL);
 
   nv_list_t queueFamilies;
-  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, nv_allocator_get_default(), &queueFamilies);
+  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, nv_allocator_c, NULL, &queueFamilies);
   nv_assert_and_ret(nv_list_data(&queueFamilies) != NULL, NOVA_ERROR_CODE_EXTERNAL);
 
   vkGetPhysicalDeviceQueueFamilyProperties(nvvkctx->phys_device, &queue_count, (VkQueueFamilyProperties*)nv_list_data(&queueFamilies));
@@ -757,10 +762,10 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
     return NOVA_ERROR_CODE_INVALID_RETVAL;
   }
 
-  const int frames_in_flight = 1 + (int)conf->buffer_mode;
+  const size_t frames_in_flight = 1 + (size_t)conf->buffer_mode;
 
   nv_renderer_frame_render_info data = nv_zero_init(nv_renderer_frame_render_info);
-  for (int i = 0; i < frames_in_flight; i++)
+  for (size_t i = 0; i < frames_in_flight; i++)
   {
     nv_list_push_back(&rd->draw_cmd_buffers, &data);
     nv_list_push_back(&rd->render_data, &data);
@@ -835,22 +840,22 @@ nv_renderer_init(nv_ctx_t* ctx, nvvk_ctx_t* nvvkctx, nvsm_ctx_t* nvsmctx, const 
 
   nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
 
-  code = nv_list_init(sizeof(nv_gpu_sampler*), 4, nv_allocator_get_default(), &dst->samplers);
+  code = nv_list_init(sizeof(nv_gpu_sampler*), 4, nv_allocator_c, NULL, &dst->samplers);
   nv_assert_and_ret(code == NOVA_ERROR_CODE_SUCCESS, code);
 
-  code = nv_list_init(sizeof(nv_draw_call_t), 4, nv_allocator_get_default(), &dst->drawcalls);
+  code = nv_list_init(sizeof(nv_draw_call_t), 4, nv_allocator_c, NULL, &dst->drawcalls);
   nv_assert_and_ret(code == NOVA_ERROR_CODE_SUCCESS, code);
 
-  code = nv_list_init(sizeof(VkCommandBuffer), frames_in_flight, nv_allocator_get_default(), &dst->draw_cmd_buffers);
+  code = nv_list_init(sizeof(VkCommandBuffer), frames_in_flight, nv_allocator_c, NULL, &dst->draw_cmd_buffers);
   nv_assert_and_ret(code == NOVA_ERROR_CODE_SUCCESS, code);
 
-  code = nv_list_init(sizeof(nv_renderer_frame_render_info), frames_in_flight, nv_allocator_get_default(), &dst->render_data);
+  code = nv_list_init(sizeof(nv_renderer_frame_render_info), frames_in_flight, nv_allocator_c, NULL, &dst->render_data);
   nv_assert_and_ret(code == NOVA_ERROR_CODE_SUCCESS, code);
 
-  nv_assert_and_ret(nv_list_is_initialized(&dst->samplers) == 0, NOVA_ERROR_CODE_BROKEN_STATE);
-  nv_assert_and_ret(nv_list_is_initialized(&dst->drawcalls) == 0, NOVA_ERROR_CODE_BROKEN_STATE);
-  nv_assert_and_ret(nv_list_is_initialized(&dst->draw_cmd_buffers) == 0, NOVA_ERROR_CODE_BROKEN_STATE);
-  nv_assert_and_ret(nv_list_is_initialized(&dst->render_data) == 0, NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_list_is_valid(&dst->samplers), NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_list_is_valid(&dst->drawcalls), NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_list_is_valid(&dst->draw_cmd_buffers), NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_list_is_valid(&dst->render_data), NOVA_ERROR_CODE_BROKEN_STATE);
 
   if (conf->multisampling_enable)
   {
@@ -1086,7 +1091,7 @@ bool
 nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_RETVAL);
-  nv_assert_and_ret(nv_list_is_initialized(&rd->render_data) == NOVA_ERROR_CODE_SUCCESS, NOVA_ERROR_CODE_INVALID_RETVAL);
+  nv_assert_and_ret(nv_list_is_valid(&rd->render_data), NOVA_ERROR_CODE_INVALID_RETVAL);
   nv_assert_and_ret(rd->swapchain != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->instance != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->device != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -1175,7 +1180,7 @@ nv_errorc
 nv_renderer_end(nv_renderer_t* rd)
 {
   nv_assert_and_ret(rd != NULL, NOVA_ERROR_CODE_INVALID_RETVAL);
-  nv_assert_and_ret(nv_list_is_initialized(&rd->render_data) == NOVA_ERROR_CODE_SUCCESS, NOVA_ERROR_CODE_INVALID_RETVAL);
+  nv_assert_and_ret(nv_list_is_valid(&rd->render_data), NOVA_ERROR_CODE_INVALID_RETVAL);
   nv_assert_and_ret(rd->swapchain != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->instance != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
   nv_assert_and_ret(rd->nvvkctx->device != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
@@ -1187,7 +1192,7 @@ nv_renderer_end(nv_renderer_t* rd)
   const VkCommandBuffer draw_cmd_buffer = nv_renderer_get_draw_buffer(rd);
   nv_assert_and_ret(draw_cmd_buffer != VK_NULL_HANDLE, NOVA_ERROR_CODE_BROKEN_STATE);
 
-  for (int i = 0; i < (int)nv_list_size(&rd->ctext->labels); i++)
+  for (size_t i = 0; i < nv_list_size(&rd->ctext->labels); i++)
   {
     ctext_label_t* label = nv_list_get(&rd->ctext->labels, i);
 
@@ -1198,7 +1203,7 @@ nv_renderer_end(nv_renderer_t* rd)
     r_info.color                    = spr_rd->color;
     r_info.horizontal               = label->h_align;
     r_info.vertical                 = label->v_align;
-    ctext_render(label->fnt, &r_info, "%s", nv_string_data(&label->text));
+    ctext_render(label->fnt, &r_info, "%s", label->text);
   }
   ctext_flush_renders(rd);
 
@@ -1328,13 +1333,13 @@ static inline nv_list_t
 setify(u32 i1, u32 i2, u32 i3, u32 i4)
 {
   nv_list_t ret;
-  nv_list_init(sizeof(u32), 4, nv_allocator_get_default(), &ret);
+  nv_list_init(sizeof(u32), 4, nv_allocator_c, NULL, &ret);
   u32 nums[4] = { i1, i2, i3, i4 };
   for (int j = 0; j < (int)nv_arrlen(nums); j++)
   {
     const u32 e          = nums[j];
     bool      already_in = false;
-    for (int i = 0; i < (int)nv_list_size(&ret); i++)
+    for (size_t i = 0; i < nv_list_size(&ret); i++)
     {
       u32* exists_ptr = (u32*)nv_list_get(&ret, i);
       if (!exists_ptr)
@@ -1355,9 +1360,13 @@ setify(u32 i1, u32 i2, u32 i3, u32 i4)
 }
 
 static inline bool
-nvvk_validate_layers(nv_allocator_t* ac)
+nvvk_validate_layers()
 {
-  nv_assert_and_ret(ac != NULL, false);
+  uchar buffer[2048];
+
+  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
+  stack.buffer            = buffer;
+  stack.buffer_size       = sizeof(buffer);
 
   if (nv_arrlen(ValidationLayers) == 0)
   {
@@ -1369,8 +1378,22 @@ nvvk_validate_layers(nv_allocator_t* ac)
   uint32_t vk_layer_count = 0;
   vkEnumerateInstanceLayerProperties(&vk_layer_count, NULL);
 
+  nv_assert_and_ret(vk_layer_count != 0, true);
+
   nv_list_t vk_layer_properties;
-  nv_list_init(sizeof(VkLayerProperties), vk_layer_count, nv_allocator_get_default(), &vk_layer_properties);
+
+  /**
+   * this doesn't use the stack allocator, intentionally. VkLayerProperties is a whopping 520 bytes
+   * and will easily overflow the stack
+   */
+  nv_errorc code = nv_list_init(sizeof(VkLayerProperties), vk_layer_count, nv_allocator_c, NULL, &vk_layer_properties);
+
+  if (code != NOVA_SUCCESS)
+  {
+    nv_log_error("list initialization failed : %s\n", nv_error_str(code));
+    return false;
+  }
+
   vkEnumerateInstanceLayerProperties(&vk_layer_count, (VkLayerProperties*)nv_list_data(&vk_layer_properties));
 
   for (int j = 0; j < (int)nv_arrlen(ValidationLayers); j++)
@@ -1380,6 +1403,8 @@ nvvk_validate_layers(nv_allocator_t* ac)
     for (uint32_t i = 0; i < vk_layer_count; i++)
     {
       const VkLayerProperties* vk_layer = (VkLayerProperties*)nv_list_get(&vk_layer_properties, i);
+      nv_assert_and_exec(vk_layer != NULL, continue;);
+
       if (nv_strcmp(layer, vk_layer->layerName) == 0)
       {
         layer_found = true;
@@ -1394,7 +1419,7 @@ nvvk_validate_layers(nv_allocator_t* ac)
   if (!validation_layers_available)
   {
     nv_log_error("Failed to initialize validation layers. Requested layers:\n");
-    for (int i = 0; i < (int)nv_arrlen(ValidationLayers); i++)
+    for (size_t i = 0; i < nv_arrlen(ValidationLayers); i++)
     {
       nv_log_error("\t%s\n", ValidationLayers[i]);
     }
@@ -1403,6 +1428,7 @@ nvvk_validate_layers(nv_allocator_t* ac)
     for (uint32_t i = 0; i < vk_layer_count; i++)
     {
       const VkLayerProperties* layer = (VkLayerProperties*)nv_list_get(&vk_layer_properties, i);
+      nv_assert_and_exec(layer != NULL, continue;);
       nv_log_error("\t%s\n", layer->layerName);
     }
 
@@ -1410,15 +1436,17 @@ nvvk_validate_layers(nv_allocator_t* ac)
     nv_log_error("But instance asked for (i.e. are not available):\n");
 
     nv_list_t missing_layers;
-    nv_list_init(sizeof(const char*), 16, ac, &missing_layers);
+    nv_list_init(sizeof(const char*), 16, nv_allocator_estack, &stack, &missing_layers);
 
-    for (int i = 0; i < (int)nv_arrlen(ValidationLayers); i++)
+    for (size_t i = 0; i < nv_arrlen(ValidationLayers); i++)
     {
       const char* layer          = ValidationLayers[i];
       bool        layerAvailable = false;
       for (uint32_t j = 0; j < vk_layer_count; j++)
       {
         const VkLayerProperties* vk_layer = (VkLayerProperties*)nv_list_get(&vk_layer_properties, i);
+        nv_assert_and_exec(vk_layer != NULL, continue;);
+
         if (nv_strcmp(layer, vk_layer->layerName) == 0)
         {
           layerAvailable = true;
@@ -1430,7 +1458,7 @@ nvvk_validate_layers(nv_allocator_t* ac)
         nv_list_push_back(&missing_layers, &layer);
       }
     }
-    for (int i = 0; i < (int)nv_list_size(&missing_layers); i++)
+    for (size_t i = 0; i < nv_list_size(&missing_layers); i++)
     {
       const char* layer = *(const char**)nv_list_get(&missing_layers, i);
       if (!layer)
@@ -1494,32 +1522,34 @@ nvvk_setup_debug_messenger(nvvk_ctx_t* nvvkctx)
 static inline void
 nvvk_get_valid_extensions(nv_ctx_t* ctx, nv_list_t* returned_valid_extensions)
 {
-  unsigned char      buffer[1024];
-  nv_allocator_stack stack;
-  nv_allocator_stack_init(&stack, buffer, sizeof(buffer));
+  uchar buffer[1024];
 
-  nv_allocator_t ac;
-  nv_allocator_bind_stack_allocator(&ac, &stack);
+  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
+  stack.buffer            = buffer;
+  stack.buffer_size       = sizeof(buffer);
 
   uint32_t SDLExtensionCount = 0;
   nv_assert(SDL_Vulkan_GetInstanceExtensions(ctx->window, &SDLExtensionCount, NULL) == SDL_TRUE);
-  const char** sdl_extensions = ac.alloc(&ac, 1, sizeof(const char*) * SDLExtensionCount);
+
+  const size_t sdl_extensions_size = sizeof(const char*) * SDLExtensionCount;
+  const char** sdl_extensions      = nv_allocator_estack(&stack, NULL, NV_ALLOC_NEW_BLOCK, sdl_extensions_size);
+
   nv_assert(SDL_Vulkan_GetInstanceExtensions(ctx->window, &SDLExtensionCount, sdl_extensions) == SDL_TRUE);
 
   u32 extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
   // VkExtensionProperties is too big to fit on the stack
   nv_list_t vk_extensions;
-  nv_list_init(sizeof(VkExtensionProperties), extensionCount, nv_allocator_get_default(), &vk_extensions);
+  nv_list_init(sizeof(VkExtensionProperties), extensionCount, nv_allocator_c, NULL, &vk_extensions);
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, (VkExtensionProperties*)nv_list_data(&vk_extensions));
 
-  for (int i = 0; i < (int)NUM_REQUIRED_INSTANCE_EXTENSIONS; i++)
+  for (size_t i = 0; i < NUM_REQUIRED_INSTANCE_EXTENSIONS; i++)
   {
     const char* ext = REQUIRED_INSTANCE_EXTENSIONS[i];
     nv_list_push_back(returned_valid_extensions, &ext);
   }
 
-  for (int i = 0; i < (int)SDLExtensionCount; i++)
+  for (u32 i = 0; i < SDLExtensionCount; i++)
   {
     const char* ext = sdl_extensions[i];
     nv_list_push_back(returned_valid_extensions, &ext);
@@ -1539,7 +1569,7 @@ nvvk_get_valid_extensions(nv_ctx_t* ctx, nv_list_t* returned_valid_extensions)
     }
   }
 
-  ac.free(&ac, sdl_extensions);
+  nv_allocator_estack(&stack, sdl_extensions, sdl_extensions_size, NV_ALLOC_FREE);
   nv_list_destroy(&vk_extensions);
 }
 
@@ -1563,12 +1593,11 @@ nvvk_create_instance(nvvk_ctx_t* nvvkctx, nv_ctx_t* ctx, const char* title)
     .apiVersion         = VK_API_VERSION_1_0,
   };
 
-  unsigned char      buffer[1024];
-  nv_allocator_stack stack;
-  nv_allocator_stack_init(&stack, buffer, sizeof(buffer));
+  uchar buffer[1024];
 
-  nv_allocator_t ac;
-  nv_allocator_bind_stack_allocator(&ac, &stack);
+  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
+  stack.buffer            = buffer;
+  stack.buffer_size       = sizeof(buffer);
 
   uint32_t SDLExtensionCount = 0;
   nv_assert(SDL_Vulkan_GetInstanceExtensions(ctx->window, &SDLExtensionCount, NULL) == SDL_TRUE);
@@ -1577,7 +1606,12 @@ nvvk_create_instance(nvvk_ctx_t* nvvkctx, nv_ctx_t* ctx, const char* title)
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
 
   nv_list_t enabled_extensions;
-  nv_list_init(sizeof(const char*), (NUM_REQUIRED_INSTANCE_EXTENSIONS + SDLExtensionCount + extensionCount + NUM_WANTED_INSTANCE_EXTENSIONS), &ac, &enabled_extensions);
+  nv_list_init(
+      sizeof(const char*),
+      (NUM_REQUIRED_INSTANCE_EXTENSIONS + SDLExtensionCount + extensionCount + NUM_WANTED_INSTANCE_EXTENSIONS),
+      nv_allocator_estack,
+      &stack,
+      &enabled_extensions);
 
   nvvk_get_valid_extensions(ctx, &enabled_extensions);
 
@@ -1594,7 +1628,7 @@ nvvk_create_instance(nvvk_ctx_t* nvvkctx, nv_ctx_t* ctx, const char* title)
 
 #ifdef DEBUG
 
-  validation_layers_available = nvvk_validate_layers(&ac);
+  validation_layers_available = nvvk_validate_layers();
   if (validation_layers_available)
   {
     instance_create_info.enabledLayerCount   = nv_arrlen(ValidationLayers);
@@ -1685,6 +1719,12 @@ _nvvk_choose_physical_device(nvvk_ctx_t* nvvkctx, VkInstance instance, VkSurface
   nv_assert_and_ret(instance != VK_NULL_HANDLE, VK_NULL_HANDLE);
   nv_assert_and_ret(surface != VK_NULL_HANDLE, VK_NULL_HANDLE);
 
+  uchar buffer[1024];
+
+  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
+  stack.buffer            = buffer;
+  stack.buffer_size       = sizeof(buffer);
+
   uint32_t phys_device_count = 0;
 
   VkResult r = VK_SUCCESS;
@@ -1701,7 +1741,7 @@ _nvvk_choose_physical_device(nvvk_ctx_t* nvvkctx, VkInstance instance, VkSurface
   }
 
   nv_list_t physical_devices;
-  nv_list_init(sizeof(VkPhysicalDevice), phys_device_count, nv_allocator_get_default(), &physical_devices);
+  nv_list_init(sizeof(VkPhysicalDevice), phys_device_count, nv_allocator_estack, &stack, &physical_devices);
   vkEnumeratePhysicalDevices(instance, &phys_device_count, (VkPhysicalDevice*)nv_list_data(&physical_devices));
 
   for (u32 i = 0; i < phys_device_count; i++)
@@ -1724,10 +1764,10 @@ _nvvk_choose_physical_device(nvvk_ctx_t* nvvkctx, VkInstance instance, VkSurface
     uint32_t extension_count = 0;
     nvvk_result_check(*nvvkctx, vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, NULL));
     nv_list_t available_extensions;
-    nv_list_init(sizeof(VkExtensionProperties), extension_count, nv_allocator_get_default(), &available_extensions);
+    nv_list_init(sizeof(VkExtensionProperties), extension_count, nv_allocator_c, NULL, &available_extensions);
     nvvk_result_check(*nvvkctx, vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, (VkExtensionProperties*)nv_list_data(&available_extensions)));
 
-    for (int i = 0; i < (int)NUM_WANTED_DEVICE_EXTENSIONS; i++)
+    for (size_t i = 0; i < NUM_WANTED_DEVICE_EXTENSIONS; i++)
     {
       const char* extension = REQUIRED_DEVICE_EXTENSIONS[i];
       bool        validated = false;
@@ -1783,10 +1823,10 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* nvvkctx, nv_list_t* available_exten
   u32 extension_count = 0;
   vkEnumerateDeviceExtensionProperties(nvvkctx->phys_device, NULL, &extension_count, NULL);
   nv_list_t extensions;
-  nv_list_init(sizeof(VkExtensionProperties), extension_count, nv_allocator_get_default(), &extensions);
+  nv_list_init(sizeof(VkExtensionProperties), extension_count, nv_allocator_c, NULL, &extensions);
   vkEnumerateDeviceExtensionProperties(nvvkctx->phys_device, NULL, &extension_count, (VkExtensionProperties*)nv_list_data(&extensions));
 
-  for (int i = 0; i < (int)NUM_WANTED_DEVICE_EXTENSIONS; i++)
+  for (size_t i = 0; i < NUM_WANTED_DEVICE_EXTENSIONS; i++)
   {
     const char* wanted = WANTED_DEVICE_EXTENSIONS[i];
     for (u32 i = 0; i < extension_count; i++)
@@ -1794,13 +1834,13 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* nvvkctx, nv_list_t* available_exten
       VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[i];
       if (nv_strcmp(wanted, ext.extensionName) == 0)
       {
-        const char* ext_name_copy = nv_strdup(ext.extensionName);
+        const char* ext_name_copy = nv_strdup(nv_allocator_c, NULL, ext.extensionName);
         nv_list_push_back(available_extensions, (void*)&ext_name_copy);
       }
     }
   }
 
-  for (int i = 0; i < (int)NUM_REQUIRED_DEVICE_EXTENSIONS; i++)
+  for (size_t i = 0; i < NUM_REQUIRED_DEVICE_EXTENSIONS; i++)
   {
     const char* required  = REQUIRED_DEVICE_EXTENSIONS[i];
     bool        validated = false;
@@ -1809,7 +1849,7 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* nvvkctx, nv_list_t* available_exten
       VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[i];
       if (nv_strcmp(required, ext.extensionName) == 0)
       {
-        char* ext_name_copy = nv_strdup(ext.extensionName);
+        char* ext_name_copy = nv_strdup(nv_allocator_c, NULL, ext.extensionName);
         nv_list_push_back(available_extensions, (void*)&ext_name_copy);
         validated = true;
       }
@@ -1833,7 +1873,7 @@ nvvk_validate_queues(nvvk_ctx_t* nvvkctx, nv_list_t* queue_create_infos)
   u32 queue_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(nvvkctx->phys_device, &queue_count, NULL);
   nv_list_t queue_families;
-  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, nv_allocator_get_default(), &queue_families);
+  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, nv_allocator_c, NULL, &queue_families);
   vkGetPhysicalDeviceQueueFamilyProperties(nvvkctx->phys_device, &queue_count, (VkQueueFamilyProperties*)nv_list_data(&queue_families));
 
   // Clang loves complaining about these.
@@ -1888,7 +1928,7 @@ nvvk_validate_queues(nvvk_ctx_t* nvvkctx, nv_list_t* queue_create_infos)
    */
   // const float queue_priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
-  for (int i = 0; i < (int)nv_list_size(&unique_queue_families); i++)
+  for (size_t i = 0; i < nv_list_size(&unique_queue_families); i++)
   {
     VkDeviceQueueCreateInfo queue_info = {
       .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -1912,15 +1952,15 @@ nvvk_create_device(nvvk_ctx_t* nvvkctx)
   nv_assert_and_ret(nvvkctx->surface != VK_NULL_HANDLE, NULL);
 
   nv_list_t enabled_extensions;
-  nv_list_init(sizeof(const char*), NUM_WANTED_DEVICE_EXTENSIONS + NUM_WANTED_DEVICE_EXTENSIONS, nv_allocator_get_default(), &enabled_extensions);
+  nv_list_init(sizeof(const char*), NUM_WANTED_DEVICE_EXTENSIONS + NUM_WANTED_DEVICE_EXTENSIONS, nv_allocator_c, NULL, &enabled_extensions);
   nvvk_get_valid_device_extensions(nvvkctx, &enabled_extensions);
 
   nv_list_t queue_create_infos;
-  nv_list_init(sizeof(VkDeviceQueueCreateInfo), 0, nv_allocator_get_default(), &queue_create_infos);
+  nv_list_init(sizeof(VkDeviceQueueCreateInfo), 0, nv_allocator_c, NULL, &queue_create_infos);
   nvvk_validate_queues(nvvkctx, &queue_create_infos);
 
   const float queue_priority = 1.0F;
-  for (int i = 0; i < (int)nv_list_size(&queue_create_infos); i++)
+  for (size_t i = 0; i < nv_list_size(&queue_create_infos); i++)
   {
     VkDeviceQueueCreateInfo* info = (VkDeviceQueueCreateInfo*)nv_list_get(&queue_create_infos, i);
     info->pQueuePriorities        = &queue_priority;
@@ -1946,7 +1986,7 @@ nvvk_create_device(nvvk_ctx_t* nvvkctx)
   nv_printf(" ]\n");
 #endif
 
-  for (int i = 0; i < (int)nv_list_size(&enabled_extensions); i++)
+  for (size_t i = 0; i < nv_list_size(&enabled_extensions); i++)
   {
     const char* ext_name_allocated = *(const char**)nv_list_get(&enabled_extensions, i);
     nv_free((void*)ext_name_allocated);
@@ -2101,7 +2141,7 @@ _ctext_load_font_update_descriptors(nvvk_ctx_t* nvvkctx, nv_ctext_module* ctext,
                                     .descriptorCount = 1,
                                     .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                     .pImageInfo      = &ctext_bitmap_image_info };
-  for (int i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
+  for (size_t i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
   {
     writeSet.dstArrayElement = i;
     nv_descriptor_set_submit_write(nvvkctx, ctext->desc_set, &writeSet);
@@ -2137,8 +2177,8 @@ ctext_load_font(nvvk_ctx_t* nvvkctx, nv_renderer_t* rdr, const char* font_path, 
 
   dst->rd = rdr;
 
-  nv_hashmap_init(256, sizeof(u32), sizeof(ctext_glyph_t), nv_hash_murmur3, nv_allocator_get_default(), &dst->glyph_map);
-  nv_list_init(sizeof(ctext_drawcall_t), 4, nv_allocator_get_default(), &dst->drawcalls);
+  nv_hashmap_init(256, sizeof(u32), sizeof(ctext_glyph_t), nv_hash_murmur3, nv_allocator_c, NULL, &dst->glyph_map);
+  nv_list_init(sizeof(ctext_drawcall_t), 4, nv_allocator_c, NULL, &dst->drawcalls);
 
   nv_texture_atlas_t atlas;
 
@@ -2148,7 +2188,7 @@ ctext_load_font(nvvk_ctx_t* nvvkctx, nv_renderer_t* rdr, const char* font_path, 
   atlas.height     = f_file.header.bmpheight;
   atlas.data       = f_file.bitmap;
 
-  for (int i = 0; i < f_file.header.numglyphs; i++)
+  for (size_t i = 0; i < f_file.header.numglyphs; i++)
   {
     ctext_glyph_t glyph = {
       .x0      = f_file.glyphs[i].x0,
@@ -2294,7 +2334,7 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   vkCmdBindIndexBuffer(cmd, fnt->buffer.buffer, fnt->index_buffer_offset, VK_INDEX_TYPE_UINT32);
 
   size_t offset = 0;
-  for (int i = 0; i < (int)nv_list_size(&fnt->drawcalls); i++)
+  for (size_t i = 0; i < nv_list_size(&fnt->drawcalls); i++)
   {
     ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_list_get(&fnt->drawcalls, i);
 
@@ -2316,7 +2356,7 @@ split_string_by_lines(const char* str)
   const size_t str_len = nv_strlen(str);
   size_t       i_start = 0;
 
-  nv_list_init(sizeof(char*), 16, nv_allocator_get_default(), &result);
+  nv_list_init(sizeof(char*), 16, nv_allocator_c, NULL, &result);
 
   // FIXED: consecutive newlines not being considered
   // they are now added as a single NULL terminator
@@ -2340,7 +2380,7 @@ split_string_by_lines(const char* str)
 // split_string_by_lines(char *str)
 // {
 //   nv_list_t result;
-//   nv_list_init(sizeof(char*), 16, nv_allocator_get_default(), &result);
+//   nv_list_init(sizeof(char*), 16, nv_allocator_c,  NULL, &result);
 
 //   char *line_start = str;
 //   for (size_t i = 0; str[i] != '\0'; i++)
@@ -2711,7 +2751,7 @@ _ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   u32 total_vertex_byte_size = 0;
   u32 total_index_count      = 0;
 
-  for (int i = 0; i < (int)nv_list_size(&fnt->drawcalls); i++)
+  for (size_t i = 0; i < nv_list_size(&fnt->drawcalls); i++)
   {
     const ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_list_get(&fnt->drawcalls, i);
     total_vertex_byte_size += drawcall->vertex_count * sizeof(ctext_glyph_vertex_t);
@@ -2746,7 +2786,7 @@ _ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 
   u32 vertex_copy_iterator = 0;
   u32 index_copy_iterator  = 0;
-  for (int i = 0; i < (int)nv_list_size(&fnt->drawcalls); i++)
+  for (size_t i = 0; i < nv_list_size(&fnt->drawcalls); i++)
   {
     const ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_list_get(&fnt->drawcalls, i);
     nv_memcpy(mapped + vertex_copy_iterator, drawcall->vertices, drawcall->vertex_count * sizeof(ctext_glyph_vertex_t));
@@ -2776,7 +2816,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
   _ctext_upload_vertices_and_render_drawcalls(rd, fnt);
   fnt->chars_drawn = 0;
 
-  for (int i = 0; i < (int)nv_list_size(&fnt->drawcalls); i++)
+  for (size_t i = 0; i < nv_list_size(&fnt->drawcalls); i++)
   {
     ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_list_get(&fnt->drawcalls, i);
     if (drawcall && drawcall->vertices)
@@ -2790,7 +2830,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
 void
 ctext_flush_renders(nv_renderer_t* rd)
 {
-  for (int i = 0; i < (int)nv_list_size(&rd->ctext->fonts); i++)
+  for (size_t i = 0; i < nv_list_size(&rd->ctext->fonts); i++)
   {
     cfont_t* fnt = *(cfont_t**)nv_list_get(&rd->ctext->fonts, i);
     _ctext_flush_font(rd, fnt);
@@ -2810,18 +2850,18 @@ ctext_init(struct nv_renderer_t* rd)
 
   nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
 
-  if ((code = nv_list_init(sizeof(cfont_t*), 4, nv_allocator_get_default(), &ctext->fonts)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = nv_list_init(sizeof(cfont_t*), 4, nv_allocator_c, NULL, &ctext->fonts)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
 
-  if ((code = nv_list_init(sizeof(ctext_label_t), 4, nv_allocator_get_default(), &ctext->labels)) != NOVA_ERROR_CODE_SUCCESS)
+  if ((code = nv_list_init(sizeof(ctext_label_t), 4, nv_allocator_c, NULL, &ctext->labels)) != NOVA_ERROR_CODE_SUCCESS)
   {
     return code;
   }
 
-  nv_assert_and_ret(nv_list_is_initialized(&ctext->fonts) == 0, NOVA_ERROR_CODE_BROKEN_STATE);
-  nv_assert_and_ret(nv_list_is_initialized(&ctext->labels) == 0, NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_list_is_valid(&ctext->fonts), NOVA_ERROR_CODE_BROKEN_STATE);
+  nv_assert_and_ret(nv_list_is_valid(&ctext->labels), NOVA_ERROR_CODE_BROKEN_STATE);
 
   const VkDescriptorSetLayoutBinding bindings[] = {
     // binding; descriptorType; descriptorCount; stageFlags;
@@ -2849,7 +2889,7 @@ ctext_init(struct nv_renderer_t* rd)
     .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     .pImageInfo      = &empty_img_info,
   };
-  for (int i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
+  for (size_t i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
   {
     write_set.dstArrayElement = i;
     if (nv_descriptor_set_submit_write(rd->nvvkctx, ctext->desc_set, &write_set) != NOVA_ERROR_CODE_SUCCESS)
@@ -2923,7 +2963,7 @@ nv_descriptor_set_destroy(nvvk_ctx_t* nvvkctx, nv_descriptor_set_t* set)
 void
 nv_descriptor_pool_destroy(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool)
 {
-  for (int i = 0; i < pool->nsets; i++)
+  for (size_t i = 0; i < pool->nsets; i++)
   {
     nv_descriptor_set_destroy(nvvkctx, pool->sets[i]);
   }
@@ -2937,9 +2977,9 @@ _nv_descriptor_pool_allocate(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool)
   nv_assert_and_ret(pool != NULL, NOVA_ERROR_CODE_INVALID_ARG);
 
   VkDescriptorPoolSize allocations[11]     = { 0 };
-  int                  descriptors_written = 0;
+  size_t               descriptors_written = 0;
 
-  for (int i = 0; i < 11; i++)
+  for (size_t i = 0; i < 11; i++)
   {
     if (pool->descriptors[i].capacity == 0)
     {
@@ -2979,7 +3019,7 @@ _nv_descriptor_pool_allocate(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool)
     VkDescriptorSetLayout* layouts = nv_malloc(sizeof(VkDescriptorSetLayout) * pool->nsets);
     nv_assert_and_ret(layouts != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
 
-    for (int i = 0; i < pool->nsets; i++)
+    for (size_t i = 0; i < pool->nsets; i++)
     {
       if (pool->sets[i]->layout == VK_NULL_HANDLE)
       {
@@ -3000,8 +3040,8 @@ _nv_descriptor_pool_allocate(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool)
     nv_free(layouts);
   }
 
-  int ncopies = 0;
-  for (int i = 0; i < pool->nsets; i++)
+  size_t ncopies = 0;
+  for (size_t i = 0; i < pool->nsets; i++)
   {
     ncopies += pool->sets[i]->nwrites;
   }
@@ -3011,11 +3051,11 @@ _nv_descriptor_pool_allocate(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool)
   nv_assert(pool->sets != NULL);
 
   ncopies = 0;
-  for (int i = 0; i < pool->nsets; i++)
+  for (size_t i = 0; i < pool->nsets; i++)
   {
     nv_descriptor_set_t* old_set = pool->sets[i];
 
-    for (int writei = 0; writei < old_set->nwrites; writei++)
+    for (size_t writei = 0; writei < old_set->nwrites; writei++)
     {
       if (new_sets[i] == VK_NULL_HANDLE)
       {
@@ -3093,7 +3133,7 @@ nv_allocate_descriptor_set(nvvk_ctx_t* nvvkctx, nv_descriptor_pool_t* pool, cons
   nv_assert_and_ret(nbindings > 0, NOVA_ERROR_CODE_INVALID_ARG);
 
   bool need_realloc = 0;
-  for (int i = 0; i < 11; i++)
+  for (size_t i = 0; i < 11; i++)
   {
     for (int j = 0; j < nbindings; j++)
     {
@@ -3400,7 +3440,7 @@ nv_vk_destroy_global_pipelines(nvvk_ctx_t* nvvkctx)
     g_Pipelines.ctext,
     g_Pipelines.line,
   };
-  for (int i = 0; i < (int)nv_arrlen(pipelines); i++)
+  for (size_t i = 0; i < nv_arrlen(pipelines); i++)
   {
     nv_vk_destroy_pipeline(nvvkctx, &pipelines[i]);
   }
@@ -3530,7 +3570,7 @@ nv_gpu_create_graphics_pipeline(nvvk_ctx_t* nvvkctx, const nv_gpu_pipeline_creat
   };
 
   VkPipelineShaderStageCreateInfo* shader_infos = (VkPipelineShaderStageCreateInfo*)nv_calloc(pCreateInfo->n_shaders * sizeof(VkPipelineShaderStageCreateInfo));
-  for (int i = 0; i < pCreateInfo->n_shaders; i++)
+  for (size_t i = 0; i < pCreateInfo->n_shaders; i++)
   {
     if (!pCreateInfo->p_shaders[i] || pCreateInfo->p_shaders[i]->module == VK_NULL_HANDLE)
     {
@@ -3647,7 +3687,7 @@ nv_gpu_create_render_pass(nvvk_ctx_t* nvvkctx, nv_gpu_render_pass_create_info co
   };
 
   nv_list_t attachments;
-  nv_list_init(sizeof(VkAttachmentDescription), 5, nv_allocator_get_default(), &attachments);
+  nv_list_init(sizeof(VkAttachmentDescription), 5, nv_allocator_c, NULL, &attachments);
   nv_list_push_back(&attachments, &colorAttachmentDescription);
 
   VkAttachmentDescription depthAttachment    = nv_zero_init(VkAttachmentDescription);
@@ -3727,14 +3767,14 @@ nv_gpu_create_pipeline_layout(nvvk_ctx_t* nvvkctx, nv_gpu_pipeline_create_info c
   NVVK_REQUIRED_PTR(dstLayout);
 
   // int totalLayouts = 0;
-  // for (int i = 0; i < pCreateInfo->n_shaders; i++) {
+  // for (size_t i = 0; i < pCreateInfo->n_shaders; i++) {
   // 	totalLayouts += pCreateInfo->p_shaders[i]->nsetlayouts;
   // }
 
-  // nv_list_t *sets = nv_list_init(sizeof(VkDescriptorSetLayout, nv_allocator_get_default()),
+  // nv_list_t *sets = nv_list_init(sizeof(VkDescriptorSetLayout, nv_allocator_c),
   // totalLayouts);
 
-  // for (int i = 0; i < pCreateInfo->n_shaders; i++) {
+  // for (size_t i = 0; i < pCreateInfo->n_shaders; i++) {
   // 	const nvsm_shader_t *shader = pCreateInfo->p_shaders[i];
   // 	for (int j = 0; j < shader->nsetlayouts; j++) {
   // 		nv_list_push_back(sets, &shader->setlayouts[j]);
@@ -3785,16 +3825,15 @@ nv_gpu_create_swapchain(nvvk_ctx_t* nvvkctx, nv_gpu_swapchain_create_info const*
   VkPresentModeKHR   present_mode   = pCreateInfo->present_mode;
   VkSurfaceFormatKHR surface_format = (VkSurfaceFormatKHR){ nv_format_to_vk_format(pCreateInfo->format), pCreateInfo->color_space };
 
-  unsigned char      buffer[512];
-  nv_allocator_stack stack;
-  nv_allocator_stack_init(&stack, buffer, sizeof(buffer));
+  uchar buffer[1024];
 
-  nv_allocator_t ac;
-  nv_allocator_bind_stack_allocator(&ac, &stack);
+  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
+  stack.buffer            = buffer;
+  stack.buffer_size       = sizeof(buffer);
 
   u32 present_mode_count = 0;
   vkGetPhysicalDeviceSurfacePresentModesKHR(nvvkctx->phys_device, nvvkctx->surface, &present_mode_count, NULL);
-  VkPresentModeKHR* present_modes = ac.alloc(&ac, 1, present_mode_count * sizeof(VkPresentModeKHR));
+  VkPresentModeKHR* present_modes = nv_allocator_estack(&stack, NULL, NV_ALLOC_NEW_BLOCK, present_mode_count * sizeof(VkPresentModeKHR));
   nv_assert_and_ret(present_modes != NULL, );
   vkGetPhysicalDeviceSurfacePresentModesKHR(nvvkctx->phys_device, nvvkctx->surface, &present_mode_count, present_modes);
 
@@ -3808,6 +3847,8 @@ nv_gpu_create_swapchain(nvvk_ctx_t* nvvkctx, nv_gpu_swapchain_create_info const*
     }
   }
 
+  nv_allocator_estack(&stack, present_modes, present_mode_count * sizeof(VkPresentModeKHR), NV_ALLOC_FREE);
+
   const VkPresentModeKHR fallback_present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
   if (!found_present_mode)
@@ -3819,7 +3860,7 @@ nv_gpu_create_swapchain(nvvk_ctx_t* nvvkctx, nv_gpu_swapchain_create_info const*
 
   u32 surface_format_count = 0;
   vkGetPhysicalDeviceSurfaceFormatsKHR(nvvkctx->phys_device, nvvkctx->surface, &surface_format_count, NULL);
-  VkSurfaceFormatKHR* surface_formats = ac.alloc(&ac, 1, sizeof(VkSurfaceFormatKHR) * surface_format_count);
+  VkSurfaceFormatKHR* surface_formats = nv_allocator_estack(&stack, NULL, NV_ALLOC_NEW_BLOCK, sizeof(VkSurfaceFormatKHR) * surface_format_count);
   vkGetPhysicalDeviceSurfaceFormatsKHR(nvvkctx->phys_device, nvvkctx->surface, &surface_format_count, surface_formats);
 
   const VkSurfaceFormatKHR* fallback = &surface_formats[0];
@@ -3850,6 +3891,9 @@ nv_gpu_create_swapchain(nvvk_ctx_t* nvvkctx, nv_gpu_swapchain_create_info const*
     surface_format.format     = fallback->format;
     surface_format.colorSpace = fallback->colorSpace;
   }
+
+  nv_allocator_estack(&stack, surface_formats, surface_format_count * sizeof(VkSurfaceFormatKHR), NV_ALLOC_FREE);
+  fallback = NULL;
 
   VkSwapchainCreateInfoKHR swapChainCreateInfo = {
     .sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -4384,7 +4428,7 @@ nv_vk_get_supported_format(nvvk_ctx_t* nvvkctx, VkPhysicalDevice phys_device, Vk
   u32 formatCount = 0;
   nvvk_result_check(*nvvkctx, vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &formatCount, VK_NULL_HANDLE));
   nv_list_t surface_formats;
-  nv_list_init(sizeof(VkSurfaceFormatKHR), formatCount, nv_allocator_get_default(), &surface_formats);
+  nv_list_init(sizeof(VkSurfaceFormatKHR), formatCount, nv_allocator_c, NULL, &surface_formats);
   nvvk_result_check(*nvvkctx, vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &formatCount, (VkSurfaceFormatKHR*)nv_list_data(&surface_formats)));
 
   VkSurfaceFormatKHR selected_format = { VK_FORMAT_MAX_ENUM, VK_COLOR_SPACE_MAX_ENUM_KHR };
@@ -4889,7 +4933,7 @@ nv_gpu_create_sampler(nv_renderer_t* rd, const nv_gpu_sampler_create_info* pInfo
   nv_assert_and_ret(pInfo != NULL, );
   nv_assert_and_ret(sampler != NULL, );
 
-  for (int i = 0; i < (int)nv_list_size(&rd->samplers); i++)
+  for (size_t i = 0; i < nv_list_size(&rd->samplers); i++)
   {
     if (!nv_list_get(&rd->samplers, i))
     {
@@ -5577,7 +5621,7 @@ nv_gpu_create_framebuffer(nvvk_ctx_t* nvvkctx, const nv_gpu_framebuffer_create_i
   dst->num_layers      = pCreateInfo->num_layers;
 
   nv_list_t attachments;
-  nv_list_init(sizeof(VkImageView), 6, nv_allocator_get_default(), &attachments);
+  nv_list_init(sizeof(VkImageView), 6, nv_allocator_c, NULL, &attachments);
 
   for (size_t i = 0; i < pCreateInfo->num_attachments; i++)
   {

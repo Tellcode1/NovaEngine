@@ -3,8 +3,8 @@
 
 // implementation: vk.c
 
-#include "../common/format.h"
 #include "../external/volk/volk.h"
+#include "../std/format.h"
 #include "../std/stdafx.h"
 #include "types.h"
 

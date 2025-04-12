@@ -1,5 +1,3 @@
-// output: Shaders/Debug/Line.vert.spv stage: vert name: Debug/Line/vert
-
 #version 450 core
 
 layout(set = 0, binding = 0, std140) uniform camera_buffer {

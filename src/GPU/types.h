@@ -1,9 +1,9 @@
 #ifndef __NOVA_GPU_TYPES_H__
 #define __NOVA_GPU_TYPES_H__
 
-#include "../common/format.h"
 #include "../external/volk/volk.h"
 #include "../std/errorcodes.h"
+#include "../std/format.h"
 #include "../std/stdafx.h"
 #include <vulkan/vulkan_core.h>
 

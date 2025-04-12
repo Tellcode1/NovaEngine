@@ -1,6 +1,4 @@
-// output: Shaders/ctext/text.spv stage: frag name: ctext/frag
-
-#version 450
+#version 450 core
 
 layout(location = 0) out vec4 outColor;
 

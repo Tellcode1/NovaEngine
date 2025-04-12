@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")" || exit 1
 
-DIRS=("src" "src/std" "ssl")
+DIRS=("src")
 EXTS=("*.c" "*.h" "*.cpp" "*.hpp")
 
 pids=()
@@ -11,7 +11,7 @@ for dir in "${DIRS[@]}"; do
     if [ -d "$dir" ]; then
         echo "Formatting: $dir"
         for ext in "${EXTS[@]}"; do
-            find "$dir" -type f -name "$ext" -exec clang-format -i {} + &
+            find "$dir" \( -type d -name "external" -o -type d -name "build" \) -prune -o -type f -name "$ext" -print -exec clang-format -i {} + &
             pids+=($!)
         done
     else

@@ -8,8 +8,8 @@
 #include "../std/math/vec2.h"
 #include "../std/math/vec3.h"
 
-#include "../containers/hashmap.h"
-#include "../containers/list.h"
+#include "../std/containers/hashmap.h"
+#include "../std/containers/list.h"
 
 #include "../GPU/buffer.h"
 #include "../GPU/texture.h"

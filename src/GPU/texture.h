@@ -3,8 +3,8 @@
 
 // implementation: vk.c
 
-#include "../common/format.h"
-#include "../common/image.h"
+#include "../std/format.h"
+#include "../std/image.h"
 #include "../std/stdafx.h"
 #include "memory.h"
 #include "types.h"

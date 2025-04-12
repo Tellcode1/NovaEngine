@@ -3,8 +3,8 @@
 
 // implementation: engine.c
 
-#include "../containers/bitset.h"
-#include "../containers/hashmap.h"
+#include "../std/containers/bitset.h"
+#include "../std/containers/hashmap.h"
 #include "../std/math/vec2.h"
 #include <SDL2/SDL.h>
 

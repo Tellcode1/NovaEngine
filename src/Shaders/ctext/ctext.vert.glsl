@@ -1,6 +1,4 @@
-// output: Shaders/vert.text.spv stage: vert name: ctext/vert
-
-#version 450
+#version 450 core
 
 layout(location = 0) in vec3 v_vertices;
 
@@ -31,6 +29,6 @@ void
 main()
 {
   gl_Position = cam_ub.perspective * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
-  f_uv        = v_uv;
   f_col       = pc.color;
+  f_uv = v_uv;
 }

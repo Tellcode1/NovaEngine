@@ -1,8 +1,5 @@
 #include "engine/engine.h"
 #include "SDL_video.h"
-#include "containers/bitset.h"
-#include "containers/hashmap.h"
-#include "containers/list.h"
 #include "engine/camera.h"
 #include "engine/collider.h"
 #include "engine/input.h"
@@ -10,6 +7,9 @@
 #include "engine/scene.h"
 #include "engine/ui.h"
 #include "external/box2d/include/box2d/box2d.h"
+#include "std/containers/bitset.h"
+#include "std/containers/hashmap.h"
+#include "std/containers/list.h"
 
 #include "std/errorcodes.h"
 #include "std/math/math.h"
@@ -43,8 +43,8 @@ nv_window_init(const char* window_title, int window_width, int window_height, nv
   dst->frame_start_time           = 0;
   dst->fixed_frame_start_time     = 0;
   dst->frame_time                 = 0;
-  dst->window_framebuffer_resized = 0;
-  dst->application_running        = 1;
+  dst->window_framebuffer_resized = false;
+  dst->application_running        = true;
 }
 
 void
@@ -436,7 +436,7 @@ nv_scene_init(void)
   b2WorldDef world_def = b2DefaultWorldDef();
   world_def.gravity    = (b2Vec2){ 0.0f, -9.8f };
   scn->world           = b2CreateWorld(&world_def);
-  nv_list_init(sizeof(nv_object), 4, nv_allocator_get_default(), &scn->objects);
+  nv_list_init(sizeof(nv_object), 4, nv_allocator_c, NULL, &scn->objects);
 
   if (!scene_main)
   {
@@ -567,8 +567,8 @@ void
 nvui_init(void)
 {
   nvui_ctx.active = 1;
-  nv_list_init(sizeof(nvui_button), 4, nv_allocator_get_default(), &nvui_ctx.btons);
-  nv_list_init(sizeof(nvui_slider), 4, nv_allocator_get_default(), &nvui_ctx.sliders);
+  nv_list_init(sizeof(nvui_button), 4, nv_allocator_c, NULL, &nvui_ctx.btons);
+  nv_list_init(sizeof(nvui_slider), 4, nv_allocator_c, NULL, &nvui_ctx.sliders);
 }
 
 void
@@ -874,17 +874,17 @@ nv_input_init(nv_input_ctx_t* ctx)
 {
   nv_errorc code = NOVA_SUCCESS;
 
-  if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_get_default(), &ctx->input_action_mapping)) != NOVA_SUCCESS)
+  if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_c, NULL, &ctx->input_action_mapping)) != NOVA_SUCCESS)
   {
     return code;
   }
 
-  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_get_default(), &ctx->input_kb_state)) != NOVA_SUCCESS)
+  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_kb_state)) != NOVA_SUCCESS)
   {
     return code;
   }
 
-  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_get_default(), &ctx->input_last_frame_kb_state)) != NOVA_SUCCESS)
+  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_last_frame_kb_state)) != NOVA_SUCCESS)
   {
     return code;
   }
@@ -936,7 +936,7 @@ nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
 
   size_t             __i = 0;
   nv_hashmap_node_t* node;
-  while ((node = nv_hashmap_iterate(&ctx->input_action_mapping, &__i)) != NULL)
+  while ((node = nv_hashmap_iterate_unsafe(&ctx->input_action_mapping, &__i)) != NULL)
   {
     nv_input_action_t* ia = (nv_input_action_t*)node->value;
 

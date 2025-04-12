@@ -1,5 +1,4 @@
 #include "GPU/vk.h"
-#include "common/image.h"
 #include "engine/camera.h"
 #include "engine/ctext.h"
 #include "engine/engine.h"
@@ -8,9 +7,11 @@
 #include "engine/renderer.h"
 #include "engine/sprite.h"
 #include "std/errorcodes.h"
+#include "std/image.h"
 #include "std/print.h"
 #include "std/props.h"
 #include "std/stdafx.h"
+#include "std/string.h"
 #include "std/timer.h"
 
 #include <math.h>
@@ -64,9 +65,8 @@ main(int argc, char* argv[])
   nvvk_ctx_init(&ctx, &nvvkctx);
 
   nvsm_ctx_t nvsmctx = nv_zero_init(nvsm_ctx_t);
+  nvsmctx.list_file  = "Shaders/shaderlist";
   nvsm_init(&nvsmctx);
-
-  nvsmctx.list_file = "Shaders/shaderlist";
 
   if (force_recompile_shaders)
   {
@@ -179,6 +179,8 @@ main(int argc, char* argv[])
   }
 
   nv_sprite_destroy(&nvvkctx, &angwy);
+
+  nv_free(angwy_img.data);
 
   nv_input_shutdown(&inputctx);
   nvsm_shutdown(&nvvkctx, &nvsmctx);
