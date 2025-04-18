@@ -44,8 +44,8 @@ main(int argc, char* argv[])
   // clang-format on
 
   char      error[256];
-  nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
-  if ((code = nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error))) != NOVA_ERROR_CODE_SUCCESS)
+  nv_errorc code = NV_ERROR_CODE_SUCCESS;
+  if ((code = nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error))) != NV_ERROR_CODE_SUCCESS)
   {
     nv_log_error("PROPS error(code:%i): %s\n", code, error);
     help = 1;
@@ -211,12 +211,12 @@ CLEANUP:
 fontc_err_t
 fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_atlas_w, size_t init_atlas_h, size_t num_threads, fontc_file_t* out_file)
 {
-  nv_assert_and_ret(font_path != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(out_file != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(pixel_size > 0, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(init_atlas_w > 0, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(init_atlas_h > 0, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(num_threads > 0, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(font_path != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(out_file != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(pixel_size > 0, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(init_atlas_w > 0, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(init_atlas_h > 0, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(num_threads > 0, FONTC_INVALID_ARGUMENT);
 
   fontc_err_t    retcode                  = FONTC_SUCCESS;
   FT_Face*       faces                    = NULL;
@@ -436,12 +436,12 @@ CLEANUP_AND_RETURN:
 fontc_err_t
 fontc_write_font_file(const char* out, fontc_file_t* file)
 {
-  nv_assert_and_ret(out != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file->bitmap != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file->glyphs != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file->header.magic == FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(file->header.magic2 == FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(out != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(file != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(file->bitmap != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(file->glyphs != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(file->header.magic == FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(file->header.magic2 == FONTC_MAGIC, FONTC_INVALID_ARGUMENT);
 
   fontc_err_t retcode = FONTC_SUCCESS;
 
@@ -544,9 +544,9 @@ fontc_clean_font_file(fontc_file_t* file)
 fontc_err_t
 fontc_load_font(const char* font_source_path, size_t pixel_size, fontc_file_t* font_file)
 {
-  nv_assert_and_ret(font_source_path != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(font_file != NULL, FONTC_INVALID_ARGUMENT);
-  nv_assert_and_ret(pixel_size != 0, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(font_source_path != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(font_file != NULL, FONTC_INVALID_ARGUMENT);
+  nv_return_if_fail(pixel_size != 0, FONTC_INVALID_ARGUMENT);
 
   char buf[256] = { 0 };
   nv_strcat_max(buf, font_source_path, 256);

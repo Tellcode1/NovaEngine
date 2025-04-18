@@ -22,7 +22,7 @@ glslang_stage_t _nvsm_glslang_shader_stage_from_string(const char stage[4]);
 
 nv_errorc _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file);
 
-/* returns NOVA_ERROR_CODE_FILE_NOT_FOUND to indicate the file was not found. This should be handled by the dev appropriately. */
+/* returns NV_ERROR_CODE_FILE_NOT_FOUND to indicate the file was not found. This should be handled by the dev appropriately. */
 nv_errorc _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file);
 
 /* write the cache to disk */
@@ -53,7 +53,7 @@ _nvsm_get_cache_file_path(const char* cache_file_dir, char buffer[256])
    * Too many bytes to fit on the buffer
    * Is invalid arg correct here?
    */
-  nv_assert_and_ret(nv_strlen(cache_file_dir) < 256, );
+  nv_return_if_fail(nv_strlen(cache_file_dir) < 256, );
 
   nv_strlcpy(buffer, cache_file_dir, 256);
   nv_strlcat(buffer, NVSM_CACHE_FILENAME, 256);
@@ -147,7 +147,7 @@ count_file_lines(FILE* fp)
 size_t
 get_file_max_line_length(FILE* file)
 {
-  nv_assert_and_ret(file != NULL, 0);
+  nv_return_if_fail(file != NULL, 0);
 
   size_t largest = 0, current = 0;
   int    chr;
@@ -195,7 +195,7 @@ read_shader_spirv(const char* spirv_path, nvsm_spirv_binary_t* bin)
   if (rw == NULL)
   {
     nv_log_error("%s : %s\n", spirv_path, SDL_GetError());
-    return NOVA_ERROR_CODE_FILE_NOT_FOUND;
+    return NV_ERROR_CODE_FILE_NOT_FOUND;
   }
 
   bin->byte_count = SDL_RWsize(rw);
@@ -203,11 +203,11 @@ read_shader_spirv(const char* spirv_path, nvsm_spirv_binary_t* bin)
   {
     nv_log_error("Error in read size of stream %p : %s\n", rw, SDL_GetError());
     SDL_RWclose(rw);
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   bin->words = (uint32_t*)nv_calloc(bin->byte_count);
-  nv_assert_and_ret(bin->words != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+  nv_return_if_fail(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
 
   /* SDL_RWread returns 0 if an error occured or if the entire stream was read. */
   if (SDL_RWread(rw, (void*)bin->words, 1, bin->byte_count) == 0)
@@ -216,18 +216,18 @@ read_shader_spirv(const char* spirv_path, nvsm_spirv_binary_t* bin)
     bin->words      = NULL;
     bin->byte_count = 0;
     SDL_RWclose(rw);
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   SDL_RWclose(rw);
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 nv_errorc
 _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
 {
-  nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(file != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(file != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const char* list_file_path = ctx->list_file;
   if (!list_file_path)
@@ -236,35 +236,35 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
   }
 
   FILE* list_file = fopen(list_file_path, "r");
-  nv_assert_and_ret(list_file != NULL, NOVA_ERROR_CODE_FILE_NOT_FOUND);
+  nv_return_if_fail(list_file != NULL, NV_ERROR_CODE_FILE_NOT_FOUND);
 
   size_t max_line_len = get_file_max_line_length(list_file);
-  nv_assert_and_ret(max_line_len != 0, NOVA_ERROR_CODE_IO_ERROR);
+  nv_return_if_fail(max_line_len != 0, NV_ERROR_CODE_IO_ERROR);
   if (fseek(list_file, 0, SEEK_SET) != 0)
   {
     nv_log_error("IO error: %s\n", strerror(errno));
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   size_t num_lines_list_file = count_file_lines(list_file);
-  nv_assert_and_ret(num_lines_list_file != 0, NOVA_ERROR_CODE_IO_ERROR);
+  nv_return_if_fail(num_lines_list_file != 0, NV_ERROR_CODE_IO_ERROR);
 
   if (fseek(list_file, 0, SEEK_SET) != 0)
   {
     nv_log_error("IO error: %s\n", strerror(errno));
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   /* may be wrong (some lines may be garbage), so it is correctly set after the loop */
   file->num_entries = num_lines_list_file;
 
   file->entries = (nvsm_list_file_entry_t*)nv_calloc(num_lines_list_file * sizeof(nvsm_list_file_entry_t));
-  nv_assert_and_ret(file->entries != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+  nv_return_if_fail(file->entries != NULL, NV_ERROR_MALLOC_FAILED);
 
   char* line = nv_calloc(max_line_len + 1);
-  nv_assert_and_ret(line != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+  nv_return_if_fail(line != NULL, NV_ERROR_MALLOC_FAILED);
 
-  nv_assert_and_ret(max_line_len <= __INT_MAX__, NOVA_ERROR_CODE_INVALID_INPUT);
+  nv_return_if_fail(max_line_len <= __INT_MAX__, NV_ERROR_CODE_INVALID_INPUT);
 
   size_t idx = 0;
   while (fgets(line, (int)max_line_len + 1, list_file) != NULL)
@@ -300,18 +300,18 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
   fclose(list_file);
   nv_free(line);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 nv_errorc
 _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
 {
-  nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(file != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(file != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   if (ctx->cache_file_dir)
   {
-    nv_assert_and_ret(nv_strlen(ctx->cache_file_dir) < 256, NOVA_ERROR_CODE_INVALID_ARG);
+    nv_return_if_fail(nv_strlen(ctx->cache_file_dir) < 256, NV_ERROR_CODE_INVALID_ARG);
   }
 
   char cache_file_path[256] = {};
@@ -324,14 +324,14 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   if (cache_file == NULL)
   {
     nv_log_info("No cache file.\n");
-    return NOVA_ERROR_CODE_FILE_NOT_FOUND;
+    return NV_ERROR_CODE_FILE_NOT_FOUND;
   }
 
   u32 file_canary = 0;
   if (fread(&file_canary, sizeof(canary), 1, cache_file) != 1 || file_canary != canary)
   {
     fclose(cache_file);
-    return NOVA_ERROR_CODE_INVALID_CACHE;
+    return NV_ERROR_CODE_INVALID_CACHE;
   }
 
   const char* list_file_path = ctx->list_file;
@@ -346,7 +346,7 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   if (fread(&list_file_mtime, sizeof(list_file_mtime), 1, cache_file) != 1 || list_file_mtime != get_last_modified_time(list_file_path))
   {
     fclose(cache_file);
-    return NOVA_ERROR_CODE_INVALID_CACHE;
+    return NV_ERROR_CODE_INVALID_CACHE;
   }
 
   /* after the canary and the list file modtime is the number of entries so we read that */
@@ -355,26 +355,26 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   if ((fread(&file->num_entries, sizeof(file->num_entries), 1, cache_file) != 1) || (file->num_entries == 0))
   {
     fclose(cache_file);
-    return NOVA_ERROR_CODE_INVALID_CACHE;
+    return NV_ERROR_CODE_INVALID_CACHE;
   }
 
   file->entries = (nvsm_cache_file_entry_t*)nv_calloc(file->num_entries * sizeof(nvsm_cache_file_entry_t));
   if (file->entries == NULL)
   {
     nv_assert(fclose(cache_file) == 0);
-    nv_assert_and_ret(false, NOVA_ERROR_CODE_MALLOC_FAILED);
+    nv_return_if_fail(false, NV_ERROR_MALLOC_FAILED);
   }
 
   /* we did not read as many entries as the header reported. Maybe the file wasn't written fully when the program terminated. */
   if (fread(file->entries, sizeof(nvsm_cache_file_entry_t), file->num_entries, cache_file) != file->num_entries)
   {
     fclose(cache_file);
-    return NOVA_ERROR_CODE_INVALID_CACHE;
+    return NV_ERROR_CODE_INVALID_CACHE;
   }
 
   fclose(cache_file);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 static inline void
@@ -382,7 +382,7 @@ _nvsm_destroy_cache_file(nvsm_cache_file_t* file)
 {
   if (file->entries)
   {
-    nv_assert_and_ret(file->num_entries != 0, );
+    nv_return_if_fail(file->num_entries != 0, );
     nv_free(file->entries);
   }
 }
@@ -392,7 +392,7 @@ _nvsm_destroy_list_file(nvsm_list_file_t* file)
 {
   if (file->entries)
   {
-    nv_assert_and_ret(file->num_entries != 0, );
+    nv_return_if_fail(file->num_entries != 0, );
     nv_free(file->entries);
   }
 }
@@ -400,10 +400,10 @@ _nvsm_destroy_list_file(nvsm_list_file_t* file)
 nv_errorc
 _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_file_mtime, FILE* out_file)
 {
-  nv_assert_and_ret(file != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(out_file != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(file->num_entries != 0, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(file->entries != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(out_file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(file->num_entries != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(file->entries != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const u32 canary = 0xDEADBEEF;
 
@@ -413,23 +413,23 @@ _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_fi
   fwrite_return = fwrite(&canary, sizeof(u32), 1, out_file);
   if (fwrite_return != 1)
   {
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   fwrite_return = fwrite(&list_file_mtime, sizeof(list_file_mtime), 1, out_file);
   if (fwrite_return != 1)
   {
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   fwrite_return = fwrite(&file->num_entries, sizeof(file->num_entries), 1, out_file);
   if (fwrite_return != 1)
   {
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   nvsm_cache_file_entry_t* cache_converted_entries = (nvsm_cache_file_entry_t*)nv_calloc(sizeof(nvsm_cache_file_entry_t) * file->num_entries);
-  nv_assert_and_ret(cache_converted_entries != NULL, NOVA_ERROR_CODE_MALLOC_FAILED);
+  nv_return_if_fail(cache_converted_entries != NULL, NV_ERROR_MALLOC_FAILED);
 
   for (size_t idx = 0; idx < file->num_entries; idx++)
   {
@@ -445,12 +445,12 @@ _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_fi
 
   if (fwrite(cache_converted_entries, sizeof(nvsm_cache_file_entry_t), file->num_entries, out_file) != file->num_entries)
   {
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   nv_free(cache_converted_entries);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 #ifdef _WIN32
@@ -468,7 +468,9 @@ _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_fi
 static inline void
 create_parent_dirs(const char path[256])
 {
-  char* path_copy      = nv_strdup(nv_allocator_c, NULL, path);
+  char path_copy[256];
+  nv_strlcpy(path_copy, path, sizeof(path_copy));
+
   char* last_separator = nv_strrchr(path_copy, PATH_SEP);
   if (last_separator != NULL)
   {
@@ -496,14 +498,13 @@ create_parent_dirs(const char path[256])
 
     MKDIR(buffer);
   }
-  nv_free(path_copy);
 }
 
 static inline nv_errorc
 _nvsm_dump_shader(const nvsm_spirv_binary_t* bin, const char* out_filename)
 {
-  nv_assert_and_ret(bin != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(out_filename != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(bin != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(out_filename != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   /**
    * Does SDL create parent directories?
@@ -512,37 +513,37 @@ _nvsm_dump_shader(const nvsm_spirv_binary_t* bin, const char* out_filename)
   create_parent_dirs(out_filename);
 
   SDL_RWops* rw = SDL_RWFromFile(out_filename, "wb");
-  nv_assert_and_exec(rw != NULL, nv_log_error("SDL reports %s\n", SDL_GetError()); return NOVA_ERROR_CODE_IO_ERROR;);
+  nv_assert_and_exec(rw != NULL, nv_log_error("SDL reports %s\n", SDL_GetError()); return NV_ERROR_CODE_IO_ERROR;);
 
   if (SDL_RWwrite(rw, bin->words, 1, bin->byte_count) != bin->byte_count)
   {
     nv_log_error("Could not dump SPIRV binary to disk");
-    return NOVA_ERROR_CODE_IO_ERROR;
+    return NV_ERROR_CODE_IO_ERROR;
   }
 
   SDL_RWclose(rw);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 static inline nv_errorc
 _nvsm_read_shader_file_null_terminated(const char* file_path, char** dst, size_t* dst_size)
 {
-  nv_assert_and_ret(file_path != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(dst != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(dst_size != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(file_path != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(dst_size != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   /**
    * SDL_LoadFile null terminates the file data by default, we do not have to do anything
    */
   void* shader_file_data = SDL_LoadFile(file_path, dst_size);
-  nv_assert_and_ret(shader_file_data != NULL, NOVA_ERROR_CODE_IO_ERROR);
-  nv_assert_and_ret(*dst_size != 0, NOVA_ERROR_CODE_IO_ERROR);
+  nv_return_if_fail(shader_file_data != NULL, NV_ERROR_CODE_IO_ERROR);
+  nv_return_if_fail(*dst_size != 0, NV_ERROR_CODE_IO_ERROR);
 
   *dst = (char*)shader_file_data;
   // dst_size is set by sdl
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 glslang_stage_t
@@ -578,19 +579,19 @@ _nvsm_glslang_shader_stage_from_string(const char stage[4])
 static inline nv_errorc
 _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts, const char* spirv_path, const char stage[4], nvsm_spirv_binary_t* bin, bool dump)
 {
-  nv_assert_and_ret(shader_path != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(shader_path != NULL, NV_ERROR_CODE_INVALID_ARG);
   if (dump)
   {
-    nv_assert_and_ret(spirv_path != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+    nv_return_if_fail(spirv_path != NULL, NV_ERROR_CODE_INVALID_ARG);
   }
-  nv_assert_and_ret(stage != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(bin != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(stage != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(bin != NULL, NV_ERROR_CODE_INVALID_ARG);
 
-  nv_errorc code = NOVA_SUCCESS;
+  nv_errorc code = NV_SUCCESS;
 
   char*  shader_source = NULL;
   size_t shader_size   = 0;
-  if ((code = _nvsm_read_shader_file_null_terminated(shader_path, &shader_source, &shader_size)) != NOVA_SUCCESS)
+  if ((code = _nvsm_read_shader_file_null_terminated(shader_path, &shader_source, &shader_size)) != NV_SUCCESS)
   {
     return code;
   }
@@ -612,7 +613,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
   };
 
   glslang_shader_t* shader = glslang_shader_create(&input);
-  nv_assert_and_ret(shader != NULL, NOVA_ERROR_CODE_EXTERNAL);
+  nv_return_if_fail(shader != NULL, NV_ERROR_CODE_EXTERNAL);
 
   *bin = nv_zero_init(nvsm_spirv_binary_t);
 
@@ -623,7 +624,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
     nv_log_error("%s\n", input.code);
     glslang_shader_delete(shader);
-    return NOVA_ERROR_CODE_INVALID_INPUT;
+    return NV_ERROR_CODE_INVALID_INPUT;
   }
 
   if (!glslang_shader_parse(shader, &input))
@@ -633,7 +634,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
     nv_log_error("%s\n", glslang_shader_get_preprocessed_code(shader));
     glslang_shader_delete(shader);
-    return NOVA_ERROR_CODE_INVALID_INPUT;
+    return NV_ERROR_CODE_INVALID_INPUT;
   }
 
   glslang_program_t* program = glslang_program_create();
@@ -646,7 +647,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     nv_log_error("%s\n", glslang_program_get_info_debug_log(program));
     glslang_program_delete(program);
     glslang_shader_delete(shader);
-    return NOVA_ERROR_CODE_INVALID_INPUT;
+    return NV_ERROR_CODE_INVALID_INPUT;
   }
 
   glslang_spv_options_t spirv_options = nv_zero_init(glslang_spv_options_t);
@@ -660,12 +661,14 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
 
   bin->byte_count = glslang_program_SPIRV_get_size(program) * sizeof(uint32_t);
   bin->words      = nv_malloc(bin->byte_count);
+  nv_return_if_fail(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
+
   glslang_program_SPIRV_get(program, bin->words);
 
   const char* spirv_messages = glslang_program_SPIRV_get_messages(program);
   if (spirv_messages)
   {
-    nv_log_info("(%s) %s\b", shader_path, spirv_messages);
+    nv_log_info("(%s) %s\n", shader_path, spirv_messages);
   }
 
   glslang_program_delete(program);
@@ -674,9 +677,9 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
   if (dump)
   {
     code = _nvsm_dump_shader(bin, spirv_path);
-    if (code == NOVA_SUCCESS)
+    if (code == NV_SUCCESS)
     {
-      nv_log_info("%s => %s: dumped\n", shader_path, spirv_path);
+      nv_log_verbose("%s => %s: dumped\n", shader_path, spirv_path);
     }
     else
     {
@@ -684,7 +687,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     }
   }
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 static inline nv_errorc
@@ -696,12 +699,12 @@ _nvsm_default_compile_no_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file)
     compile_options = ctx->custom_options;
   }
 
-  nv_errorc code = NOVA_SUCCESS;
+  nv_errorc code = NV_SUCCESS;
   for (size_t list_i = 0; list_i < list_file->num_entries; list_i++)
   {
     nvsm_list_file_entry_t* list_entry = &list_file->entries[list_i];
 
-    if ((code = _nvsm_compile_shader(list_entry->shader_path, &compile_options, list_entry->spirv_path, list_entry->stage, &list_entry->bin, true)) != NOVA_SUCCESS)
+    if ((code = _nvsm_compile_shader(list_entry->shader_path, &compile_options, list_entry->spirv_path, list_entry->stage, &list_entry->bin, true)) != NV_SUCCESS)
     {
       continue;
     }
@@ -714,7 +717,7 @@ _nvsm_default_compile_no_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file)
 static inline nv_errorc
 _nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, nvsm_cache_file_t* cache_file)
 {
-  nv_errorc code = NOVA_SUCCESS;
+  nv_errorc code = NV_SUCCESS;
 
   nvsm_compile_options_t compile_options = _nvsm_get_default_compile_options();
   if (ctx->enable_custom_spirv_options)
@@ -741,7 +744,7 @@ _nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, n
         {
           /* this is possibly a stupid idea */
           code = read_shader_spirv(list_entry->spirv_path, &list_entry->bin);
-          if (code != NOVA_SUCCESS)
+          if (code != NV_SUCCESS)
           {
             nv_log_error("Failed to read shader %s\n", list_entry->shader_path);
           }
@@ -751,7 +754,7 @@ _nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, n
 
         nv_bzero(&list_entry->bin, sizeof(nvsm_spirv_binary_t));
         code = _nvsm_compile_shader(list_entry->shader_path, &compile_options, list_entry->spirv_path, list_entry->stage, &list_entry->bin, true);
-        if (code != NOVA_SUCCESS)
+        if (code != NV_SUCCESS)
         {
           nv_log_error("Failed to compile shader %s\n", list_entry->shader_path);
         }
@@ -763,7 +766,7 @@ _nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, n
           break;
         }
 
-        code = NOVA_ERROR_CODE_INVALID_CACHE;
+        code = NV_ERROR_CODE_INVALID_CACHE;
       }
     }
 
@@ -777,7 +780,7 @@ _nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, n
 
   /**
    * If the cache has been invalidated, i.e. a shader has been compiled
-   * Then the return code will be NOVA_ERROR_CODE_INVALID_CACHE (because we set it in the loop)
+   * Then the return code will be NV_ERROR_CODE_INVALID_CACHE (because we set it in the loop)
    * This is handled by the caller to induce a cache rebuild, reducing the cases where we would
    * be rebuilding the cache for no reason (no shaders have been modified, so no need to rebuild the cache)
    */
@@ -794,22 +797,22 @@ _generate_and_dump_cache_file(const char* cache_file_dir, const nvsm_list_file_t
   /**
    * This is legal
    * The function handles it.
-   * // nv_assert_and_ret(cache_file_dir != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+   * // nv_return_if_fail(cache_file_dir != NULL, NV_ERROR_CODE_INVALID_ARG);
    */
 
-  nv_assert_and_ret(list_file != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(list_file->entries != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(list_file->num_entries != 0, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(list_file_last_modtime != 0, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(list_file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(list_file->entries != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(list_file->num_entries != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(list_file_last_modtime != 0, NV_ERROR_CODE_INVALID_ARG);
 
   char cache_file_path[256] = {};
   _nvsm_get_cache_file_path(cache_file_dir, cache_file_path);
 
   FILE* generated_cache_file = fopen(cache_file_path, "wb");
-  nv_assert_and_exec(generated_cache_file != NULL, nv_log_error("w:%s fail. %s\n", cache_file_path, strerror(errno)); return NOVA_ERROR_CODE_IO_ERROR;);
+  nv_assert_and_exec(generated_cache_file != NULL, nv_log_error("w:%s fail. %s\n", cache_file_path, strerror(errno)); return NV_ERROR_CODE_IO_ERROR;);
 
   nv_errorc code = _nvsm_generate_and_write_cache_file(list_file, list_file_last_modtime, generated_cache_file);
-  if (code != NOVA_SUCCESS)
+  if (code != NV_SUCCESS)
   {
     fclose(generated_cache_file);
     return code;
@@ -817,13 +820,13 @@ _generate_and_dump_cache_file(const char* cache_file_dir, const nvsm_list_file_t
 
   fclose(generated_cache_file);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 nv_errorc
 nvsm_compile_shaders(nvsm_ctx_t* ctx)
 {
-  nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const char* list_file_path = ctx->list_file;
   if (!list_file_path)
@@ -831,22 +834,22 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
     list_file_path = "Shaders/shaderlist";
   }
 
-  nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
+  nv_errorc code = NV_ERROR_CODE_SUCCESS;
 
   nvsm_list_file_t  list_file  = nv_zero_init(nvsm_list_file_t);
   nvsm_cache_file_t cache_file = nv_zero_init(nvsm_cache_file_t);
 
-  if ((code = _nvsm_load_list_file(ctx, &list_file)) != NOVA_SUCCESS)
+  if ((code = _nvsm_load_list_file(ctx, &list_file)) != NV_SUCCESS)
   {
     return code;
   }
 
   code = _nvsm_load_cache_file(ctx, &cache_file);
 
-  if (code == NOVA_ERROR_CODE_FILE_NOT_FOUND || code == NOVA_ERROR_CODE_INVALID_CACHE)
+  if (code == NV_ERROR_CODE_FILE_NOT_FOUND || code == NV_ERROR_CODE_INVALID_CACHE)
   {
     // continue without cache
-    if ((code = _nvsm_default_compile_no_cache(ctx, &list_file)) != NOVA_SUCCESS)
+    if ((code = _nvsm_default_compile_no_cache(ctx, &list_file)) != NV_SUCCESS)
     {
       return code;
     }
@@ -857,7 +860,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
      */
     _generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, get_last_modified_time(list_file_path));
   }
-  else if (code != NOVA_SUCCESS)
+  else if (code != NV_SUCCESS)
   {
     return code;
   }
@@ -871,7 +874,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
 
     code = _nvsm_default_compile_with_cache(ctx, &list_file, &cache_file);
 
-    if (code != NOVA_ERROR_CODE_INVALID_CACHE && code != NOVA_SUCCESS)
+    if (code != NV_ERROR_CODE_INVALID_CACHE && code != NV_SUCCESS)
     {
       return code;
     }
@@ -890,13 +893,13 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
 
   _nvsm_destroy_list_file(&list_file);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 nv_errorc
 nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 {
-  nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nvsm_compile_options_t compile_options = _nvsm_get_default_compile_options();
   if (ctx->enable_custom_spirv_options)
@@ -905,7 +908,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
   }
 
   /* I do not think this is an error. The iterate function would simply return NULL and we would be out of this function */
-  // nv_assert_and_ret(nv_hashmap_size(&ctx->shader_map) != 0, NOVA_ERROR_CODE_INVALID_ARG);
+  // nv_return_if_fail(nv_hashmap_size(&ctx->shader_map) != 0, NV_ERROR_CODE_INVALID_ARG);
 
   /**
    * Iterate through every list entry and create the shader module for it
@@ -922,15 +925,15 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
       continue;
     }
 
-    nv_errorc code = NOVA_SUCCESS;
+    nv_errorc code = NV_SUCCESS;
 
     if (entry->bin.words == NULL || entry->bin.byte_count == 0)
     {
       code = read_shader_spirv(entry->spirv_path, &entry->bin);
-      if (code != NOVA_SUCCESS)
+      if (code != NV_SUCCESS)
       {
         code = _nvsm_compile_shader(entry->shader_path, &compile_options, entry->spirv_path, entry->stage, &entry->bin, true);
-        if (code != NOVA_SUCCESS)
+        if (code != NV_SUCCESS)
         {
           nv_log_error("Could not compile %s despite best measures.\n", entry->name);
           continue;
@@ -951,30 +954,30 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
     entry->bin.byte_count = 0;
   }
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 nv_errorc
 nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out)
 {
-  nv_assert_and_ret(name != NULL, NOVA_ERROR_CODE_INVALID_ARG);
-  nv_assert_and_ret(out != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(name != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(out != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nvsm_shader_t* entry = nv_hashmap_find(&ctx->shader_map, name, NULL);
   if (!entry)
   {
-    return NOVA_ERROR_CODE_INVALID_RETVAL;
+    return NV_ERROR_CODE_INVALID_RETVAL;
   }
 
   *out = (nvsm_shader_t*)entry;
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 nv_errorc
 nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
 {
-  nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const char* list_file_path = ctx->list_file;
   if (!list_file_path)
@@ -982,16 +985,16 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
     list_file_path = "Shaders/shaderlist";
   }
 
-  nv_errorc code = NOVA_ERROR_CODE_SUCCESS;
+  nv_errorc code = NV_ERROR_CODE_SUCCESS;
 
   nvsm_list_file_t list_file = nv_zero_init(nvsm_list_file_t);
 
-  if ((code = _nvsm_load_list_file(ctx, &list_file)) != NOVA_SUCCESS)
+  if ((code = _nvsm_load_list_file(ctx, &list_file)) != NV_SUCCESS)
   {
     return code;
   }
 
-  if ((code = _nvsm_default_compile_no_cache(ctx, &list_file)) != NOVA_SUCCESS)
+  if ((code = _nvsm_default_compile_no_cache(ctx, &list_file)) != NV_SUCCESS)
   {
     return code;
   }
@@ -1002,7 +1005,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
     _nvsm_get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
     FILE* generated_cache_file = fopen(cache_file_path, "wb");
-    nv_assert_and_ret(generated_cache_file != NULL, NOVA_ERROR_CODE_IO_ERROR);
+    nv_return_if_fail(generated_cache_file != NULL, NV_ERROR_CODE_IO_ERROR);
 
     _nvsm_generate_and_write_cache_file(&list_file, get_last_modified_time(list_file_path), generated_cache_file);
 
@@ -1011,7 +1014,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
 
   _nvsm_destroy_list_file(&list_file);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 VkShaderStageFlags
@@ -1047,25 +1050,25 @@ _nvsm_shader_stage_from_string(const char stage[4])
 nv_errorc
 nvsm_init(nvsm_ctx_t* ctx)
 {
-  nv_assert_and_ret(ctx != NULL, NOVA_ERROR_CODE_INVALID_ARG);
+  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nv_bzero(ctx, sizeof(nvsm_ctx_t));
 
   nv_errorc code = nv_hashmap_init(16, sizeof(const char*), sizeof(nvsm_list_file_entry_t), nv_hash_fnv1a_string, nv_allocator_c, NULL, &ctx->shader_map);
-  if (code != NOVA_SUCCESS)
+  if (code != NV_SUCCESS)
   {
     return code;
   }
 
   ctx->custom_options = _nvsm_get_default_compile_options();
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 void
 nvsm_shutdown(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 {
-  nv_assert_and_ret(ctx != NULL, );
+  nv_return_if_fail(ctx != NULL, );
 
   size_t             _hashmap_iter = 0;
   nv_hashmap_node_t* node          = NULL;

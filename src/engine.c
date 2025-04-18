@@ -24,14 +24,14 @@ float    cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fr
 void
 nv_window_init(const char* window_title, int window_width, int window_height, nv_ctx_t* dst)
 {
-  nv_assert_and_ret(dst != NULL, );
+  nv_return_if_fail(dst != NULL, );
 
   nv_bzero(dst, sizeof(nv_ctx_t));
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
   dst->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-  nv_assert_and_ret(dst->window != NULL, );
+  nv_return_if_fail(dst->window != NULL, );
 
   nv_log_info("Created window (name=%s w=%i h=%i flags=%#x)\n", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
@@ -50,7 +50,7 @@ nv_window_init(const char* window_title, int window_width, int window_height, nv
 void
 nv_window_shutdown(nv_ctx_t* ctx)
 {
-  nv_assert_and_ret(ctx != NULL, );
+  nv_return_if_fail(ctx != NULL, );
 
   SDL_DestroyWindow(ctx->window);
   SDL_Quit();
@@ -872,19 +872,19 @@ str_hash(const void* key1, const void* key2, size_t keysize)
 nv_errorc
 nv_input_init(nv_input_ctx_t* ctx)
 {
-  nv_errorc code = NOVA_SUCCESS;
+  nv_errorc code = NV_SUCCESS;
 
-  if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_c, NULL, &ctx->input_action_mapping)) != NOVA_SUCCESS)
+  if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_c, NULL, &ctx->input_action_mapping)) != NV_SUCCESS)
   {
     return code;
   }
 
-  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_kb_state)) != NOVA_SUCCESS)
+  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_kb_state)) != NV_SUCCESS)
   {
     return code;
   }
 
-  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_last_frame_kb_state)) != NOVA_SUCCESS)
+  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_last_frame_kb_state)) != NV_SUCCESS)
   {
     return code;
   }
@@ -892,7 +892,7 @@ nv_input_init(nv_input_ctx_t* ctx)
   ctx->input_mouse_position            = nv_zero_init(vec2);
   ctx->input_last_frame_mouse_position = nv_zero_init(vec2);
 
-  return NOVA_SUCCESS;
+  return NV_SUCCESS;
 }
 
 void

@@ -61,10 +61,10 @@ nv_gpu_create_command_pool(nv_command_pool_t* pool)
 static inline void
 nv_gpu_create_command_buffers(nv_command_pool_t* pool, nv_command_buffer_t* buffers, size_t nbuffers)
 {
-  nv_assert_and_ret(pool != NULL, );
-  nv_assert_and_ret(pool->handle != NULL, );
-  nv_assert_and_ret(buffers != NULL, );
-  nv_assert_and_ret(nbuffers > 0, );
+  nv_return_if_fail(pool != NULL, );
+  nv_return_if_fail(pool->handle != NULL, );
+  nv_return_if_fail(buffers != NULL, );
+  nv_return_if_fail(nbuffers > 0, );
 
   VkCommandBuffer* cmds = (VkCommandBuffer*)nv_calloc(sizeof(VkCommandBuffer*) * nbuffers);
   nv_assert(cmds != NULL);

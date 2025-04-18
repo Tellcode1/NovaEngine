@@ -1,4 +1,4 @@
-#include "GPU/vk.h"
+#include "GPU/driver.h"
 #include "engine/camera.h"
 #include "engine/ctext.h"
 #include "engine/engine.h"
@@ -8,6 +8,7 @@
 #include "engine/sprite.h"
 #include "std/errorcodes.h"
 #include "std/image.h"
+#include "std/math/vec2.h"
 #include "std/print.h"
 #include "std/props.h"
 #include "std/stdafx.h"
@@ -18,6 +19,34 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include <freetype2/ft2build.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
+
+static inline void
+stuff()
+{
+  FT_Library lib;
+  FT_Face    face;
+  FT_Init_FreeType(&lib);
+  FT_New_Face(lib, "Assets/roboto.ttf", 0, &face);
+
+  FT_Load_Char(face, 'A', FT_LOAD_DEFAULT);
+
+  FT_Outline outline = face->glyph->outline;
+
+  for (size_t i = 0; i < outline.n_contours; i++)
+  {
+    nv_printf("%u ", (u32)outline.contours[i]);
+  }
+  nv_printf("\n");
+  for (size_t i = 0; i < outline.n_points; i++)
+  {
+    nv_printf("%f ", outline.points[i].x, outline.points[i].y);
+  }
+  nv_printf("\n");
+}
 
 static inline const char*
 get_day_str(const struct tm* t)
@@ -31,9 +60,25 @@ get_month_str(const struct tm* t)
   return (const char*[]){ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }[t->tm_mon];
 }
 
+typedef struct bezier_t
+{
+  vec2 p1;
+  vec2 p2;
+  vec2 ctrl;
+} bezier_t;
+
+static inline vec2
+bezier_curve(const bezier_t* bz, flt_t t)
+{
+  nv_return_if_fail(t >= 0 && t < 1, (vec2){});
+  return v2add(bz->p1, v2muls(v2sub(bz->p2, bz->p1), t));
+}
+
 int
 main(int argc, char* argv[])
 {
+  stuff();
+
   char        windowname[64]          = "clocker";
   int         window_width            = 800;
   int         window_height           = 600;
@@ -87,10 +132,16 @@ main(int argc, char* argv[])
   rdconf.multisampling_enable = 0;
   rdconf.samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
 
-  nv_errorc code = NOVA_SUCCESS;
+  nv_errorc code = NV_SUCCESS;
+
+  nvvk_driver_t driver;
+  if ((code = nvvk_driver_init(&nvvkctx, &driver)) != NV_SUCCESS)
+  {
+    return code;
+  }
 
   nv_renderer_t rdr;
-  if ((code = nv_renderer_init(&ctx, &nvvkctx, &nvsmctx, &rdconf, &rdr)) != NOVA_SUCCESS)
+  if ((code = nv_renderer_init(&ctx, &nvsmctx, &driver, &rdconf, &rdr)) != NV_SUCCESS)
   {
     nv_log_error("Fatal error in initializing renderer (error:%s)\n", nv_error_str(code));
     return code;
@@ -115,15 +166,16 @@ main(int argc, char* argv[])
 
   nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
 
-  ctext_load_font(&nvvkctx, &rdr, "Assets/roboto.ttf", 128, &amongus);
+  ctext_load_font(&nvvkctx, &rdr, "Assets/roboto.ttf", 64, &amongus);
 
   nv_sprite_t angwy = nv_zero_init(nv_sprite_t);
-  if ((code = nv_sprite_load_from_disk(&rdr, "/home/arch/Documents/iwanttokms.png", &angwy)) != NOVA_SUCCESS)
+  if ((code = nv_sprite_load_from_disk(&driver, "Assets/i want to die.png", &angwy)) != NV_SUCCESS)
   {
     return code;
   }
 
-  nv_image_t angwy_img = nv_image_load("/home/arch/Documents/iwanttokms.png");
+  nv_image_t angwy_img;
+  nv_image_load("Assets/i want to die.png", &angwy_img);
   nv_image_write_png(&angwy_img, "piss.png");
 
   while (nv_running(&ctx))
@@ -165,6 +217,20 @@ main(int argc, char* argv[])
       clock_info.scale_for_fit            = 1;
       ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
 
+      const bezier_t bz = (bezier_t){
+        .p1   = (vec2){ .x = 0.0F, .y = 0.0F },
+        .p2   = (vec2){ .x = 0.0F, .y = 60.0F },
+        .ctrl = (vec2){ .x = 30.0F, .y = -20.0F },
+      };
+
+      const u32 segs = 32;
+      for (u32 i = 0; i < segs; i++)
+      {
+        const flt_t t   = 1.0F / (flt_t)segs;
+        const vec2  pos = bezier_curve(&bz, t);
+        nv_renderer_render_line(&rdr, (vec2f){ 0.0F, 0.0F }, (vec2f){ pos.x, pos.y }, (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F }, 0);
+      }
+
       nv_renderer_render_quad(
           &rdr,
           &angwy,
@@ -185,6 +251,7 @@ main(int argc, char* argv[])
   nv_input_shutdown(&inputctx);
   nvsm_shutdown(&nvvkctx, &nvsmctx);
   nv_renderer_destroy(&rdr);
+  nvvk_driver_destroy(&driver);
   ctext_destroy_font(&nvvkctx, &amongus);
   nvvk_ctx_destroy(&nvvkctx);
   nv_window_shutdown(&ctx);

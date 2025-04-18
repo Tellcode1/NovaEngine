@@ -12,6 +12,7 @@
 #include "../std/containers/list.h"
 
 #include "../GPU/buffer.h"
+#include "../GPU/sampler.h"
 #include "../GPU/texture.h"
 
 // THE PLAN
@@ -107,9 +108,9 @@ struct cfont_t
 
   // nv_async_task_t load_task;
 
-  nv_gpu_texture  texture;
-  nv_gpu_memory_t texture_mem;
-  nv_gpu_sampler  sampler;
+  nv_gpu_texture    texture;
+  nv_gpu_memory_t   texture_mem;
+  nv_gpu_sampler_t* sampler;
 
   size_t          allocated_size;
   nv_gpu_buffer_t buffer;

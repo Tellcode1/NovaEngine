@@ -4,6 +4,7 @@
 // implementation: vk.c
 
 #include "../GPU/descriptors.h"
+#include "../GPU/sampler.h"
 #include "../GPU/texture.h"
 #include "../std/format.h"
 
@@ -11,7 +12,7 @@ NOVA_HEADER_START
 
 // Renderable sprite
 
-struct nv_renderer_t;
+struct nvvk_driver_t;
 
 typedef struct nv_sprite_t nv_sprite_t;
 
@@ -22,12 +23,12 @@ struct nv_sprite_t
   nv_format            fmt;
   nv_gpu_texture       tex;
   nv_gpu_memory_t      mem;
-  nv_gpu_sampler       sampler;
+  nv_gpu_sampler_t*    sampler;
   nv_descriptor_set_t* set;
 };
 
-extern nv_errorc nv_sprite_load_from_memory(struct nv_renderer_t* rd, const unsigned char* data, size_t w, size_t h, nv_format fmt, nv_sprite_t* dst);
-extern nv_errorc nv_sprite_load_from_disk(struct nv_renderer_t* rd, const char* path, nv_sprite_t* dst);
+extern nv_errorc nv_sprite_load_from_memory(struct nvvk_driver_t* driver, const unsigned char* data, size_t w, size_t h, nv_format fmt, nv_sprite_t* dst);
+extern nv_errorc nv_sprite_load_from_disk(struct nvvk_driver_t* driver, const char* path, nv_sprite_t* dst);
 
 // force destroy
 extern void nv_sprite_destroy(nvvk_ctx_t* nvvkctx, nv_sprite_t* spr);

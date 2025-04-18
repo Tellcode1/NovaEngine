@@ -11,9 +11,10 @@
 
 NOVA_HEADER_START
 
+struct nvvk_driver_t;
+
 /* TODO: redo, this is severely out of date and hacky */
 
-typedef struct nv_gpu_sampler nv_gpu_sampler;
 typedef struct nv_gpu_texture nv_gpu_texture;
 struct nv_renderer_t;
 
@@ -41,15 +42,6 @@ typedef struct nv_gpu_texture_create_info
   int                  miplevels;
 } nv_gpu_texture_create_info;
 
-typedef struct nv_gpu_sampler_create_info
-{
-  VkFilter             filter;
-  VkSamplerMipmapMode  mipmap_mode;
-  VkSamplerAddressMode address_mode;
-  flt_t                max_anisotropy;
-  flt_t                mip_lod_bias, min_lod, max_lod;
-} nv_gpu_sampler_create_info;
-
 struct nv_gpu_texture
 {
   nv_gpu_memory_t* memory;
@@ -68,16 +60,6 @@ struct nv_gpu_texture
   nv_sample_count samples;
 };
 
-struct nv_gpu_sampler
-{
-  VkFilter             filter;
-  VkSamplerMipmapMode  mipmap_mode;
-  VkSamplerAddressMode address_mode;
-  flt_t                max_anisotropy;
-  flt_t                mip_lod_bias, min_lod, max_lod;
-  VkSampler            vksampler;
-};
-
 extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, size_t* w, size_t* h);
 
 extern void nv_gpu_create_texture(nvvk_ctx_t* nvvkctx, const nv_gpu_texture_create_info* pInfo, nv_gpu_texture* dst);
@@ -87,14 +69,10 @@ extern void nv_gpu_texture_attach_view(nv_gpu_texture* tex, VkImageView view);
 extern void nv_gpu_bind_texture_to_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* mem, size_t offset, nv_gpu_texture* tex);
 extern void nv_gpu_destroy_texture(nvvk_ctx_t* nvvkctx, nv_gpu_texture* tex);
 
-/* TODO: Make render device struct. Who the FFKJSLDKFJKSLDJFKLJ passes the entire renderer to create a sampler */
-extern void nv_gpu_create_sampler(struct nv_renderer_t* rd, const nv_gpu_sampler_create_info* pInfo, nv_gpu_sampler* sampler);
-
 extern void nv_gpu_write_to_texture(nvvk_ctx_t* nvvkctx, nv_gpu_texture* tex, const nv_image_t* src);
 
 extern VkImage     nv_gpu_texture_get(const nv_gpu_texture* tex);
 extern VkImageView nv_gpu_texture_get_view(const nv_gpu_texture* tex);
-extern VkSampler   nv_gpu_sampler_get(const nv_gpu_sampler* sampler);
 
 NOVA_HEADER_END
 

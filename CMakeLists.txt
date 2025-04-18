@@ -33,8 +33,6 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 
 find_package(OpenMP REQUIRED)
 
-# Box2D uses C17 but still complains about C11 features.
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition")
 
 # The name of the output
 set(OUTPUT
@@ -44,6 +42,7 @@ set(OUTPUT
 set(SOURCES
     src/engine.c
     src/vk.c
+    src/vkdriver.c
     src/nvsm.c
     src/fontc.c
 )
@@ -92,16 +91,19 @@ set(LIBS
     ${GLSLANG_LIBS}
 )
 
-add_executable(fontc src/fontc.c)
-target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
-target_link_options(fontc PRIVATE ${CFLAGS} -fopenmp)
-target_compile_options(fontc PRIVATE ${LFLAGS} -fopenmp)
-target_link_libraries(fontc nvstd freetype OpenMP::OpenMP_C)
+# Box2D uses C17 but still complains about C11 features.
+target_compile_options(box2d PRIVATE -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition)
 
 target_precompile_headers(Nova PUBLIC ${NOVA_ROOT_DIR}/src/std/stdafx.h)
 target_link_options(Nova PRIVATE ${LFLAGS} -g)
 target_compile_options(Nova PRIVATE ${CFLAGS} -g)
 target_link_libraries(Nova ${LIBS})
+
+add_executable(fontc ${NOVA_ROOT_DIR}/src/fontc.c)
+target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
+target_link_options(fontc PRIVATE ${CFLAGS} -fopenmp)
+target_compile_options(fontc PRIVATE ${LFLAGS} -fopenmp)
+target_link_libraries(fontc nvstd freetype OpenMP::OpenMP_C m)
 
 file(COPY ${NOVA_ROOT_DIR}/src/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
 file(COPY ${NOVA_ROOT_DIR}/src/Shaders DESTINATION ${CMAKE_BINARY_DIR}/)

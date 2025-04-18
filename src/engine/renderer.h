@@ -19,6 +19,7 @@
 
 #include "../GPU/buffer.h"
 #include "../GPU/descriptors.h"
+#include "../GPU/driver.h"
 #include "../GPU/fbf.h"
 #include "../GPU/texture.h"
 #include "../GPU/types.h"
@@ -35,6 +36,7 @@ typedef struct nv_draw_call_t      nv_draw_call_t;
 typedef struct nv_renderer_t       nv_renderer_t;
 
 struct nv_ctx_t;
+struct nvvk_driver_t;
 struct nvsm_ctx_t;
 
 extern nv_descriptor_pool_t g_pool;
@@ -124,8 +126,9 @@ struct nv_draw_call_t
 
 struct nv_renderer_t
 {
-  nv_ctx_t*   ctx;
-  nvvk_ctx_t* nvvkctx;
+  nv_ctx_t*      ctx;
+  nvvk_ctx_t*    nvvkctx;
+  nvvk_driver_t* driver;
 
   unsigned       flags;
   nv_buffer_mode buffer_mode;
@@ -156,9 +159,6 @@ struct nv_renderer_t
   nv_list_t render_data;
   nv_list_t draw_cmd_buffers;
 
-  /* stored to avoid creating one for literally every texture. nv_gpu_sampler** */
-  nv_list_t samplers;
-
   nv_list_t drawcalls;
 
   nv_ctext_module* ctext;
@@ -171,7 +171,7 @@ struct nv_renderer_t
   void* mapped;
 };
 
-extern nv_errorc nv_renderer_init(struct nv_ctx_t* ctx, nvvk_ctx_t* nvvkctx, struct nvsm_ctx_t* nvsmctx, const nv_renderer_config* conf, nv_renderer_t* dst);
+extern nv_errorc nv_renderer_init(struct nv_ctx_t* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
 extern void      nv_renderer_destroy(nv_renderer_t* rd);
 
 extern bool      nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);

@@ -5,9 +5,10 @@
 #include "../std/errorcodes.h"
 #include "../std/format.h"
 #include "../std/stdafx.h"
-#include <vulkan/vulkan_core.h>
 
 NOVA_HEADER_START
+
+typedef uint64_t vk_size_t;
 
 /* Return the result, but if it was handled, return whatever you want. */
 typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE);
@@ -112,30 +113,30 @@ extern void      nvvk_ctx_destroy(nvvk_ctx_t* ctx);
 static inline bool
 nvvk_ctx_is_valid(const nvvk_ctx_t* ctx)
 {
-  nv_assert_and_ret(ctx != NULL, false);
-  nv_assert_and_ret(ctx->instance != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->device != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->phys_device != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->surface != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx != NULL, false);
+  nv_return_if_fail(ctx->instance != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->device != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->phys_device != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->surface != VK_NULL_HANDLE, false);
 
 #ifdef DEBUG
-  nv_assert_and_ret(ctx->debug_messenger != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->debug_messenger != VK_NULL_HANDLE, false);
 #endif
 
-  nv_assert_and_ret(ctx->swap_chain_image_format != NOVA_FORMAT_UNDEFINED, false);
-  nv_assert_and_ret(ctx->swap_chain_color_space != VK_COLOR_SPACE_MAX_ENUM_KHR, false);
-  nv_assert_and_ret(ctx->graphics_queue != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->graphics_and_compute_queue != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->present_queue != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->compute_queue != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->transfer_queue != VK_NULL_HANDLE, false);
-  nv_assert_and_ret(ctx->max_samples != 0, false);
+  nv_return_if_fail(ctx->swap_chain_image_format != NOVA_FORMAT_UNDEFINED, false);
+  nv_return_if_fail(ctx->swap_chain_color_space != VK_COLOR_SPACE_MAX_ENUM_KHR, false);
+  nv_return_if_fail(ctx->graphics_queue != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->graphics_and_compute_queue != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->present_queue != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->compute_queue != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->transfer_queue != VK_NULL_HANDLE, false);
+  nv_return_if_fail(ctx->max_samples != 0, false);
   /* these two are not initialized when this function is first called */
   /*
-    nv_assert_and_ret(ctx->cmd_pool != VK_NULL_HANDLE, false);
-    nv_assert_and_ret(ctx->buffer != VK_NULL_HANDLE, false);
+    nv_return_if_fail(ctx->cmd_pool != VK_NULL_HANDLE, false);
+    nv_return_if_fail(ctx->buffer != VK_NULL_HANDLE, false);
   */
-  nv_assert_and_ret(ctx->result_fn != NULL, false);
+  nv_return_if_fail(ctx->result_fn != NULL, false);
   return true;
 }
 
