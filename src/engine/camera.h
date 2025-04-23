@@ -59,7 +59,7 @@ struct nv_camera_t
   flt_t near_clip;
   flt_t far_clip;
 
-  nv_gpu_buffer_t           ub;
+  nv_gpu_buffer_t   ub;
   nv_gpu_memory_t           mem;
   nv_descriptor_set_t*      sets;
   nv_camera_uniform_buffer* mem_mapped;
@@ -70,7 +70,7 @@ struct nv_camera_t
 };
 
 extern void      nv_camera_destroy(nvvk_ctx_t* nvvkctx, nv_camera_t* cam);
-extern nv_errorc nv_camera_init(nvvk_ctx_t* nvvkctx, nv_camera_t* cam);
+extern nv_errorc nv_camera_init(nvvk_driver_t* driver, nv_camera_t* cam);
 extern mat4      nv_camera_get_projection(nv_camera_t* cam);
 extern mat4      nv_camera_get_view(nv_camera_t* cam);
 extern vec3      nv_camera_get_up_vector(nv_camera_t* cam);

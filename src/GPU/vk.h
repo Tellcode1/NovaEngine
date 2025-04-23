@@ -4,15 +4,20 @@
 // implementation: vk.c
 
 #include "../external/volk/volk.h"
+
 #include "../std/format.h"
 #include "../std/stdafx.h"
 #include "types.h"
 
+#include <SDL2/SDL_vulkan.h>
+
 NOVA_HEADER_START
 
 struct nv_ctx_t;
+struct nvvk_driver_t;
 
 // pointer to allocator
+// TODO: Move this to the vulkan context.
 #ifndef NOVA_VK_ALLOCATOR
 #  define NOVA_VK_ALLOCATOR NULL
 #endif
@@ -34,22 +39,22 @@ extern void nv_vk_create_buffer(
     bool                  externallyAllocated);
 
 /*  */
-extern void nv_vk_stage_buffer_transfer(nvvk_ctx_t* ctx, VkBuffer dst, void* data, size_t size);
+extern void nv_vk_stage_buffer_transfer(struct nvvk_driver_t *driver, VkBuffer dst, void* data, size_t size);
 
 /* src Must be a valid VkCommandBuffer */
 extern VkCommandBuffer nv_vk_begin_command_buffer_from(VkCommandBuffer src);
 
 /* BeginSingleTimeCommands(new CommandBuffer) */
-extern VkCommandBuffer nv_vk_begin_command_buffer(nvvk_ctx_t* ctx);
+extern VkCommandBuffer nv_vk_begin_command_buffer(struct nvvk_driver_t* driver);
 
 /* WARNING: waitForExecution = false implies you take responsibility of freeing the commandBuffer! */
-extern VkResult nv_vk_end_command_buffer(nvvk_ctx_t* ctx, VkCommandBuffer cmd, VkQueue queue, bool waitForExecution);
+extern VkResult nv_vk_end_command_buffer(struct nvvk_driver_t* driver, VkCommandBuffer cmd, VkQueue queue, bool waitForExecution);
 
-extern void nv_vk_stage_image_transfer(nvvk_ctx_t* ctx, VkImage dst, const void* data, size_t width, size_t height, size_t image_size);
+extern void nv_vk_stage_image_transfer(struct nvvk_driver_t* driver, VkImage dst, const void* data, size_t width, size_t height, size_t image_size);
 
-extern void nv_vk_create_texture_from_memory(nvvk_ctx_t* ctx, u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
+extern void nv_vk_create_texture_from_memory(struct nvvk_driver_t* driver, u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem);
 
-extern u8* nv_vk_create_texture_from_disk(nvvk_ctx_t* ctx, const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
+extern u8* nv_vk_create_texture_from_disk(struct nvvk_driver_t* driver, const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem);
 
 extern void nv_vk_create_texture_empty(
     nvvk_ctx_t*           ctx,

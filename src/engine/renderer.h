@@ -17,9 +17,9 @@
 #include "../std/math/vec3.h"
 #include "../std/math/vec4.h"
 
-#include "../GPU/buffer.h"
 #include "../GPU/descriptors.h"
 #include "../GPU/driver.h"
+#include "../GPU/buffer.h"
 #include "../GPU/fbf.h"
 #include "../GPU/texture.h"
 #include "../GPU/types.h"
@@ -166,7 +166,7 @@ struct nv_renderer_t
   // These are used to render all the sprites in the game (quad based sprites
   // that is)
   nv_gpu_buffer_t quad_vb;
-  nv_gpu_memory_t quad_memory;
+  nv_gpu_memory_t         quad_memory;
 
   void* mapped;
 };

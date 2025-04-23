@@ -1,9 +1,13 @@
 #ifndef __NOVA_SHADER_MANAGER_H__
 #define __NOVA_SHADER_MANAGER_H__
 
-#include "../GPU/vkstdafx.h"
+struct nv_shader_resources_t;
+
+#include "../GPU/vk.h"
 #include "../std/containers/hashmap.h"
 #include "../std/stdafx.h"
+
+NOVA_HEADER_START
 
 /**
  * We're incorporating the glslang project into nvsm
@@ -39,8 +43,6 @@
  *  size_t list file mod time
  *  u32    number of entries
  */
-
-NOVA_HEADER_START
 
 /**
  * @brief The file where the "cache" is stored. The cache contains the hashes for the shader name and the shader's current path
@@ -159,7 +161,7 @@ struct nvsm_ctx_t
   const char* shader_compiler;
 
   /**
-   * "-V" is appended to this list. You do need to add it yourself.
+   * "-V" is appended to this list. You do not need to add it yourself.
    */
   const char* shader_compiler_args;
 
@@ -189,6 +191,9 @@ struct nvsm_list_file_entry_t
   char                shader_path[256];
   char                spirv_path[256];
   char                name[256];
+
+  size_t                        num_resources;
+  struct nv_shader_resources_t* resources;
 };
 
 /**

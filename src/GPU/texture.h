@@ -69,7 +69,7 @@ extern void nv_gpu_texture_attach_view(nv_gpu_texture* tex, VkImageView view);
 extern void nv_gpu_bind_texture_to_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* mem, size_t offset, nv_gpu_texture* tex);
 extern void nv_gpu_destroy_texture(nvvk_ctx_t* nvvkctx, nv_gpu_texture* tex);
 
-extern void nv_gpu_write_to_texture(nvvk_ctx_t* nvvkctx, nv_gpu_texture* tex, const nv_image_t* src);
+extern void nv_gpu_write_to_texture(struct nvvk_driver_t* driver, nv_gpu_texture* tex, const nv_image_t* src);
 
 extern VkImage     nv_gpu_texture_get(const nv_gpu_texture* tex);
 extern VkImageView nv_gpu_texture_get_view(const nv_gpu_texture* tex);

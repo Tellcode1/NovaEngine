@@ -2,21 +2,23 @@
 #include "GPU/pipeline.h"
 #include "GPU/types.h"
 #include "GPU/vk.h"
-#include "GPU/vkstdafx.h"
-#include "glslang/Include/glslang_c_shader_types.h"
 #include "std/alloc.h"
 #include "std/containers/hashmap.h"
 #include "std/errorcodes.h"
 #include "std/hash.h"
 #include "std/stdafx.h"
 #include "std/string.h"
-#include <stdio.h>
+
+#include "GPU/shaderresource.h"
+#include "external/spirv_reflect/spirv_reflect.h"
 
 /* Go to the programmatic interface C (new) section of the page at https://github.com/KhronosGroup/glslang/ */
 #include "external/glslang/glslang/Include/glslang_c_interface.h"
+#include "external/glslang/glslang/Include/glslang_c_shader_types.h"
 #include "external/glslang/glslang/Public/resource_limits_c.h"
 
 #include <SDL2/SDL_rwops.h>
+#include <stdio.h>
 
 glslang_stage_t _nvsm_glslang_shader_stage_from_string(const char stage[4]);
 
@@ -53,7 +55,7 @@ _nvsm_get_cache_file_path(const char* cache_file_dir, char buffer[256])
    * Too many bytes to fit on the buffer
    * Is invalid arg correct here?
    */
-  nv_return_if_fail(nv_strlen(cache_file_dir) < 256, );
+  nv_assert_else_return(nv_strlen(cache_file_dir) < 256, );
 
   nv_strlcpy(buffer, cache_file_dir, 256);
   nv_strlcat(buffer, NVSM_CACHE_FILENAME, 256);
@@ -130,15 +132,15 @@ was_file_modified(const char* filepath, size_t saved_mtime)
 size_t
 count_file_lines(FILE* fp)
 {
-  const size_t buffer_size = 256;
-  nv_assert(buffer_size <= __INT_MAX__);
-
-  char   buffer[256];
   size_t count = 0;
 
-  while (fgets(buffer, (int)buffer_size, fp) != NULL)
+  int chr = 0;
+  while ((chr = fgetc(fp)) != EOF)
   {
-    count++;
+    if (chr == '\n')
+    {
+      count++;
+    }
   }
 
   return count;
@@ -147,7 +149,7 @@ count_file_lines(FILE* fp)
 size_t
 get_file_max_line_length(FILE* file)
 {
-  nv_return_if_fail(file != NULL, 0);
+  nv_assert_else_return(file != NULL, 0);
 
   size_t largest = 0, current = 0;
   int    chr;
@@ -207,7 +209,7 @@ read_shader_spirv(const char* spirv_path, nvsm_spirv_binary_t* bin)
   }
 
   bin->words = (uint32_t*)nv_calloc(bin->byte_count);
-  nv_return_if_fail(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
+  nv_assert_else_return(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
 
   /* SDL_RWread returns 0 if an error occured or if the entire stream was read. */
   if (SDL_RWread(rw, (void*)bin->words, 1, bin->byte_count) == 0)
@@ -226,8 +228,8 @@ read_shader_spirv(const char* spirv_path, nvsm_spirv_binary_t* bin)
 nv_errorc
 _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(file != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const char* list_file_path = ctx->list_file;
   if (!list_file_path)
@@ -236,10 +238,10 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
   }
 
   FILE* list_file = fopen(list_file_path, "r");
-  nv_return_if_fail(list_file != NULL, NV_ERROR_CODE_FILE_NOT_FOUND);
+  nv_assert_else_return(list_file != NULL, NV_ERROR_CODE_FILE_NOT_FOUND);
 
   size_t max_line_len = get_file_max_line_length(list_file);
-  nv_return_if_fail(max_line_len != 0, NV_ERROR_CODE_IO_ERROR);
+  nv_assert_else_return(max_line_len != 0, NV_ERROR_CODE_IO_ERROR);
   if (fseek(list_file, 0, SEEK_SET) != 0)
   {
     nv_log_error("IO error: %s\n", strerror(errno));
@@ -247,7 +249,7 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
   }
 
   size_t num_lines_list_file = count_file_lines(list_file);
-  nv_return_if_fail(num_lines_list_file != 0, NV_ERROR_CODE_IO_ERROR);
+  nv_assert_else_return(num_lines_list_file != 0, NV_ERROR_CODE_IO_ERROR);
 
   if (fseek(list_file, 0, SEEK_SET) != 0)
   {
@@ -255,16 +257,16 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
     return NV_ERROR_CODE_IO_ERROR;
   }
 
-  /* may be wrong (some lines may be garbage), so it is correctly set after the loop */
+  /* may be wrong (some lines may be garbage/empty), so it is correctly set after the loop */
   file->num_entries = num_lines_list_file;
 
   file->entries = (nvsm_list_file_entry_t*)nv_calloc(num_lines_list_file * sizeof(nvsm_list_file_entry_t));
-  nv_return_if_fail(file->entries != NULL, NV_ERROR_MALLOC_FAILED);
+  nv_assert_else_return(file->entries != NULL, NV_ERROR_MALLOC_FAILED);
 
   char* line = nv_calloc(max_line_len + 1);
-  nv_return_if_fail(line != NULL, NV_ERROR_MALLOC_FAILED);
+  nv_assert_else_return(line != NULL, NV_ERROR_MALLOC_FAILED);
 
-  nv_return_if_fail(max_line_len <= __INT_MAX__, NV_ERROR_CODE_INVALID_INPUT);
+  nv_assert_else_return(max_line_len <= __INT_MAX__, NV_ERROR_CODE_INVALID_INPUT);
 
   size_t idx = 0;
   while (fgets(line, (int)max_line_len + 1, list_file) != NULL)
@@ -306,12 +308,12 @@ _nvsm_load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
 nv_errorc
 _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(file != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   if (ctx->cache_file_dir)
   {
-    nv_return_if_fail(nv_strlen(ctx->cache_file_dir) < 256, NV_ERROR_CODE_INVALID_ARG);
+    nv_assert_else_return(nv_strlen(ctx->cache_file_dir) < 256, NV_ERROR_CODE_INVALID_ARG);
   }
 
   char cache_file_path[256] = {};
@@ -362,7 +364,7 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   if (file->entries == NULL)
   {
     nv_assert(fclose(cache_file) == 0);
-    nv_return_if_fail(false, NV_ERROR_MALLOC_FAILED);
+    nv_assert_else_return(false, NV_ERROR_MALLOC_FAILED);
   }
 
   /* we did not read as many entries as the header reported. Maybe the file wasn't written fully when the program terminated. */
@@ -382,7 +384,7 @@ _nvsm_destroy_cache_file(nvsm_cache_file_t* file)
 {
   if (file->entries)
   {
-    nv_return_if_fail(file->num_entries != 0, );
+    nv_assert_else_return(file->num_entries != 0, );
     nv_free(file->entries);
   }
 }
@@ -392,7 +394,7 @@ _nvsm_destroy_list_file(nvsm_list_file_t* file)
 {
   if (file->entries)
   {
-    nv_return_if_fail(file->num_entries != 0, );
+    nv_assert_else_return(file->num_entries != 0, );
     nv_free(file->entries);
   }
 }
@@ -400,10 +402,10 @@ _nvsm_destroy_list_file(nvsm_list_file_t* file)
 nv_errorc
 _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_file_mtime, FILE* out_file)
 {
-  nv_return_if_fail(file != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(out_file != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(file->num_entries != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(file->entries != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(out_file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(file->num_entries != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(file->entries != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const u32 canary = 0xDEADBEEF;
 
@@ -429,7 +431,7 @@ _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_fi
   }
 
   nvsm_cache_file_entry_t* cache_converted_entries = (nvsm_cache_file_entry_t*)nv_calloc(sizeof(nvsm_cache_file_entry_t) * file->num_entries);
-  nv_return_if_fail(cache_converted_entries != NULL, NV_ERROR_MALLOC_FAILED);
+  nv_assert_else_return(cache_converted_entries != NULL, NV_ERROR_MALLOC_FAILED);
 
   for (size_t idx = 0; idx < file->num_entries; idx++)
   {
@@ -503,8 +505,8 @@ create_parent_dirs(const char path[256])
 static inline nv_errorc
 _nvsm_dump_shader(const nvsm_spirv_binary_t* bin, const char* out_filename)
 {
-  nv_return_if_fail(bin != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(out_filename != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(bin != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(out_filename != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   /**
    * Does SDL create parent directories?
@@ -529,16 +531,16 @@ _nvsm_dump_shader(const nvsm_spirv_binary_t* bin, const char* out_filename)
 static inline nv_errorc
 _nvsm_read_shader_file_null_terminated(const char* file_path, char** dst, size_t* dst_size)
 {
-  nv_return_if_fail(file_path != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(dst_size != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(file_path != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(dst_size != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   /**
    * SDL_LoadFile null terminates the file data by default, we do not have to do anything
    */
   void* shader_file_data = SDL_LoadFile(file_path, dst_size);
-  nv_return_if_fail(shader_file_data != NULL, NV_ERROR_CODE_IO_ERROR);
-  nv_return_if_fail(*dst_size != 0, NV_ERROR_CODE_IO_ERROR);
+  nv_assert_else_return(shader_file_data != NULL, NV_ERROR_CODE_IO_ERROR);
+  nv_assert_else_return(*dst_size != 0, NV_ERROR_CODE_IO_ERROR);
 
   *dst = (char*)shader_file_data;
   // dst_size is set by sdl
@@ -579,13 +581,13 @@ _nvsm_glslang_shader_stage_from_string(const char stage[4])
 static inline nv_errorc
 _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts, const char* spirv_path, const char stage[4], nvsm_spirv_binary_t* bin, bool dump)
 {
-  nv_return_if_fail(shader_path != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(shader_path != NULL, NV_ERROR_CODE_INVALID_ARG);
   if (dump)
   {
-    nv_return_if_fail(spirv_path != NULL, NV_ERROR_CODE_INVALID_ARG);
+    nv_assert_else_return(spirv_path != NULL, NV_ERROR_CODE_INVALID_ARG);
   }
-  nv_return_if_fail(stage != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(bin != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(stage != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(bin != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nv_errorc code = NV_SUCCESS;
 
@@ -613,7 +615,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
   };
 
   glslang_shader_t* shader = glslang_shader_create(&input);
-  nv_return_if_fail(shader != NULL, NV_ERROR_CODE_EXTERNAL);
+  nv_assert_else_return(shader != NULL, NV_ERROR_CODE_EXTERNAL);
 
   *bin = nv_zero_init(nvsm_spirv_binary_t);
 
@@ -661,7 +663,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
 
   bin->byte_count = glslang_program_SPIRV_get_size(program) * sizeof(uint32_t);
   bin->words      = nv_malloc(bin->byte_count);
-  nv_return_if_fail(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
+  nv_assert_else_return(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
 
   glslang_program_SPIRV_get(program, bin->words);
 
@@ -797,13 +799,13 @@ _generate_and_dump_cache_file(const char* cache_file_dir, const nvsm_list_file_t
   /**
    * This is legal
    * The function handles it.
-   * // nv_return_if_fail(cache_file_dir != NULL, NV_ERROR_CODE_INVALID_ARG);
+   * // nv_assert_else_return(cache_file_dir != NULL, NV_ERROR_CODE_INVALID_ARG);
    */
 
-  nv_return_if_fail(list_file != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(list_file->entries != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(list_file->num_entries != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(list_file_last_modtime != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(list_file != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(list_file->entries != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(list_file->num_entries != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(list_file_last_modtime != 0, NV_ERROR_CODE_INVALID_ARG);
 
   char cache_file_path[256] = {};
   _nvsm_get_cache_file_path(cache_file_dir, cache_file_path);
@@ -826,7 +828,7 @@ _generate_and_dump_cache_file(const char* cache_file_dir, const nvsm_list_file_t
 nv_errorc
 nvsm_compile_shaders(nvsm_ctx_t* ctx)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const char* list_file_path = ctx->list_file;
   if (!list_file_path)
@@ -899,7 +901,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
 nv_errorc
 nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nvsm_compile_options_t compile_options = _nvsm_get_default_compile_options();
   if (ctx->enable_custom_spirv_options)
@@ -908,7 +910,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
   }
 
   /* I do not think this is an error. The iterate function would simply return NULL and we would be out of this function */
-  // nv_return_if_fail(nv_hashmap_size(&ctx->shader_map) != 0, NV_ERROR_CODE_INVALID_ARG);
+  // nv_assert_else_return(nv_hashmap_size(&ctx->shader_map) != 0, NV_ERROR_CODE_INVALID_ARG);
 
   /**
    * Iterate through every list entry and create the shader module for it
@@ -948,7 +950,9 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
     };
     nvvk_result_check(*nvvkctx, vkCreateShaderModule(nvvkctx->device, &info, NOVA_VK_ALLOCATOR, &entry->module));
 
-    // // TODO: Do we need to maintain the SPIRV?
+    entry->resources = nv_shader_resources_extract(entry->bin.words, entry->bin.byte_count, &entry->num_resources);
+
+    // TODO: Do we need to maintain the SPIRV?
     nv_free((void*)entry->bin.words);
     entry->bin.words      = NULL;
     entry->bin.byte_count = 0;
@@ -960,8 +964,8 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 nv_errorc
 nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out)
 {
-  nv_return_if_fail(name != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(out != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(name != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(out != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nvsm_shader_t* entry = nv_hashmap_find(&ctx->shader_map, name, NULL);
   if (!entry)
@@ -977,7 +981,7 @@ nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out)
 nv_errorc
 nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   const char* list_file_path = ctx->list_file;
   if (!list_file_path)
@@ -1005,7 +1009,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
     _nvsm_get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
     FILE* generated_cache_file = fopen(cache_file_path, "wb");
-    nv_return_if_fail(generated_cache_file != NULL, NV_ERROR_CODE_IO_ERROR);
+    nv_assert_else_return(generated_cache_file != NULL, NV_ERROR_CODE_IO_ERROR);
 
     _nvsm_generate_and_write_cache_file(&list_file, get_last_modified_time(list_file_path), generated_cache_file);
 
@@ -1050,7 +1054,7 @@ _nvsm_shader_stage_from_string(const char stage[4])
 nv_errorc
 nvsm_init(nvsm_ctx_t* ctx)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nv_bzero(ctx, sizeof(nvsm_ctx_t));
 
@@ -1068,7 +1072,7 @@ nvsm_init(nvsm_ctx_t* ctx)
 void
 nvsm_shutdown(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 {
-  nv_return_if_fail(ctx != NULL, );
+  nv_assert_else_return(ctx != NULL, );
 
   size_t             _hashmap_iter = 0;
   nv_hashmap_node_t* node          = NULL;
@@ -1079,7 +1083,80 @@ nvsm_shutdown(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
     {
       vkDestroyShaderModule(nvvkctx->device, entry->module, NOVA_VK_ALLOCATOR);
     }
+    if (entry->resources != NULL && entry->num_resources > 0)
+    {
+      for (size_t i = 0; i < entry->num_resources; i++)
+      {
+        nv_shader_resources_t* resource = &entry->resources[i];
+        nv_free((void*)resource->name);
+      }
+      nv_free(entry->resources);
+    }
   }
 
   nv_hashmap_destroy(&ctx->shader_map);
+}
+
+nv_shader_resource_type
+_nv_shader_resources_type_spv_reflect_type(SpvReflectDescriptorType type)
+{
+  switch (type)
+  {
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return NV_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER: return NV_SHADER_RESOURCE_TYPE_STORAGE_BUFFER;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: return NV_SHADER_RESOURCE_TYPE_COMBINED_IMAGE_SAMPLER;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE: return NV_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE: return NV_SHADER_RESOURCE_TYPE_STORAGE_IMAGE;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER: return NV_SHADER_RESOURCE_TYPE_SAMPLER;
+    default: return NV_SHADER_RESOURCE_TYPE_UNKNOWN;
+  }
+}
+
+nv_shader_resources_t*
+nv_shader_resources_extract(const u32* spirv_data, size_t spirv_size, size_t* out_count)
+{
+  nv_assert_else_return(spirv_data != NULL, NULL);
+  nv_assert_else_return(spirv_size != 0, NULL);
+  nv_assert_else_return(out_count != NULL, NULL);
+
+  SpvReflectShaderModule module;
+  SpvReflectResult       result = spvReflectCreateShaderModule(spirv_size, spirv_data, &module);
+  if (result != SPV_REFLECT_RESULT_SUCCESS)
+  {
+    *out_count = 0;
+    return NULL;
+  }
+
+  u32 binding_count = 0;
+  spvReflectEnumerateDescriptorBindings(&module, &binding_count, NULL);
+
+  if (binding_count == 0)
+  {
+    spvReflectDestroyShaderModule(&module);
+    *out_count = 0;
+    return NULL;
+  }
+
+  SpvReflectDescriptorBinding** bindings = nv_malloc(sizeof(SpvReflectDescriptorBinding*) * binding_count);
+  spvReflectEnumerateDescriptorBindings(&module, &binding_count, bindings);
+
+  nv_shader_resources_t* resources = nv_malloc(sizeof(nv_shader_resources_t) * binding_count);
+  nv_memset(resources, 0, sizeof(nv_shader_resources_t) * binding_count);
+
+  for (size_t i = 0; i < binding_count; i++)
+  {
+    SpvReflectDescriptorBinding* binding = bindings[i];
+
+    resources[i].name         = nv_strdup(nv_allocator_c, NULL, binding->name);
+    resources[i].set          = binding->set;
+    resources[i].binding      = binding->binding;
+    resources[i].type         = _nv_shader_resources_type_spv_reflect_type(binding->descriptor_type);
+    resources[i].array_length = binding->count;
+  }
+
+  *out_count = (size_t)binding_count;
+
+  nv_free(bindings);
+  spvReflectDestroyShaderModule(&module);
+  return resources;
 }

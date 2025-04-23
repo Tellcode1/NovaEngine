@@ -1,75 +1,199 @@
-#ifndef __NOVA_BUFFER_H__
-#define __NOVA_BUFFER_H__
-
-// implementation: vk.c
+#ifndef __NOVA_GPU_BUFFER_H__
+#define __NOVA_GPU_BUFFER_H__
 
 #include "../std/stdafx.h"
-#include "memory.h"
-#include "vk.h"
+#include "newmemory.h"
+#include "types.h"
 
 NOVA_HEADER_START
 
-// This is mainly here to bar the user from using unsupported buffer types
-// Their values correspond to the Vulkan counterparts, for now.
-// A convert function will be added to allow Nova to have things like Single use buffers
-// for temporary data parsing that will be managed internally.
-typedef enum nv_gpu_buffer_type_bits
-{
-  NOVA_GPU_BUFFER_USAGE_VERTEX_BUFFER        = 128,
-  NOVA_GPU_BUFFER_USAGE_INDEX_BUFFER         = 64,
-  NOVA_GPU_BUFFER_USAGE_UNIFORM_BUFFER       = 16,
-  NOVA_GPU_BUFFER_USAGE_STORAGE_BUFFER       = 32,
-  NOVA_GPU_BUFFER_USAGE_TRANSFER_SOURCE      = 1,
-  NOVA_GPU_BUFFER_USAGE_TRANSFER_DESTINATION = 2,
-  NOVA_GPU_BUFFER_USAGE_INDIRECT_BUFFER      = 256,
-} nv_gpu_buffer_type_bits;
-typedef uint32_t nv_gpu_buffer_usage;
+struct nvvk_driver_t;
+struct nv_gpu_memory_t;
 
-typedef struct nv_gpu_buffer_t
-{
-  VkBuffer buffer;
-  void*    mapping; // For nv_gpu_write_to_buffer()
-  bool     is_mapped;
-  // The size of the buffer
-  // Even if there are multiple children, this gives only the size of ONE buffer
-  size_t              size, offset;
-  size_t              alignment;
-  nv_gpu_memory_t*    memory;
-  nv_gpu_buffer_usage usage;
-} nv_gpu_buffer_t;
-
-extern void nv_gpu_create_buffer(nvvk_ctx_t* nvvkctx, size_t size, size_t alignment, nv_gpu_buffer_usage usage, nv_gpu_buffer_t* dst);
-extern void nv_gpu_destroy_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer);
-
-// Open the buffer for writing.
-// Writing must still be done through the nv_gpu_write_to_buffer() function
-// However, mapped writes will be much faster as nv_gpu_write_to_buffer() will map the buffer memory multiple times
-// When only once to write is needed
-extern void nv_gpu_map_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer);
-
-extern void nv_gpu_unmap_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer);
-
-extern void nv_gpu_write_to_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer, size_t size, const void* data, size_t offset);
-
-extern void nv_gpu_resize_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* buffer, nv_gpu_memory_t* memory, size_t new_size);
+#ifndef NOVA_VK_DRIVER_BUFFER_REGION_SAMPLE_TIME_INTERVAL_SECONDS
+/**
+ * The time interval that the driver uses to measure the average reads and writes to a region.
+ */
+#  define NOVA_VK_DRIVER_BUFFER_REGION_SAMPLE_TIME_INTERVAL_SECONDS 10.0F
+#endif
 
 /**
- * @brief Copy the contents of a buffer to the other
+ * A buffer from which 'regions' can be allocated.
+ * These regions can contain similar data which changes on similar frequencies.
+ * Or to allow for multiple smaller buffers to take host on a single VkBuffer instance.
+ *
+ * This is an interface over a simple memory allocator.
  */
-extern void nv_gpu_copy_buffer(nvvk_ctx_t* nvvkctx, nv_gpu_buffer_t* dst, const nv_gpu_buffer_t* src);
+typedef struct nv_gpu_buffer_t nv_gpu_buffer_t;
 
-// Note: Memory must be able to hold all the buffers!
-// You can get the size of the memory by just looking up the size of one buffer
-// and then multiplying it with the count.
-extern void nv_gpu_bind_buffer_to_memory(nvvk_ctx_t* nvvkctx, nv_gpu_memory_t* mem, size_t offset, nv_gpu_buffer_t* buffer);
+typedef u32 nv_gpu_buffer_flags;
+typedef enum nv_gpu_buffer_flags_bits
+{
+  /**
+   * The data stored in the buffer is REQUIRED.
+   * This typically means that the buffer is accessed externally (not by the nv_gpu API) and the driver
+   * won't skip or delay unneeded transfers.
+   * Disables many optimizations by the driver.
+   */
+  NV_GPU_BUFFER_VOLATILE_BIT = 1 << 0,
 
-extern size_t nv_gpu_get_buffer_size(const nv_gpu_buffer_t* buffer);
+  /**
+   * The data in the buffer does not matter, it is only used as an intermediary
+   * So, the driver can use this buffer when the user isn't using it to provide for
+   * other buffers without creating new ones.
+   * NOTE: Volatility doesn't apply to other buffers that are swapped out to this buffer. Only this buffer is affected.
+   */
+  NV_GPU_BUFFER_TRANSIENT_BIT = 1 << 1,
 
-// src must be atleast the size of the buffer
-extern void nv_gpu_buffer_readback(nvvk_ctx_t* nvvkctx, const nv_gpu_buffer_t* buffer, void* src);
+  /**
+   * The buffer is resizable as needed.
+   * If the buffer is non transient, then the data from the old buffer is copied over
+   * If the buffer is non volatile, transfers may be outright avoided or delayed until necessary.
+   * Note that this does not mean that regions in the buffer may resize, only that the parent buffer can resize or not.
+   */
+  NV_GPU_BUFFER_RESIZABLE_BIT = 1 << 2,
 
-// extern NVAsync_Context nv_GPU_BufferReadbackAsync(const nv_GPU_Buffer *buffer, void *src);
+  /**
+   * The memory can be read back to the CPU side from the GPU.
+   */
+  NV_GPU_BUFFER_READBACK_OPTIMAL_BIT = 1 << 3,
+
+  /**
+   * The buffer is *cabable* of providing vertices to the GPU
+   * Note that this doesn't mean that the buffer is necessarily a providing vertices to the GPU currently.
+   */
+  NV_GPU_BUFFER_VERTEX_BUFFER_BIT = 1 << 4,
+
+  NV_GPU_BUFFER_INDEX_BUFFER_BIT = 1 << 5,
+
+  /**
+   * Shader storage buffer. Generally used for compute workloads and output
+   */
+  NV_GPU_BUFFER_SS_BUFFER_BIT = 1 << 6,
+
+  /**
+   * The buffer is visible to the CPU, i.e. the CPU has fast writing access to the buffer.
+   */
+  NV_GPU_BUFFER_CPU_VISIBLE = 1 << 7,
+
+  /**
+   * Implies CPU visiblity (obviously.)
+   */
+  NV_GPU_BUFFER_PERSISTENT_MAPPED = (1 << 8) | NV_GPU_BUFFER_CPU_VISIBLE,
+
+  /**
+   * A uniform buffer. Support has yet to be added for dynamic uniform buffers.
+   * Uniform buffers imply persistent mapping.
+   */
+  NV_GPU_BUFFER_UNIFORM_BUFFER_BIT = (1 << 9) | NV_GPU_BUFFER_PERSISTENT_MAPPED,
+
+} nv_gpu_buffer_flags_bits;
+
+struct nv_gpu_buffer_t
+{
+  /* everything in this struct is readonly! */
+
+  struct nvvk_driver_t* driver;
+
+  u64 user_data; // read/write
+
+  nv_gpu_buffer_flags flags;
+
+  /* The total (aligned) size of this buffer */
+  vk_size_t size;
+
+  size_t alignment;
+
+  /* The VkBuffer handle */
+  VkBuffer buffer;
+
+  VkDeviceMemory memory;
+
+  /* Driver stored information. Do not modify! */
+
+  // whether the buffer has been detroyed or not
+  bool drv_destroyed;
+
+  /**
+   * if the buffer is in use by anything.
+   * note that this isn't really accurate, its set even if the buffer is just in a recording
+   * that hasn't been submit.
+   * Note that this is always set if the buffer is volatile.
+   */
+  bool drv_in_use;
+
+  /**
+   * Whether the buffer can ONLY be used for a transfer.
+   * So, a VkBuffer is almost never created and instead the driver will just use this flag
+   * and use another buffer for transfers when needed. However, if no buffer is free for
+   * transfers when it was needed, then a new buffer is created and this flag is NOT SET.
+   */
+  bool drv_transfer_only;
+
+  /**
+   * If the buffer is a transfer only buffer, then this contains a pointer to the actual
+   * buffer being used.
+   */
+  void* drv_payload;
+
+  /**
+   * Really only used for uniform buffers || Persistent mapped buffers
+   */
+  void*     drv_mapped;
+  vk_size_t drv_mapped_size;   // the size of the mapping
+  vk_size_t drv_mapped_offset; // the offset of the mapping
+
+  /* A backing for mapping transient buffers, CPU side */
+  void*     drv_write_cache;
+  vk_size_t drv_write_cache_size;
+  vk_size_t drv_write_cache_offset;
+};
+
+/**
+ * The contents of the buffer will NOT be initialized
+ */
+extern nv_errorc nv_gpu_buffer_init(struct nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst);
+extern void      nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer);
+
+/**
+ * Note that writes to the buffer aren't visible immediately.
+ * This is more so a limitation of every graphics API.
+ * TODO: write only when needed.
+ */
+extern nv_errorc nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset);
+
+/**
+ * It's perfectly valid to try to map persisten buffers
+ * The mapping will just contain the buffer's mapping with the offset
+ * Reading from a transient buffer is undefined. Only writing is valid.
+ * TODO: Add optimizations to mapping like asynchronous-ty
+ */
+extern nv_errorc nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void** mapping);
+
+/**
+ * It is illegal to try to unmap persistent buffers
+ */
+extern nv_errorc nv_gpu_buffer_unmap_memory(nv_gpu_buffer_t* buffer);
+
+extern nv_errorc nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer);
+
+/**
+ * Note that dst must have been allocated with atleast 'size' bytes of memory.
+ * Also, it is legal to read back a non readback optimized buffer. It'll just be slow.
+ * And no, the driver won't notice you're reading back a non optimized buffer and replace it.
+ * By defualt, this function will wait for the readback to finish. An asynchronous function is yet to be implemented.
+ * It is illegal to read back a transient buffer.
+ * TODO: cache heavily read back buffers and just return that.
+ */
+extern nv_errorc nv_gpu_buffer_readback(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst);
+
+extern nv_errorc nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_bytes, vk_size_t dst_offset, vk_size_t src_offset);
+
+/**
+ * Flush all writes to the buffer from the cache to the GPU.
+ */
+extern void _nv_gpu_buffer_flush_writes_if_any(nv_gpu_buffer_t* buffer);
 
 NOVA_HEADER_END
 
-#endif //__NOVA_BUFFER_H__
+#endif //__NOVA_GPU_BUFFER_H__

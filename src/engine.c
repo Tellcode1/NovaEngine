@@ -24,14 +24,14 @@ float    cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fr
 void
 nv_window_init(const char* window_title, int window_width, int window_height, nv_ctx_t* dst)
 {
-  nv_return_if_fail(dst != NULL, );
+  nv_assert_else_return(dst != NULL, );
 
   nv_bzero(dst, sizeof(nv_ctx_t));
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
   dst->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-  nv_return_if_fail(dst->window != NULL, );
+  nv_assert_else_return(dst->window != NULL, );
 
   nv_log_info("Created window (name=%s w=%i h=%i flags=%#x)\n", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
@@ -50,7 +50,7 @@ nv_window_init(const char* window_title, int window_width, int window_height, nv
 void
 nv_window_shutdown(nv_ctx_t* ctx)
 {
-  nv_return_if_fail(ctx != NULL, );
+  nv_assert_else_return(ctx != NULL, );
 
   SDL_DestroyWindow(ctx->window);
   SDL_Quit();

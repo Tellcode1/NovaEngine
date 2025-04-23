@@ -43,9 +43,12 @@ stuff()
   nv_printf("\n");
   for (size_t i = 0; i < outline.n_points; i++)
   {
-    nv_printf("%f ", outline.points[i].x, outline.points[i].y);
+    nv_printf("%l %l", outline.points[i].x, outline.points[i].y);
   }
   nv_printf("\n");
+
+  FT_Done_Face(face);
+  FT_Done_FreeType(lib);
 }
 
 static inline const char*
@@ -70,7 +73,7 @@ typedef struct bezier_t
 static inline vec2
 bezier_curve(const bezier_t* bz, flt_t t)
 {
-  nv_return_if_fail(t >= 0 && t < 1, (vec2){});
+  nv_assert_else_return(t >= 0 && t < 1, (vec2){});
   return v2add(bz->p1, v2muls(v2sub(bz->p2, bz->p1), t));
 }
 
@@ -250,9 +253,9 @@ main(int argc, char* argv[])
 
   nv_input_shutdown(&inputctx);
   nvsm_shutdown(&nvvkctx, &nvsmctx);
+  ctext_destroy_font(&nvvkctx, &amongus);
   nv_renderer_destroy(&rdr);
   nvvk_driver_destroy(&driver);
-  ctext_destroy_font(&nvvkctx, &amongus);
   nvvk_ctx_destroy(&nvvkctx);
   nv_window_shutdown(&ctx);
 }

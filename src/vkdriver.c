@@ -1,9 +1,12 @@
 #include "GPU/driver.h"
 
-#include "GPU/dynamicbuffer.h"
+// #include "GPU/allocator.h"
+#include "GPU/buffer.h"
+#include "GPU/memory.h"
+#include "GPU/newmemory.h"
 #include "GPU/pipeline.h"
-// #include "GPU/texture.h"
 #include "GPU/types.h"
+#include "GPU/vk.h"
 #include "GPU/vk_buffer_freelist.h"
 
 #include "engine/camera.h"
@@ -18,14 +21,14 @@
 static inline bool
 has_flag(u32 flags, u32 want)
 {
-  return (flags & want) == 0;
+  return (flags & want);
 }
 
 nv_errorc
 nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst)
 {
-  nv_return_if_fail(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(ctx != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   nv_bzero(dst, sizeof(nvvk_driver_t));
 
@@ -34,11 +37,19 @@ nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst)
   nv_errorc code = NV_SUCCESS;
 
   /* NOTE: POINTERS. We're storing POINTERS */
-  code = nv_list_init(sizeof(nv_gpu_dynamic_buffer_t*), 16, nv_allocator_c, NULL, &dst->buffers);
-  nv_return_if_fail(code == NV_SUCCESS, code);
+  code = nv_list_init(sizeof(nv_gpu_buffer_t*), 16, nv_allocator_c, NULL, &dst->buffers);
+  nv_assert_else_return(code == NV_SUCCESS, code);
 
   code = nv_list_init(sizeof(nv_gpu_sampler_t), 16, nv_allocator_c, NULL, &dst->samplers);
-  nv_return_if_fail(code == NV_SUCCESS, code);
+  nv_assert_else_return(code == NV_SUCCESS, code);
+
+  code = nv_gpu_buffer_init(
+      dst, NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE, NOVA_GPU_SMALL_TRANSFER_BUFFER_ALIGNMENT, NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS, &dst->small_transfer_buffer);
+  nv_assert_else_return(code == NV_SUCCESS, code);
+
+  code = nv_gpu_buffer_init(
+      dst, NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE, NOVA_GPU_LARGE_TRANSFER_BUFFER_ALIGNMENT, NOVA_GPU_LARGE_TRANSFER_BUFFER_CREATE_FLAGS, &dst->large_transfer_buffer);
+  nv_assert_else_return(code == NV_SUCCESS, code);
 
   return NV_SUCCESS;
 }
@@ -68,14 +79,17 @@ nvvk_driver_destroy(nvvk_driver_t* driver)
   nv_list_destroy(&driver->buffers);
   nv_list_destroy(&driver->samplers);
 
+  nv_gpu_buffer_destroy(&driver->small_transfer_buffer);
+  nv_gpu_buffer_destroy(&driver->large_transfer_buffer);
+
   nv_bzero(driver, sizeof(nvvk_driver_t));
 }
 
 nv_errorc
 nv_gpu_buffer_freelist_init(vk_size_t capacity, nv_gpu_buffer_freelist_t* dst)
 {
-  nv_return_if_fail(capacity != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(capacity != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
 
   dst->head = nv_calloc(sizeof(nv_gpu_buffer_freelist_block_t));
   if (!dst->head)
@@ -93,7 +107,7 @@ nv_gpu_buffer_freelist_init(vk_size_t capacity, nv_gpu_buffer_freelist_t* dst)
 void
 nv_gpu_buffer_freelist_destroy(nv_gpu_buffer_freelist_t* list)
 {
-  nv_return_if_fail(list != NULL, );
+  nv_assert_else_return(list != NULL, );
 
   nv_gpu_buffer_freelist_block_t* cur = list->head;
   while (cur)
@@ -183,7 +197,7 @@ void
 nv_gpu_buffer_freelist_free(nv_gpu_buffer_freelist_t* list, vk_size_t offset, vk_size_t size)
 {
   nv_gpu_buffer_freelist_block_t* block = nv_malloc(sizeof(nv_gpu_buffer_freelist_block_t));
-  nv_return_if_fail(block != NULL, );
+  nv_assert_else_return(block != NULL, );
 
   block->offset = offset;
   block->size   = size;
@@ -193,34 +207,29 @@ nv_gpu_buffer_freelist_free(nv_gpu_buffer_freelist_t* list, vk_size_t offset, vk
   coalesce(list);
 }
 
-static inline nv_gpu_dynamic_buffer_t*
+static inline nv_gpu_buffer_t*
 _get_buffer_for_transfer(nvvk_driver_t* driver, vk_size_t size)
 {
-  nv_return_if_fail(driver != NULL, NULL);
-  nv_return_if_fail(size != 0, NULL);
+  nv_assert_else_return(driver != NULL, NULL);
+  nv_assert_else_return(size != 0, NULL);
 
-  nv_gpu_dynamic_buffer_t* best_fit      = NULL;
-  vk_size_t                best_size_fit = __INT_MAX__;
-
-  for (size_t i = 0; i < nv_list_size(&driver->buffers); i++)
+  if (size <= NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE && !driver->small_transfer_buffer.drv_in_use)
   {
-    nv_gpu_dynamic_buffer_t* buffer = (nv_gpu_dynamic_buffer_t*)nv_list_get(&driver->buffers, i);
-
-    if (buffer->drv_transfer_only && !buffer->drv_in_use && buffer->size < best_size_fit)
-    {
-      best_fit      = buffer;
-      best_size_fit = buffer->size;
-    }
+    return &driver->small_transfer_buffer;
+  }
+  else if (size <= driver->large_transfer_buffer.size && !driver->large_transfer_buffer.drv_in_use)
+  {
+    return &driver->large_transfer_buffer;
   }
 
-  return best_fit;
+  return NULL;
 }
 
 //  const vk_size_t aligned_size = ALIGN_UP(size, alignment);
 //
-//  if (has_flag(flags, NV_GPU_DYNAMIC_BUFFER_SINGLE_TIME_TRANSFER_BIT))
+//  if (has_flag(flags, NV_GPU_BUFFER_SINGLE_TIME_TRANSFER_BIT))
 //  {
-//    nv_gpu_dynamic_buffer_t* transfer_buffer = _get_buffer_for_transfer(driver, aligned_size);
+//    nv_gpu_buffer_t* transfer_buffer = _get_buffer_for_transfer(driver, aligned_size);
 //
 //    if (transfer_buffer)
 //    {
@@ -246,15 +255,15 @@ _get_buffer_for_transfer(nvvk_driver_t* driver, vk_size_t size)
 //  switch (flags)
 //  {
 //    /* This needs both src and transfer bits because when resizing, we copy from the buffer SRC to the new one that needs the DST */
-//    case NV_GPU_DYNAMIC_BUFFER_RESIZABLE_BIT: vk_buffer_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
+//    case NV_GPU_BUFFER_RESIZABLE_BIT: vk_buffer_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
 //
 //    /* TODO: Implement */
-//    case NV_GPU_DYNAMIC_BUFFER_TRANSIENT_BIT: vk_buffer_flags |= 0;
+//    case NV_GPU_BUFFER_TRANSIENT_BIT: vk_buffer_flags |= 0;
 //
 //    /* Readbacks need transfer_src bit because we transfer to a temporary buffer, map it and copy the data over */
-//    case NV_GPU_DYNAMIC_BUFFER_READBACK_CAPABLE_BIT:
+//    case NV_GPU_BUFFER_READBACK_CAPABLE_BIT:
 //    /* This needs only the src bit because it's on host coherent memory  */
-//    case NV_GPU_DYNAMIC_BUFFER_SINGLE_TIME_TRANSFER_BIT: vk_buffer_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+//    case NV_GPU_BUFFER_SINGLE_TIME_TRANSFER_BIT: vk_buffer_flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 //  }
 //
 //  VkMemoryAllocateFlags vk_property_flags = 0;
@@ -286,41 +295,41 @@ _get_buffer_for_transfer(nvvk_driver_t* driver, vk_size_t size)
 //  return NV_SUCCESS;
 
 static inline VkBufferUsageFlags
-_nv_to_vk_buffer_usage(nv_gpu_dynamic_buffer_flags flags)
+_nv_to_vk_buffer_usage(nv_gpu_buffer_flags flags)
 {
   VkBufferUsageFlags usage = 0;
 
-  // Volatile buffer: accessed externally, must always be up-to-date
-  if (flags & NV_GPU_DYNAMIC_BUFFER_VOLATILE_BIT)
+  // volatile accessed externally, must always be up-to-date
+  if (flags & NV_GPU_BUFFER_VOLATILE_BIT)
   {
     // or any usage that implies frequent access
     usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   }
 
-  if (flags & NV_GPU_DYNAMIC_BUFFER_TRANSIENT_BIT)
+  if (flags & NV_GPU_BUFFER_TRANSIENT_BIT)
   {
     usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
   }
 
   // needs to support GPU -> CPU transfers
-  if (flags & NV_GPU_DYNAMIC_BUFFER_READBACK_CAPABLE_BIT)
+  if (flags & NV_GPU_BUFFER_READBACK_OPTIMAL_BIT)
   {
-    usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
   }
 
-  if (flags & NV_GPU_DYNAMIC_BUFFER_VERTEX_BUFFER_BIT)
+  if (flags & NV_GPU_BUFFER_VERTEX_BUFFER_BIT)
   {
     usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
   }
-  if (flags & NV_GPU_DYNAMIC_BUFFER_INDEX_BUFFER_BIT)
+  if (flags & NV_GPU_BUFFER_INDEX_BUFFER_BIT)
   {
     usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
   }
-  if (flags & NV_GPU_DYNAMIC_BUFFER_SS_BUFFER_BIT)
+  if (flags & NV_GPU_BUFFER_SS_BUFFER_BIT)
   {
     usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   }
-  if (flags & NV_GPU_DYNAMIC_BUFFER_UNIFORM_BUFFER_BIT)
+  if (flags & NV_GPU_BUFFER_UNIFORM_BUFFER_BIT)
   {
     usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
   }
@@ -330,34 +339,37 @@ _nv_to_vk_buffer_usage(nv_gpu_dynamic_buffer_flags flags)
     usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   }
 
+  /* The driver needs this to perform many operations */
+  usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
   return usage;
 }
 
 static inline VkMemoryPropertyFlags
-_nv_to_vk_memory_properties(nv_gpu_dynamic_buffer_flags flags)
+_nv_to_vk_memory_properties(nv_gpu_buffer_flags flags)
 {
   VkMemoryPropertyFlags props = 0;
 
   // readback requires CPU visible memory
-  if (flags & NV_GPU_DYNAMIC_BUFFER_READBACK_CAPABLE_BIT)
+  if (flags & NV_GPU_BUFFER_READBACK_OPTIMAL_BIT)
   {
     props |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
   }
 
-  if (flags & NV_GPU_DYNAMIC_BUFFER_PERSISTENT_MAPPED)
+  if (flags & NV_GPU_BUFFER_PERSISTENT_MAPPED)
   {
     props |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
   }
 
   // transient/volatile buffers are often best in device-local memory
   /* Vertex, index and SS buffers need to be in device local memory. */
-  if ((flags & NV_GPU_DYNAMIC_BUFFER_TRANSIENT_BIT) || (flags & NV_GPU_DYNAMIC_BUFFER_VOLATILE_BIT) || (flags & NV_GPU_DYNAMIC_BUFFER_VERTEX_BUFFER_BIT)
-      || (flags & NV_GPU_DYNAMIC_BUFFER_INDEX_BUFFER_BIT) || (flags & NV_GPU_DYNAMIC_BUFFER_SS_BUFFER_BIT))
+  if ((flags & NV_GPU_BUFFER_TRANSIENT_BIT) || (flags & NV_GPU_BUFFER_VOLATILE_BIT) || (flags & NV_GPU_BUFFER_VERTEX_BUFFER_BIT) || (flags & NV_GPU_BUFFER_INDEX_BUFFER_BIT)
+      || (flags & NV_GPU_BUFFER_SS_BUFFER_BIT))
   {
     props |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   }
 
-  if (flags & NV_GPU_DYNAMIC_BUFFER_CPU_VISIBLE)
+  if (flags & NV_GPU_BUFFER_CPU_VISIBLE)
   {
     props |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
   }
@@ -372,13 +384,13 @@ _nv_to_vk_memory_properties(nv_gpu_dynamic_buffer_flags flags)
 }
 
 nv_errorc
-nv_gpu_dynamic_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_dynamic_buffer_flags flags, nv_gpu_dynamic_buffer_t* dst)
+nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst)
 {
-  nv_return_if_fail(driver != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(size != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(driver != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(size != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
 
-  nv_bzero(dst, sizeof(nv_gpu_dynamic_buffer_t));
+  nv_bzero(dst, sizeof(nv_gpu_buffer_t));
 
   const vk_size_t aligned_size = ALIGN_UP(size, alignment);
 
@@ -390,31 +402,32 @@ nv_gpu_dynamic_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignme
   buffer_info.size               = aligned_size;
   buffer_info.usage              = vk_buffer_flags;
   nvvk_result_check(*driver->ctx, vkCreateBuffer(driver->ctx->device, &buffer_info, NOVA_VK_ALLOCATOR, &dst->buffer));
-  nv_return_if_fail(dst->buffer != VK_NULL_HANDLE, NV_ERROR_CODE_EXTERNAL);
+  nv_assert_else_return(dst->buffer != VK_NULL_HANDLE, NV_ERROR_CODE_EXTERNAL);
 
   VkMemoryRequirements memory_requirements;
   vkGetBufferMemoryRequirements(driver->ctx->device, dst->buffer, &memory_requirements);
-  nv_return_if_fail(memory_requirements.size != 0, NV_ERROR_CODE_EXTERNAL);
-  nv_return_if_fail(memory_requirements.alignment != 0, NV_ERROR_CODE_EXTERNAL);
+  nv_assert_else_return(memory_requirements.size != 0, NV_ERROR_CODE_EXTERNAL);
+  nv_assert_else_return(memory_requirements.alignment != 0, NV_ERROR_CODE_EXTERNAL);
 
   VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = memory_requirements.size;
   allocInfo.memoryTypeIndex      = nv_vk_get_mem_type(driver->ctx, memory_requirements.memoryTypeBits, vk_property_flags);
   nvvk_result_check(*driver->ctx, vkAllocateMemory(driver->ctx->device, &allocInfo, NOVA_VK_ALLOCATOR, &dst->memory));
-  nv_return_if_fail(dst->memory != VK_NULL_HANDLE, NV_ERROR_CODE_EXTERNAL);
+  nv_assert_else_return(dst->memory != VK_NULL_HANDLE, NV_ERROR_CODE_EXTERNAL);
 
   nvvk_result_check(*driver->ctx, vkBindBufferMemory(driver->ctx->device, dst->buffer, dst->memory, 0));
 
   dst->size      = memory_requirements.size;
   dst->alignment = memory_requirements.alignment;
   dst->flags     = flags;
+  dst->driver    = driver;
 
-  if (flags & NV_GPU_DYNAMIC_BUFFER_PERSISTENT_MAPPED)
+  if (flags & NV_GPU_BUFFER_PERSISTENT_MAPPED)
   {
     VkResult result = vkMapMemory(driver->ctx->device, dst->memory, 0, size, 0, &dst->drv_mapped);
-    nv_return_if_fail(result == VK_SUCCESS, NV_ERROR_CODE_EXTERNAL);
-    nv_return_if_fail(dst->drv_mapped != NULL, NV_ERROR_CODE_EXTERNAL);
+    nv_assert_else_return(result == VK_SUCCESS, NV_ERROR_CODE_EXTERNAL);
+    nv_assert_else_return(dst->drv_mapped != NULL, NV_ERROR_CODE_EXTERNAL);
 
     dst->drv_mapped_size   = size;
     dst->drv_mapped_offset = 0;
@@ -424,7 +437,7 @@ nv_gpu_dynamic_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignme
 }
 
 void
-nv_gpu_dynamic_buffer_destroy(nv_gpu_dynamic_buffer_t* buffer)
+nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer)
 {
   if (!buffer)
   {
@@ -433,128 +446,173 @@ nv_gpu_dynamic_buffer_destroy(nv_gpu_dynamic_buffer_t* buffer)
 
   nvvk_ctx_t* ctx = buffer->driver->ctx;
 
+  vkDeviceWaitIdle(ctx->device);
+
   vkDestroyBuffer(ctx->device, buffer->buffer, NULL);
   vkFreeMemory(ctx->device, buffer->memory, NULL);
 }
 
 static inline nv_errorc
-_nv_transfer_to_cpu_visible_buffer(nv_gpu_dynamic_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset)
+_nv_transfer_to_cpu_visible_buffer(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset)
 {
-  VkDevice device  = buffer->driver->ctx->device;
-  void*    mapping = NULL;
+  void*     mapping = NULL;
+  nv_errorc code    = NV_SUCCESS;
 
-  VkResult map_result = vkMapMemory(device, buffer->memory, offset, data_size, 0, &mapping);
-  if (map_result != VK_SUCCESS)
+  code = nv_gpu_buffer_map_memory(buffer, data_size, offset, &mapping);
+  if (!code)
   {
-    return NV_ERROR_CODE_EXTERNAL;
+    return code;
   }
 
   nv_memcpy(mapping, data, data_size);
 
-  VkMappedMemoryRange range = {
-    .sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-    .memory = buffer->memory,
-    .offset = offset,
-    .size   = data_size,
-  };
-  vkFlushMappedMemoryRanges(device, 1, &range);
-
-  vkUnmapMemory(device, buffer->memory);
+  if (!(buffer->flags & NV_GPU_BUFFER_PERSISTENT_MAPPED))
+  {
+    code = nv_gpu_buffer_unmap_memory(buffer);
+    if (!code)
+    {
+      return code;
+    }
+  }
 
   return NV_SUCCESS;
 }
 
 static inline nv_errorc
-_nv_stage_transfer_to_buffer(nv_gpu_dynamic_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset)
+_nv_stage_transfer_to_buffer(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset)
 {
-  nvvk_ctx_t* const nvvkctx = buffer->driver->ctx;
+  nvvk_driver_t* const driver = buffer->driver;
+  nv_errorc            code   = NV_SUCCESS;
 
-  nv_gpu_buffer_t staging_buffer;
-  nv_gpu_create_buffer(nvvkctx, data_size, NOVA_GPU_ALIGNMENT_UNNECESSARY, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &staging_buffer);
-
-  nv_gpu_memory_t staging_memory;
-  nv_gpu_allocate_memory(nvvkctx, data_size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE | NOVA_GPU_MEMORY_USAGE_CPU_COHERENT, &staging_memory);
-
-  nv_gpu_bind_buffer_to_memory(nvvkctx, &staging_memory, 0, &staging_buffer);
-
-  void* mapped = NULL;
-  nv_gpu_map_memory(nvvkctx, &staging_memory, data_size, 0, &mapped);
-  nv_memcpy(mapped, data, data_size);
-  nv_gpu_unmap_memory(nvvkctx, &staging_memory);
-
-  VkCommandBuffer cmd = nv_vk_begin_command_buffer(nvvkctx);
-
-  VkBufferCopy copy = {
-    .srcOffset = 0,
-    .dstOffset = offset,
-    .size      = data_size,
-  };
-  vkCmdCopyBuffer(cmd, staging_buffer.buffer, buffer->buffer, 1, &copy);
-
-  if (nv_vk_end_command_buffer(buffer->driver->ctx, cmd, nvvkctx->graphics_queue, 1) != VK_SUCCESS)
+  if ((buffer->size + offset) < NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE)
   {
-    nv_log_error("Failed to write data to GPU buffer\n");
-    return NV_ERROR_CODE_BROKEN_STATE;
+    nv_log_info("Small transfer(=%zu) cached\n", data_size);
+    code = nv_gpu_buffer_write_data(&driver->small_transfer_buffer, data, data_size, 0);
+    if (!code)
+    {
+      return code;
+    }
+
+    code = nv_gpu_buffer_copy(&driver->small_transfer_buffer, buffer, data_size, offset, 0);
+    if (!code)
+    {
+      return code;
+    }
+  }
+  else if ((buffer->size + offset) < NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE)
+  {
+    nv_log_info("Large transfer(=%zu) cached\n", data_size);
+    code = nv_gpu_buffer_write_data(&driver->large_transfer_buffer, data, data_size, 0);
+    if (!code)
+    {
+      return code;
+    }
+
+    code = nv_gpu_buffer_copy(&driver->large_transfer_buffer, buffer, data_size, offset, 0);
+    if (!code)
+    {
+      return code;
+    }
   }
 
   return NV_SUCCESS;
 }
 
 nv_errorc
-nv_gpu_dynamic_buffer_write_data(nv_gpu_dynamic_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset)
+nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset)
 {
-  nv_return_if_fail(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(data != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(data_size != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(offset <= buffer->size, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(data != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(data_size != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(offset <= buffer->size, NV_ERROR_CODE_INVALID_ARG);
 
-  if (buffer->flags & NV_GPU_DYNAMIC_BUFFER_CPU_VISIBLE)
-  {
-    return _nv_transfer_to_cpu_visible_buffer(buffer, data, data_size, offset);
-  }
+  // if (buffer->flags & NV_GPU_BUFFER_CPU_VISIBLE)
+  // {
+  //   return _nv_transfer_to_cpu_visible_buffer(buffer, data, data_size, offset);
+  // }
 
-  _nv_stage_transfer_to_buffer(buffer, data, data_size, offset);
-
-  return NV_SUCCESS;
+  return _nv_stage_transfer_to_buffer(buffer, data, data_size, offset);
 }
 
 nv_errorc
-nv_gpu_dynamic_buffer_map_memory(nv_gpu_dynamic_buffer_t* buffer, vk_size_t size, vk_size_t offset, void** mapping)
+nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void** mapping)
 {
-  nv_return_if_fail(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(size != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(offset < buffer->size, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(has_flag(buffer->flags, NV_GPU_DYNAMIC_BUFFER_CPU_VISIBLE) == true, NV_ERROR_CODE_INVALID_ARG);
-
-  /* If we're already mapped and the current mapping isn't out of bounds of the request */
-  if ((buffer->flags & NV_GPU_DYNAMIC_BUFFER_CPU_VISIBLE) && buffer->drv_mapped != NULL && buffer->drv_mapped_size >= size && buffer->drv_mapped_offset <= offset)
-  {
-    *mapping = (unsigned char*)buffer->drv_mapped + offset;
-    return NV_SUCCESS;
-  }
+  nv_assert_else_return(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(size != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(offset < buffer->size, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(has_flag(buffer->flags, NV_GPU_BUFFER_CPU_VISIBLE) == true, NV_ERROR_CODE_INVALID_ARG);
 
   VkDevice device = buffer->driver->ctx->device;
 
+  /* If we're already mapped and the current mapping isn't out of bounds of the request */
+  if ((buffer->flags & NV_GPU_BUFFER_PERSISTENT_MAPPED) && buffer->drv_mapped != NULL)
+  {
+    if (buffer->drv_mapped_size >= size && buffer->drv_mapped_offset <= offset)
+    {
+      *mapping = (unsigned char*)buffer->drv_mapped + offset;
+      return NV_SUCCESS;
+    }
+    else
+    {
+      /* The current size is out of bounds, unmap it and map it again */
+      vkUnmapMemory(device, buffer->memory);
+
+      buffer->drv_mapped        = NULL;
+      buffer->drv_mapped_size   = size;
+      buffer->drv_mapped_offset = offset;
+    }
+  }
+  /**
+   * The buffer is transient, we won't be reading from it
+   * We just create a backing cache and let the user write to that and flush that
+   * to the GPU memory when needed.
+   */
+  else if (buffer->flags & NV_GPU_BUFFER_TRANSIENT_BIT)
+  {
+    if (!buffer->drv_write_cache || buffer->drv_write_cache == 0 || (buffer->drv_write_cache_size + buffer->drv_write_cache_offset) >= buffer->size)
+    {
+      buffer->drv_write_cache        = nv_calloc(size);
+      buffer->drv_write_cache_size   = size;
+      buffer->drv_write_cache_offset = offset;
+
+      nv_assert_else_return(buffer->drv_write_cache != NULL, NV_ERROR_MALLOC_FAILED);
+
+      *mapping = buffer->drv_write_cache;
+
+      return NV_SUCCESS;
+    }
+    else
+    {
+      /* trying to map the buffer twice */
+      return NV_ERROR_CODE_INVALID_OPERATION;
+    }
+  }
+
   /* being CPU visible is an assertion */
-  VkResult result = vkMapMemory(device, buffer->memory, 0, size, 0, &buffer->drv_mapped);
-  nv_return_if_fail(result == VK_SUCCESS, NV_ERROR_CODE_EXTERNAL);
-  nv_return_if_fail(buffer->drv_mapped != NULL, NV_ERROR_CODE_EXTERNAL);
+  VkResult result = vkMapMemory(device, buffer->memory, offset, size, 0, &buffer->drv_mapped);
+  nv_assert_else_return(result == VK_SUCCESS, NV_ERROR_CODE_EXTERNAL);
+  nv_assert_else_return(buffer->drv_mapped != NULL, NV_ERROR_CODE_EXTERNAL);
 
   buffer->drv_mapped_size   = size;
   buffer->drv_mapped_offset = offset;
 
+  *mapping = buffer->drv_mapped;
+
   return NV_SUCCESS;
 }
 
 nv_errorc
-nv_gpu_dynamic_buffer_unmap_memory(nv_gpu_dynamic_buffer_t* buffer)
+nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer)
 {
-  nv_return_if_fail(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(buffer->drv_mapped_size != 0, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(buffer->drv_mapped_offset < buffer->size, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(has_flag(buffer->flags, NV_GPU_DYNAMIC_BUFFER_PERSISTENT_MAPPED) == false, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer->drv_mapped_size != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer->drv_mapped_offset < buffer->size, NV_ERROR_CODE_INVALID_ARG);
 
-  VkDevice device = buffer->driver->ctx->device;
+  if (buffer->flags & NV_GPU_BUFFER_TRANSIENT_BIT && buffer->drv_write_cache != NULL && buffer->drv_write_cache_size > 0)
+  {
+    nv_errorc code = _nv_stage_transfer_to_buffer(buffer, buffer->drv_write_cache, buffer->drv_write_cache_size, buffer->drv_write_cache_offset);
+    return code;
+  }
 
   /* because we never really have host_coherent_bit in vk flags, we must always flush the memory */
   VkMappedMemoryRange range = {
@@ -563,7 +621,37 @@ nv_gpu_dynamic_buffer_unmap_memory(nv_gpu_dynamic_buffer_t* buffer)
     .offset = buffer->drv_mapped_offset,
     .size   = buffer->drv_mapped_size,
   };
-  vkFlushMappedMemoryRanges(device, 1, &range);
+  vkFlushMappedMemoryRanges(buffer->driver->ctx->device, 1, &range);
+
+  return NV_SUCCESS;
+}
+
+nv_errorc
+nv_gpu_buffer_unmap_memory(nv_gpu_buffer_t* buffer)
+{
+  nv_assert_else_return(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer->drv_mapped_size != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer->drv_mapped_offset < buffer->size, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(has_flag(buffer->flags, NV_GPU_BUFFER_PERSISTENT_MAPPED) == false, NV_ERROR_CODE_INVALID_ARG);
+
+  VkDevice device = buffer->driver->ctx->device;
+
+  if (buffer->flags & NV_GPU_BUFFER_TRANSIENT_BIT)
+  {
+    nv_errorc code = nv_gpu_buffer_flush_mapped_memory(buffer);
+
+    buffer->drv_write_cache        = NULL;
+    buffer->drv_write_cache_size   = 0;
+    buffer->drv_write_cache_offset = 0;
+
+    return code;
+  }
+
+  nv_errorc code = nv_gpu_buffer_flush_mapped_memory(buffer);
+  if (code != NV_SUCCESS)
+  {
+    return code;
+  }
 
   vkUnmapMemory(device, buffer->memory);
 
@@ -575,57 +663,58 @@ nv_gpu_dynamic_buffer_unmap_memory(nv_gpu_dynamic_buffer_t* buffer)
 }
 
 static inline nv_errorc
-_readback_buffer_staged(nv_gpu_dynamic_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst)
+_readback_buffer_staged(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst)
 {
-  if (!(_nv_to_vk_buffer_usage(buffer->flags) & VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-  {
-    /* TODO: work around? */
-    nv_log_error("Cannot readback from buffer that is not transfer source\n");
-    return NV_ERROR_CODE_INVALID_ARG;
-  }
+  // if (!(_nv_to_vk_buffer_usage(buffer->flags) & VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
+  // {
+  //   /* TODO: work around? */
+  //   nv_log_error("Cannot readback from buffer that is not transfer source\n");
+  //   return NV_ERROR_CODE_INVALID_ARG;
+  // }
 
-  nvvk_ctx_t* nvvkctx = buffer->driver->ctx;
+  // nvvk_ctx_t* nvvkctx = buffer->driver->ctx;
 
-  nv_gpu_buffer_t staging;
-  nv_gpu_memory_t staging_mem;
-  nv_gpu_create_buffer(nvvkctx, buffer->size, NOVA_GPU_ALIGNMENT_UNNECESSARY, NOVA_GPU_BUFFER_USAGE_TRANSFER_DESTINATION, &staging);
-  nv_gpu_allocate_memory(nvvkctx, buffer->size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE, &staging_mem);
-  nv_gpu_bind_buffer_to_memory(nvvkctx, &staging_mem, 0, &staging);
+  // nv_gpu_buffer_t staging;
+  // nv_gpu_memory_t staging_mem;
+  // nv_gpu_create_buffer(nvvkctx, buffer->size, NOVA_GPU_ALIGNMENT_UNNECESSARY, NOVA_GPU_BUFFER_USAGE_TRANSFER_DESTINATION, &staging);
+  // nv_gpu_allocate_memory(nvvkctx, buffer->size, NOVA_GPU_MEMORY_USAGE_CPU_VISIBLE, &staging_mem);
+  // nv_gpu_bind_buffer_to_memory(nvvkctx, &staging_mem, 0, &staging);
 
-  VkCommandBuffer cmd = nv_vk_begin_command_buffer(nvvkctx);
+  // VkCommandBuffer cmd = nv_vk_begin_command_buffer(nvvkctx);
 
-  VkBufferCopy copy = { .srcOffset = offset, .dstOffset = 0, .size = size };
-  vkCmdCopyBuffer(cmd, buffer->buffer, staging.buffer, 1, &copy);
+  // VkBufferCopy copy = { .srcOffset = offset, .dstOffset = 0, .size = size };
+  // vkCmdCopyBuffer(cmd, buffer->buffer, staging.buffer, 1, &copy);
 
-  nv_vk_end_command_buffer(nvvkctx, cmd, nvvkctx->transfer_queue, 1);
+  // nv_vk_end_command_buffer(nvvkctx, cmd, nvvkctx->transfer_queue, 1);
 
-  void* mapped = NULL;
-  nv_gpu_map_memory(nvvkctx, &staging_mem, buffer->size, 0, &mapped);
-  nv_assert(mapped != NULL);
-  nv_memcpy(dst, mapped, buffer->size);
-  nv_gpu_unmap_memory(nvvkctx, &staging_mem);
+  // void* mapped = NULL;
+  // nv_gpu_map_memory(nvvkctx, &staging_mem, buffer->size, 0, &mapped);
+  // nv_assert(mapped != NULL);
+  // nv_memcpy(dst, mapped, buffer->size);
+  // nv_gpu_unmap_memory(nvvkctx, &staging_mem);
 
-  nv_gpu_destroy_buffer(nvvkctx, &staging);
-  nv_gpu_free_memory(nvvkctx, &staging_mem);
+  // nv_gpu_destroy_buffer(nvvkctx, &staging);
+  // nv_gpu_free_memory(nvvkctx, &staging_mem);
 
   return NV_SUCCESS;
 }
 
 nv_errorc
-nv_gpu_dynamic_buffer_readback(nv_gpu_dynamic_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst)
+nv_gpu_buffer_readback(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst)
 {
-  nv_return_if_fail(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(size <= buffer->size, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail((size + offset) < buffer->size, NV_ERROR_CODE_INVALID_ARG);
-  nv_return_if_fail(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(buffer != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(size <= buffer->size, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return((size + offset) < buffer->size, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(has_flag(buffer->flags, NV_GPU_BUFFER_TRANSIENT_BIT) == false, NV_ERROR_CODE_INVALID_ARG);
 
   /* persistent mapping implies the whole buffer is mapped, just read it in */
-  if (buffer->flags & NV_GPU_DYNAMIC_BUFFER_PERSISTENT_MAPPED)
+  if (buffer->flags & NV_GPU_BUFFER_PERSISTENT_MAPPED)
   {
     void* mapping = NULL;
 
-    nv_errorc code = nv_gpu_dynamic_buffer_map_memory(buffer, size, offset, &mapping);
-    nv_return_if_fail(code == NV_SUCCESS, code);
+    nv_errorc code = nv_gpu_buffer_map_memory(buffer, size, offset, &mapping);
+    nv_assert_else_return(code == NV_SUCCESS, code);
 
     nv_memcpy(dst, mapping, size);
     return NV_SUCCESS;
@@ -633,11 +722,86 @@ nv_gpu_dynamic_buffer_readback(nv_gpu_dynamic_buffer_t* buffer, vk_size_t size, 
   else if (buffer->drv_mapped && buffer->drv_mapped_size >= size && buffer->drv_mapped_offset <= offset)
   {
     /* that weird shenanigans with the offset is to make it absolute. The offset should be absolute to the buffer. */
-    const unsigned char* src = (unsigned char*)buffer->drv_mapped + (buffer->drv_mapped_offset - offset);
+    const unsigned char* src = (unsigned char*)buffer->drv_mapped + (offset - buffer->drv_mapped_offset);
     nv_memcpy(dst, src, size);
     return NV_SUCCESS;
   }
 
-  /* nothing else worked, slowly stage a transfer from the CPU to the GPU */
+  /* nothing else worked, slowly stage a transfer from the GPU to the CPU */
   return _readback_buffer_staged(buffer, size, offset, dst);
 }
+
+nv_errorc
+nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_bytes, vk_size_t dst_offset, vk_size_t src_offset)
+{
+  nv_assert_else_return(dst != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(src != NULL, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return(num_bytes != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return((num_bytes + dst_offset) < dst->size != 0, NV_ERROR_CODE_INVALID_ARG);
+  nv_assert_else_return((num_bytes + src_offset) < src->size != 0, NV_ERROR_CODE_INVALID_ARG);
+
+  VkBufferCopy copy = (VkBufferCopy){
+    .srcOffset = src_offset,
+    .dstOffset = dst_offset,
+    .size      = num_bytes,
+  };
+  VkCommandBuffer cmd = nv_vk_begin_command_buffer(dst->driver);
+
+  vkCmdCopyBuffer(cmd, src->buffer, dst->buffer, 1, &copy);
+
+  nv_vk_end_command_buffer(dst->driver, cmd, dst->driver->ctx->transfer_queue, true);
+
+  return NV_SUCCESS;
+}
+
+void
+_nv_gpu_buffer_flush_writes_if_any(nv_gpu_buffer_t* buffer)
+{
+  (void)buffer;
+}
+
+// nv_gpu_memory_flags
+// nv_gpu_vk_memory_flags_to_nv_flags(VkMemoryPropertyFlags flags)
+// {
+//   nv_gpu_memory_flags ret = 0;
+
+//   if (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+//   {
+//     ret |= NV_GPU_MEMORY_GPU_LOCAL_BIT;
+//   }
+
+//   if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+//   {
+//     ret |= NV_GPU_MEMORY_MAPPABLE_BIT;
+//   }
+
+//   if (flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
+//   {
+//     ret |= NV_GPU_MEMORY_CPU_CACHED_BIT;
+//   }
+
+//   return ret;
+// }
+
+// VkMemoryPropertyFlags
+// nv_gpu_nv_memory_flags_to_vk_flags(nv_gpu_memory_flags flags)
+// {
+//   nv_gpu_memory_flags ret = 0;
+
+//   if (flags & NV_GPU_MEMORY_GPU_LOCAL_BIT)
+//   {
+//     ret |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+//   }
+
+//   if (flags & NV_GPU_MEMORY_MAPPABLE_BIT)
+//   {
+//     ret |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+//   }
+
+//   if (flags & NV_GPU_MEMORY_CPU_CACHED_BIT)
+//   {
+//     ret |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+//   }
+
+//   return ret;
+// }

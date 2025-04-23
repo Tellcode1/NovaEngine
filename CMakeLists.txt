@@ -61,10 +61,17 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "" FORCE)
 set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
 set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
 
+set(SPIRV_REFLECT_EXECUTABLE OFF CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_STATIC_LIB ON CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_ENABLE_ASSERTS ON CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_ENABLE_ASAN OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(${NOVA_ROOT_DIR}/src/external/box2d)
 add_subdirectory(${NOVA_ROOT_DIR}/src/external/volk)
 add_subdirectory(${NOVA_ROOT_DIR}/src/external/clay)
 add_subdirectory(${NOVA_ROOT_DIR}/src/external/glslang)
+add_subdirectory(${NOVA_ROOT_DIR}/src/external/spirv_reflect)
 add_subdirectory(${NOVA_ROOT_DIR}/src/std)
 
 if(NOVA_BUILD_EXAMPLE)
@@ -89,6 +96,7 @@ set(LIBS
     box2d
     OpenMP::OpenMP_C
     ${GLSLANG_LIBS}
+    spirv-reflect-static
 )
 
 # Box2D uses C17 but still complains about C11 features.
