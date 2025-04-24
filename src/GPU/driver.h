@@ -8,30 +8,6 @@
 
 NOVA_HEADER_START
 
-#ifndef NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE
-#  define NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE 256
-#endif
-
-#ifndef NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE
-#  define NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE 3000 // 3 MB
-#endif
-
-#ifndef NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS
-#  define NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS (NV_GPU_BUFFER_PERSISTENT_MAPPED | NV_GPU_BUFFER_CPU_VISIBLE | NV_GPU_BUFFER_TRANSIENT_BIT)
-#endif
-
-#ifndef NOVA_GPU_LARGE_TRANSFER_BUFFER_CREATE_FLAGS
-#  define NOVA_GPU_LARGE_TRANSFER_BUFFER_CREATE_FLAGS NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS
-#endif
-
-#ifndef NOVA_GPU_SMALL_TRANSFER_BUFFER_ALIGNMENT
-#  define NOVA_GPU_SMALL_TRANSFER_BUFFER_ALIGNMENT 8
-#endif
-
-#ifndef NOVA_GPU_LARGE_TRANSFER_BUFFER_ALIGNMENT
-#  define NOVA_GPU_LARGE_TRANSFER_BUFFER_ALIGNMENT 16
-#endif
-
 /**
  * A driver for nearly all abstractions of the NVVK API.
  * This driver is responsible for everything to creation to destruction of resources and aims
@@ -44,6 +20,8 @@ typedef struct nvvk_driver_t nvvk_driver_t;
 
 struct nvvk_driver_t
 {
+  u32 canary; // = 0xDEADBEEF
+
   /**
    * TODO: Is there any way to know if ctx has been destroyed and to kys if needed?
    */
@@ -76,9 +54,13 @@ struct nvvk_driver_t
   nv_list_t tmp_buffers;
 };
 
-extern nv_errorc nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst);
+extern nv_error nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst);
+extern void     nvvk_driver_destroy(nvvk_driver_t* driver);
 
-extern void nvvk_driver_destroy(nvvk_driver_t* driver);
+/**
+ * WARNING: Even if the underlying nvvk_ctx_t is invalid, this function will return false.
+ */
+extern bool nvvk_driver_is_valid(const nvvk_driver_t* driver);
 
 NOVA_HEADER_END
 

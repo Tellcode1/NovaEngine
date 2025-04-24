@@ -11,6 +11,11 @@
 
 #include <SDL2/SDL_vulkan.h>
 
+/**
+ * THIS LIBRARY IS DEPRECATED. DO NOT USE.
+ * All functions will be ported over. Until then, just shut up and sit down in the corner.
+ */
+
 NOVA_HEADER_START
 
 struct nv_ctx_t;
@@ -39,7 +44,7 @@ extern void nv_vk_create_buffer(
     bool                  externallyAllocated);
 
 /*  */
-extern void nv_vk_stage_buffer_transfer(struct nvvk_driver_t *driver, VkBuffer dst, void* data, size_t size);
+extern void nv_vk_stage_buffer_transfer(struct nvvk_driver_t* driver, VkBuffer dst, void* data, size_t size);
 
 /* src Must be a valid VkCommandBuffer */
 extern VkCommandBuffer nv_vk_begin_command_buffer_from(VkCommandBuffer src);
@@ -85,6 +90,9 @@ extern bool nv_vk_get_supported_format(nvvk_ctx_t* nvvkctx, VkPhysicalDevice phy
 
 extern u32 nv_vk_get_surface_image_count(nvvk_ctx_t* nvvkctx, VkPhysicalDevice phys_device, VkSurfaceKHR surface);
 
+/**
+ * What the fuck is this doing here?
+ */
 extern void nv_vk_load_binary_file(const char* path, u8* dst, u32* dstSize);
 
 NOVA_HEADER_END

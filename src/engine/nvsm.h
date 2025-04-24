@@ -82,10 +82,10 @@ struct nvvk_ctx_t;
 
 #define nvsm_shader_t nvsm_list_file_entry_t
 
-extern nv_errorc nvsm_init(nvsm_ctx_t* ctx);
-extern void      nvsm_shutdown(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
+extern nv_error nvsm_init(nvsm_ctx_t* ctx);
+extern void     nvsm_shutdown(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
 
-extern nv_errorc nvsm_compile_shaders(nvsm_ctx_t* ctx);
+extern nv_error nvsm_compile_shaders(nvsm_ctx_t* ctx);
 
 /**
  * @brief Compile all the shaders forecfully, bypassing the cache
@@ -95,18 +95,18 @@ extern nv_errorc nvsm_compile_shaders(nvsm_ctx_t* ctx);
  *
  * Also note that generating a cache isn't particularly expensive, only a few hashes and file fwrites
  */
-extern nv_errorc nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache);
+extern nv_error nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache);
 
 /**
  * @brief Creates all the shader modules for vulkan
  * The shaders are required to be compiled into spirv before a call to this function.
  */
-extern nv_errorc nvsm_create_shader_modules(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
+extern nv_error nvsm_create_shader_modules(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
 
 /**
  * @brief Load a shader. If an error occurs, out is set to NULL and this function returns.
  */
-extern nv_errorc nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out);
+extern nv_error nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out);
 
 /* Returns (VkShaderStageFlags)-1 on error/invalid stage */
 /**

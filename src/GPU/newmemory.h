@@ -75,7 +75,7 @@ struct nv_gpu_memory_t
   bool      drv_owns_memory; /* Whether this struct owns the VkDeviceMemory or not. */
 };
 
-extern nv_errorc nv_gpu_memory_allocate();
+extern nv_error nv_gpu_memory_allocate();
 
 extern nv_gpu_memory_flags   nv_gpu_vk_memory_flags_to_nv_flags(VkMemoryPropertyFlags flags);
 extern VkMemoryPropertyFlags nv_gpu_nv_memory_flags_to_vk_flags(nv_gpu_memory_flags flags);

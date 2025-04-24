@@ -132,7 +132,7 @@ struct nv_gpu_memory_pool_create_info_s
   nv_gpu_memory_pool_create_flags flags;
 };
 
-extern nv_errorc nv_gpu_memory_pool_init(const nv_gpu_memory_pool_create_info_t* info, nv_gpu_memory_pool_t* dst);
+extern nv_error nv_gpu_memory_pool_init(const nv_gpu_memory_pool_create_info_t* info, nv_gpu_memory_pool_t* dst);
 
 extern void nv_gpu_memory_pool_destroy(nv_gpu_memory_pool_t* pool);
 

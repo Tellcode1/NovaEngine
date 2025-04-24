@@ -17,6 +17,34 @@ struct nv_gpu_memory_t;
 #  define NOVA_VK_DRIVER_BUFFER_REGION_SAMPLE_TIME_INTERVAL_SECONDS 10.0F
 #endif
 
+#ifndef NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE
+#  define NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE 256
+#endif
+
+#ifndef NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE
+#  define NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE 3000 // 3 MB
+#endif
+
+#ifndef NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS
+#  define NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS (NV_GPU_BUFFER_PERSISTENT_MAPPED | NV_GPU_BUFFER_MAPPABLE | NV_GPU_BUFFER_TRANSIENT_BIT)
+#endif
+
+#ifndef NOVA_GPU_LARGE_TRANSFER_BUFFER_CREATE_FLAGS
+#  define NOVA_GPU_LARGE_TRANSFER_BUFFER_CREATE_FLAGS NOVA_GPU_SMALL_TRANSFER_BUFFER_CREATE_FLAGS
+#endif
+
+#ifndef NOVA_GPU_SMALL_TRANSFER_BUFFER_ALIGNMENT
+#  define NOVA_GPU_SMALL_TRANSFER_BUFFER_ALIGNMENT 8
+#endif
+
+#ifndef NOVA_GPU_LARGE_TRANSFER_BUFFER_ALIGNMENT
+#  define NOVA_GPU_LARGE_TRANSFER_BUFFER_ALIGNMENT 16
+#endif
+
+#ifndef NOVA_GPU_BUFFER_MINIMUM_ALIGNMENT
+#  define NOVA_GPU_BUFFER_MINIMUM_ALIGNMENT 1
+#endif
+
 /**
  * A buffer from which 'regions' can be allocated.
  * These regions can contain similar data which changes on similar frequencies.
@@ -74,12 +102,12 @@ typedef enum nv_gpu_buffer_flags_bits
   /**
    * The buffer is visible to the CPU, i.e. the CPU has fast writing access to the buffer.
    */
-  NV_GPU_BUFFER_CPU_VISIBLE = 1 << 7,
+  NV_GPU_BUFFER_MAPPABLE = 1 << 7,
 
   /**
    * Implies CPU visiblity (obviously.)
    */
-  NV_GPU_BUFFER_PERSISTENT_MAPPED = (1 << 8) | NV_GPU_BUFFER_CPU_VISIBLE,
+  NV_GPU_BUFFER_PERSISTENT_MAPPED = (1 << 8) | NV_GPU_BUFFER_MAPPABLE,
 
   /**
    * A uniform buffer. Support has yet to be added for dynamic uniform buffers.
@@ -102,7 +130,7 @@ struct nv_gpu_buffer_t
   /* The total (aligned) size of this buffer */
   vk_size_t size;
 
-  size_t alignment;
+  vk_size_t alignment;
 
   /* The VkBuffer handle */
   VkBuffer buffer;
@@ -130,6 +158,8 @@ struct nv_gpu_buffer_t
    */
   bool drv_transfer_only;
 
+  char padding_cl2x3[5];
+
   /**
    * If the buffer is a transfer only buffer, then this contains a pointer to the actual
    * buffer being used.
@@ -147,20 +177,26 @@ struct nv_gpu_buffer_t
   void*     drv_write_cache;
   vk_size_t drv_write_cache_size;
   vk_size_t drv_write_cache_offset;
+
+  /**
+   * non-NULL if the buffer is using another buffer as a source
+   * Really only used for transient buffers.
+   */
+  nv_gpu_buffer_t* backing_buffer;
 };
 
 /**
  * The contents of the buffer will NOT be initialized
  */
-extern nv_errorc nv_gpu_buffer_init(struct nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst);
-extern void      nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer);
+extern nv_error nv_gpu_buffer_init(struct nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst);
+extern void     nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer);
 
 /**
  * Note that writes to the buffer aren't visible immediately.
  * This is more so a limitation of every graphics API.
  * TODO: write only when needed.
  */
-extern nv_errorc nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset);
+extern nv_error nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset);
 
 /**
  * It's perfectly valid to try to map persisten buffers
@@ -168,14 +204,14 @@ extern nv_errorc nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* d
  * Reading from a transient buffer is undefined. Only writing is valid.
  * TODO: Add optimizations to mapping like asynchronous-ty
  */
-extern nv_errorc nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void** mapping);
+extern nv_error nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void** mapping);
 
 /**
  * It is illegal to try to unmap persistent buffers
  */
-extern nv_errorc nv_gpu_buffer_unmap_memory(nv_gpu_buffer_t* buffer);
+extern nv_error nv_gpu_buffer_unmap_memory(nv_gpu_buffer_t* buffer);
 
-extern nv_errorc nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer);
+extern nv_error nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer);
 
 /**
  * Note that dst must have been allocated with atleast 'size' bytes of memory.
@@ -185,14 +221,25 @@ extern nv_errorc nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer);
  * It is illegal to read back a transient buffer.
  * TODO: cache heavily read back buffers and just return that.
  */
-extern nv_errorc nv_gpu_buffer_readback(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst);
+extern nv_error nv_gpu_buffer_readback(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offset, void* dst);
 
-extern nv_errorc nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_bytes, vk_size_t dst_offset, vk_size_t src_offset);
+/**
+ * If this function fails, the affected data in dst will be undefined.
+ * By affected data we mean the data in the range of the write.
+ */
+extern nv_error nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_bytes, vk_size_t dst_offset, vk_size_t src_offset);
 
 /**
  * Flush all writes to the buffer from the cache to the GPU.
  */
 extern void _nv_gpu_buffer_flush_writes_if_any(nv_gpu_buffer_t* buffer);
+
+/**
+ * Note that if the buffer is transient, this returns VK_NULL_HANDLE.
+ * This is because transient buffers are expected to have rapidly changing backings
+ * and the driver can't provide you with a single backing.
+ */
+extern VkBuffer nv_gpu_buffer_get_backing(const nv_gpu_buffer_t* buffer);
 
 NOVA_HEADER_END
 

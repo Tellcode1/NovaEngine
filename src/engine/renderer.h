@@ -17,9 +17,9 @@
 #include "../std/math/vec3.h"
 #include "../std/math/vec4.h"
 
+#include "../GPU/buffer.h"
 #include "../GPU/descriptors.h"
 #include "../GPU/driver.h"
-#include "../GPU/buffer.h"
 #include "../GPU/fbf.h"
 #include "../GPU/texture.h"
 #include "../GPU/types.h"
@@ -133,6 +133,10 @@ struct nv_renderer_t
   unsigned       flags;
   nv_buffer_mode buffer_mode;
 
+  nv_format swap_chain_image_format;
+  u32       swap_chain_color_space;
+  u32       swap_chain_image_count;
+
   nv_sprite_t sprite_empty;
 
   nv_sample_count samples;
@@ -166,16 +170,16 @@ struct nv_renderer_t
   // These are used to render all the sprites in the game (quad based sprites
   // that is)
   nv_gpu_buffer_t quad_vb;
-  nv_gpu_memory_t         quad_memory;
+  nv_gpu_memory_t quad_memory;
 
   void* mapped;
 };
 
-extern nv_errorc nv_renderer_init(struct nv_ctx_t* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
-extern void      nv_renderer_destroy(nv_renderer_t* rd);
+extern nv_error nv_renderer_init(struct nv_ctx_t* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+extern void     nv_renderer_destroy(nv_renderer_t* rd);
 
-extern bool      nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
-extern nv_errorc nv_renderer_end(nv_renderer_t* rd);
+extern bool     nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
+extern nv_error nv_renderer_end(nv_renderer_t* rd);
 
 extern u32                nv_renderer_get_frame(const nv_renderer_t* rd);
 extern u32                nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);

@@ -18,8 +18,8 @@ typedef struct nv_gpu_buffer_freelist_t
   nv_gpu_buffer_freelist_block_t* head;
 } nv_gpu_buffer_freelist_t;
 
-extern nv_errorc nv_gpu_buffer_freelist_init(vk_size_t capacity, nv_gpu_buffer_freelist_t* dst);
-extern void      nv_gpu_buffer_freelist_destroy(nv_gpu_buffer_freelist_t* list);
+extern nv_error nv_gpu_buffer_freelist_init(vk_size_t capacity, nv_gpu_buffer_freelist_t* dst);
+extern void     nv_gpu_buffer_freelist_destroy(nv_gpu_buffer_freelist_t* list);
 
 /**
  * Returns true if allocation succeeded.

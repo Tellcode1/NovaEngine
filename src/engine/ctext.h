@@ -58,8 +58,8 @@ ctext_compare_glyph_keys(const void* key1, const void* key2, size_t nbytes, void
 }
 
 // Initializes the text renderer for ONLY that renderer
-extern nv_errorc ctext_init(struct nv_renderer_t* rd);
-extern void      ctext_shutdown(struct nv_renderer_t* rd);
+extern nv_error ctext_init(struct nv_renderer_t* rd);
+extern void     ctext_shutdown(struct nv_renderer_t* rd);
 
 extern void ctext_load_font(struct nvvk_ctx_t* nvvkctx, struct nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
 
@@ -114,6 +114,7 @@ struct cfont_t
 
   size_t          allocated_size;
   nv_gpu_buffer_t buffer;
+  nv_gpu_buffer_t staging_buffer; // size = buffer.size/allocated_size
   nv_gpu_memory_t buffer_mem;
   void*           mapped;
 

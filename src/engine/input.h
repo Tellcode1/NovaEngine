@@ -64,9 +64,9 @@ struct nv_input_ctx_t
   nv_hashmap_t input_action_mapping;
 };
 
-extern nv_errorc nv_input_init(nv_input_ctx_t* ctx);
-extern void      nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx_t* globalctx);
-extern void      nv_input_shutdown(nv_input_ctx_t* ctx);
+extern nv_error nv_input_init(nv_input_ctx_t* ctx);
+extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx_t* globalctx);
+extern void     nv_input_shutdown(nv_input_ctx_t* ctx);
 
 void nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response);
 

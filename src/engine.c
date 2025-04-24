@@ -25,6 +25,9 @@ void
 nv_window_init(const char* window_title, int window_width, int window_height, nv_ctx_t* dst)
 {
   nv_assert_else_return(dst != NULL, );
+  nv_assert_else_return(window_title != NULL, );
+  nv_assert_else_return(window_width != 0, );
+  nv_assert_else_return(window_height != 0, );
 
   nv_bzero(dst, sizeof(nv_ctx_t));
 
@@ -869,10 +872,10 @@ str_hash(const void* key1, const void* key2, size_t keysize)
   return hash;
 }
 
-nv_errorc
+nv_error
 nv_input_init(nv_input_ctx_t* ctx)
 {
-  nv_errorc code = NV_SUCCESS;
+  nv_error code = NV_SUCCESS;
 
   if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_c, NULL, &ctx->input_action_mapping)) != NV_SUCCESS)
   {

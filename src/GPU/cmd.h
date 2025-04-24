@@ -2,8 +2,8 @@
 #define __NOVA_GPU_COMMANDS_H__
 
 #include "../external/volk/volk.h"
-#include "descriptors.h"
 #include "buffer.h"
+#include "descriptors.h"
 #include "pipeline.h"
 
 #define NV_COMMAND_BUFFER_MAX_BOUND_DESCRIPTOR_SETS 16
@@ -17,7 +17,7 @@ typedef struct nv_cmd_bound_buffer_t nv_cmd_bound_buffer_t;
 struct nv_cmd_bound_buffer_t
 {
   nv_gpu_buffer_t* buffer;
-  size_t                   offset;
+  size_t           offset;
 };
 
 struct nv_command_buffer_t

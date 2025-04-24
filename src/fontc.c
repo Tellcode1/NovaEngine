@@ -43,9 +43,9 @@ main(int argc, char* argv[])
   };
   // clang-format on
 
-  char      error[256];
-  nv_errorc code = NV_ERROR_CODE_SUCCESS;
-  if ((code = nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error))) != NV_ERROR_CODE_SUCCESS)
+  char     error[256];
+  nv_error code = NV_ERROR_SUCCESS;
+  if ((code = nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error))) != NV_ERROR_SUCCESS)
   {
     nv_log_error("PROPS error(code:%i): %s\n", code, error);
     help = 1;

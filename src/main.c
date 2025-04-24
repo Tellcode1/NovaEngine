@@ -20,37 +20,6 @@
 #include <string.h>
 #include <time.h>
 
-#include <freetype2/ft2build.h>
-#include FT_FREETYPE_H
-#include FT_GLYPH_H
-
-static inline void
-stuff()
-{
-  FT_Library lib;
-  FT_Face    face;
-  FT_Init_FreeType(&lib);
-  FT_New_Face(lib, "Assets/roboto.ttf", 0, &face);
-
-  FT_Load_Char(face, 'A', FT_LOAD_DEFAULT);
-
-  FT_Outline outline = face->glyph->outline;
-
-  for (size_t i = 0; i < outline.n_contours; i++)
-  {
-    nv_printf("%u ", (u32)outline.contours[i]);
-  }
-  nv_printf("\n");
-  for (size_t i = 0; i < outline.n_points; i++)
-  {
-    nv_printf("%l %l", outline.points[i].x, outline.points[i].y);
-  }
-  nv_printf("\n");
-
-  FT_Done_Face(face);
-  FT_Done_FreeType(lib);
-}
-
 static inline const char*
 get_day_str(const struct tm* t)
 {
@@ -80,8 +49,6 @@ bezier_curve(const bezier_t* bz, flt_t t)
 int
 main(int argc, char* argv[])
 {
-  stuff();
-
   char        windowname[64]          = "clocker";
   int         window_width            = 800;
   int         window_height           = 600;
@@ -135,7 +102,7 @@ main(int argc, char* argv[])
   rdconf.multisampling_enable = 0;
   rdconf.samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
 
-  nv_errorc code = NV_SUCCESS;
+  nv_error code = NV_SUCCESS;
 
   nvvk_driver_t driver;
   if ((code = nvvk_driver_init(&nvvkctx, &driver)) != NV_SUCCESS)

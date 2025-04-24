@@ -3,7 +3,6 @@
 
 #include "../external/volk/volk.h"
 #include "../std/errorcodes.h"
-#include "../std/format.h"
 #include "../std/stdafx.h"
 
 NOVA_HEADER_START
@@ -81,10 +80,6 @@ typedef struct nvvk_ctx_t
   VkSurfaceKHR             surface;
   VkDebugUtilsMessengerEXT debug_messenger;
 
-  nv_format swap_chain_image_format;
-  u32       swap_chain_color_space;
-  u32       swap_chain_image_count;
-
   u32 graphics_family_index;
   u32 present_family_index;
   u32 compute_family_index;
@@ -104,14 +99,15 @@ typedef struct nvvk_ctx_t
   VkCommandPool cmd_pool;
 
   VkCommandBuffer cmd_buffers[NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT];
+  VkFence         cmd_buffer_fences[NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT];
   bool            cmd_buffers_in_use[NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT];
 
   nv_gpu_result_check_fn result_fn;
   u32                    flag_register;
 } nvvk_ctx_t;
 
-extern nv_errorc nvvk_ctx_init(struct nv_ctx_t* nvctx, nvvk_ctx_t* ctx);
-extern void      nvvk_ctx_destroy(nvvk_ctx_t* ctx);
+extern nv_error nvvk_ctx_init(struct nv_ctx_t* nvctx, nvvk_ctx_t* ctx);
+extern void     nvvk_ctx_destroy(nvvk_ctx_t* ctx);
 
 static inline bool
 nvvk_ctx_is_valid(const nvvk_ctx_t* ctx)
@@ -126,19 +122,13 @@ nvvk_ctx_is_valid(const nvvk_ctx_t* ctx)
   nv_assert_else_return(ctx->debug_messenger != VK_NULL_HANDLE, false);
 #endif
 
-  nv_assert_else_return(ctx->swap_chain_image_format != NOVA_FORMAT_UNDEFINED, false);
-  nv_assert_else_return(ctx->swap_chain_color_space != VK_COLOR_SPACE_MAX_ENUM_KHR, false);
   nv_assert_else_return(ctx->graphics_queue != VK_NULL_HANDLE, false);
   nv_assert_else_return(ctx->graphics_and_compute_queue != VK_NULL_HANDLE, false);
   nv_assert_else_return(ctx->present_queue != VK_NULL_HANDLE, false);
   nv_assert_else_return(ctx->compute_queue != VK_NULL_HANDLE, false);
   nv_assert_else_return(ctx->transfer_queue != VK_NULL_HANDLE, false);
   nv_assert_else_return(ctx->max_samples != 0, false);
-  /* these two are not initialized when this function is first called */
-  /*
-    nv_assert_else_return(ctx->cmd_pool != VK_NULL_HANDLE, false);
-    nv_assert_else_return(ctx->buffer != VK_NULL_HANDLE, false);
-  */
+
   nv_assert_else_return(ctx->result_fn != NULL, false);
   return true;
 }
