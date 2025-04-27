@@ -18,14 +18,8 @@
 
 NOVA_HEADER_START
 
-struct nv_ctx_t;
+struct nv_ctx_s;
 struct nvvk_driver_t;
-
-// pointer to allocator
-// TODO: Move this to the vulkan context.
-#ifndef NOVA_VK_ALLOCATOR
-#  define NOVA_VK_ALLOCATOR NULL
-#endif
 
 extern const char* nvvk_vk_result_to_string(VkResult r);
 

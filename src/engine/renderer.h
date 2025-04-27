@@ -1,5 +1,5 @@
-#ifndef __LUNA_RENDERER_H__
-#define __LUNA_RENDERER_H__
+#ifndef __NOVA_RENDERER_H__
+#define __NOVA_RENDERER_H__
 
 // implementation: vk.c
 
@@ -35,7 +35,7 @@ typedef struct nv_line_draw_call_t nv_line_draw_call_t;
 typedef struct nv_draw_call_t      nv_draw_call_t;
 typedef struct nv_renderer_t       nv_renderer_t;
 
-struct nv_ctx_t;
+struct nv_ctx_s;
 struct nvvk_driver_t;
 struct nvsm_ctx_t;
 
@@ -175,17 +175,17 @@ struct nv_renderer_t
   void* mapped;
 };
 
-extern nv_error nv_renderer_init(struct nv_ctx_t* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+extern nv_error nv_renderer_init(struct nv_ctx_s*ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
 extern void     nv_renderer_destroy(nv_renderer_t* rd);
 
 extern bool     nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
 extern nv_error nv_renderer_end(nv_renderer_t* rd);
 
-extern u32                nv_renderer_get_frame(const nv_renderer_t* rd);
-extern u32                nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
-extern VkCommandBuffer    nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
-extern VkRenderPass       nv_renderer_get_render_pass(const nv_renderer_t* rd);
-extern struct nv_extent2d nv_renderer_get_render_extent(const nv_renderer_t* rd);
+extern u32             nv_renderer_get_frame(const nv_renderer_t* rd);
+extern u32             nv_renderer_get_max_frames_in_flight(const nv_renderer_t* rd);
+extern VkCommandBuffer nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
+extern VkRenderPass    nv_renderer_get_render_pass(const nv_renderer_t* rd);
+extern nv_extent2d     nv_renderer_get_render_extent(const nv_renderer_t* rd);
 
 extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2f tex_coord_multiplier, vec3f position, vec3f size, vec4f color, int layer);
 extern void nv_renderer_render_line(nv_renderer_t* rd, vec2f start, vec2f end, vec4f color, int layer);

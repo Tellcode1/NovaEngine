@@ -2,13 +2,14 @@
 #define __NOVA_GPU_BUFFER_H__
 
 #include "../std/stdafx.h"
+#include "allocator.h"
 #include "newmemory.h"
 #include "types.h"
 
 NOVA_HEADER_START
 
 struct nvvk_driver_t;
-struct nv_gpu_memory_t;
+struct nv_gpu_memory_new_t;
 
 #ifndef NOVA_VK_DRIVER_BUFFER_REGION_SAMPLE_TIME_INTERVAL_SECONDS
 /**
@@ -83,6 +84,7 @@ typedef enum nv_gpu_buffer_flags_bits
 
   /**
    * The memory can be read back to the CPU side from the GPU.
+   * The buffer must not be transient.
    */
   NV_GPU_BUFFER_READBACK_OPTIMAL_BIT = 1 << 3,
 
@@ -135,7 +137,7 @@ struct nv_gpu_buffer_t
   /* The VkBuffer handle */
   VkBuffer buffer;
 
-  VkDeviceMemory memory;
+  nv_gpu_memory_block_t block;
 
   /* Driver stored information. Do not modify! */
 

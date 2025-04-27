@@ -3,6 +3,7 @@
 
 #include "../std/containers/list.h"
 #include "../std/stdafx.h"
+#include "allocator.h"
 #include "buffer.h"
 #include "types.h"
 
@@ -52,6 +53,8 @@ struct nvvk_driver_t
 
   /* A list of temporary buffers, used for transfers (and possibly other stuff ) */
   nv_list_t tmp_buffers;
+
+  nv_gpu_memory_pool_t pool;
 };
 
 extern nv_error nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst);

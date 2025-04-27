@@ -34,6 +34,30 @@ saturate(float x)
   return clamp(x, 0.0, 1.0);
 }
 
+float filter_sdf_texture_cleanest()
+{
+  const float sd = texture(bitmap, texCoords).r * 2.0 - 1.0; // [-1, 1]
+
+  const float scale = abs(pc.scale);
+
+  float dx = dFdx(sd);
+  float dy = dFdy(sd);
+  float grad = sqrt(dx * dx + dy * dy);
+
+  // avoid divide-by-zero
+  grad = max(grad, 1e-6);
+
+  // you can change th second value.
+  // the lower it is, the harder the output will
+  // stick to the sdf
+  float sharpness = scale * 0.5;
+  float smoothing = sharpness * grad;
+
+  float result = inverse_lerp(-smoothing, smoothing, sd);
+  return result;
+}
+
+
 float
 filter_sdf_texture_approx()
 {
@@ -48,18 +72,18 @@ filter_sdf_texture_nicely()
 {
   float sdf = texture(bitmap, texCoords).r * 2.0 - 1.0; // [-1, 1]
 
-  vec2 derivative_tex_coords = vec2(dFdx(texCoords.x), dFdy(texCoords.y));
+  float dx = dFdx(texCoords.x);
+  float dy = dFdx(texCoords.y);
 
-  float pixel_footprint_area = abs(derivative_tex_coords.x * derivative_tex_coords.y);
+  float pixel_footprint_area = abs(dx * dy);
 
   ivec2 tex_size = textureSize(bitmap, 0);
   pixel_footprint_area *= float(tex_size.x * tex_size.y);
-  pixel_footprint_area *= pc.scale;
 
   /**
     * Not doing saturate() here envelops the glyph in a white haze
-    * Don't know why but don't want to find out!
-  */
+    * Don't know why but don't want to find out!sdfsdfsdfsdf
+    */
   float pixel_footprint_diameter = saturate(sqrt(pixel_footprint_area));
 
   return smoothstep(-pixel_footprint_diameter, pixel_footprint_diameter, sdf);
@@ -67,7 +91,7 @@ filter_sdf_texture_nicely()
 void
 main()
 {
-  float alpha = filter_sdf_texture_nicely();
+  float alpha = filter_sdf_texture_approx();
 
   if (alpha <= 0.001)
   {

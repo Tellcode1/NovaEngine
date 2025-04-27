@@ -78,12 +78,12 @@ typedef struct nvsm_cache_file_t       nvsm_cache_file_t;
 typedef struct nvsm_spirv_binary_t     nvsm_spirv_binary_t;
 typedef struct nvsm_compile_options_t  nvsm_compile_options_t;
 
-struct nvvk_ctx_t;
+struct nvvk_ctx_s;
 
 #define nvsm_shader_t nvsm_list_file_entry_t
 
 extern nv_error nvsm_init(nvsm_ctx_t* ctx);
-extern void     nvsm_shutdown(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
+extern void     nvsm_shutdown(struct nvvk_ctx_s* nvvkctx, nvsm_ctx_t* ctx);
 
 extern nv_error nvsm_compile_shaders(nvsm_ctx_t* ctx);
 
@@ -101,7 +101,7 @@ extern nv_error nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
  * @brief Creates all the shader modules for vulkan
  * The shaders are required to be compiled into spirv before a call to this function.
  */
-extern nv_error nvsm_create_shader_modules(struct nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx);
+extern nv_error nvsm_create_shader_modules(struct nvvk_ctx_s* nvvkctx, nvsm_ctx_t* ctx);
 
 /**
  * @brief Load a shader. If an error occurs, out is set to NULL and this function returns.

@@ -9,9 +9,9 @@ struct nv_renderer_config;
 struct SDL_Window;
 union SDL_Event;
 
-typedef struct nv_ctx_t nv_ctx_t;
+typedef struct nv_ctx_s nv_ctx_t;
 
-struct nv_ctx_t
+struct nv_ctx_s
 {
   struct SDL_Window* window;
 

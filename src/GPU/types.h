@@ -8,7 +8,7 @@
 NOVA_HEADER_START
 
 #ifndef NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT
-#  define NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT 16
+#  define NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT 8
 #endif
 
 typedef uint64_t vk_size_t;
@@ -16,7 +16,7 @@ typedef uint64_t vk_size_t;
 /* Return the result, but if it was handled, return whatever you want. */
 typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE);
 
-struct nv_ctx_t;
+struct nv_ctx_s;
 
 /* Why the fuck are the three enums in GPU/????? */
 typedef enum nv_window_flag_bits
@@ -60,19 +60,52 @@ typedef enum nv_sample_count_bits
 } nv_sample_count_bits;
 typedef unsigned nv_sample_count;
 
-typedef struct nv_extent2d
+typedef struct nv_extent2d_s
 {
   size_t width, height;
 } nv_extent2d;
 
-typedef struct nv_extent3D
+typedef struct nv_extent3D_s
 {
   size_t width, height, depth;
 } nv_extent3D;
 
+typedef struct nvvk_allocator_block_s
+{
+  vk_size_t size;
+  vk_size_t offset;
+} nvvk_allocator_block_t;
+
+#ifndef NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH
+#  define NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH 1024
+#endif
+
+#ifndef NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_ALIGNMENT
+#  define NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_ALIGNMENT 128
+#endif
+
+#define NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS (NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH / NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_ALIGNMENT)
+
+typedef struct nvvk_allocator_l1cache_header_s
+{
+  bool blocks_in_use[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
+} nvvk_allocator_l1cache_header_t;
+
+typedef struct nvvk_allocator_s
+{
+  // I think this can be compressed down to a single byte but ok
+  bool l1_cache_usage_list[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
+
+  /**
+   * 8 blocks of 128 bytes each for fast access
+   * Note that allocations may use multiple blocks
+   */
+  uchar l1_cache[NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH];
+} nvvk_allocator_t;
+
 /* did you notice that the vulkan context is entirely independant of the global context? */
 /* beauty. */
-typedef struct nvvk_ctx_t
+typedef struct nvvk_ctx_s
 {
   VkInstance               instance;
   VkDevice                 device;
@@ -104,9 +137,11 @@ typedef struct nvvk_ctx_t
 
   nv_gpu_result_check_fn result_fn;
   u32                    flag_register;
+
+  VkAllocationCallbacks allocator;
 } nvvk_ctx_t;
 
-extern nv_error nvvk_ctx_init(struct nv_ctx_t* nvctx, nvvk_ctx_t* ctx);
+extern nv_error nvvk_ctx_init(struct nv_ctx_s* nvctx, nvvk_ctx_t* ctx);
 extern void     nvvk_ctx_destroy(nvvk_ctx_t* ctx);
 
 static inline bool
@@ -132,6 +167,12 @@ nvvk_ctx_is_valid(const nvvk_ctx_t* ctx)
   nv_assert_else_return(ctx->result_fn != NULL, false);
   return true;
 }
+
+extern void* nvvk_alloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
+extern void* nvvk_realloc(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
+extern void  nvvk_free(void* pUserData, void* pMemory);
+extern void  nvvk_internal_allocation(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope);
+extern void  nvvk_internal_free(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope);
 
 NOVA_HEADER_END
 

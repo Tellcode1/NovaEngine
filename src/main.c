@@ -182,8 +182,8 @@ main(int argc, char* argv[])
       size_t      year = time->tm_year + 1900;
 
       ctext_text_render_info_t clock_info = ctext_init_text_render_info();
-      clock_info.scale                    = 1.0F;
-      clock_info.bbox                     = (vec2){ camera.ortho_size.x * 2.0f, camera.ortho_size.y * 2.0f };
+      clock_info.scale                    = 3.0F;
+      clock_info.bbox                     = (vec2){ camera.ortho_size.x, camera.ortho_size.y };
       clock_info.scale_for_fit            = 1;
       ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
 
@@ -193,12 +193,13 @@ main(int argc, char* argv[])
         .ctrl = (vec2){ .x = 30.0F, .y = -20.0F },
       };
 
-      const u32 segs = 32;
-      for (u32 i = 0; i < segs; i++)
+      const size_t circle_num_vertices = 100;
+      vec2f        vertices[circle_num_vertices];
+      for (int i = 0; i < circle_num_vertices; i++)
       {
-        const flt_t t   = 1.0F / (flt_t)segs;
-        const vec2  pos = bezier_curve(&bz, t);
-        nv_renderer_render_line(&rdr, (vec2f){ 0.0F, 0.0F }, (vec2f){ pos.x, pos.y }, (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F }, 0);
+        float angle = (float)i / (float)circle_num_vertices * 2.0f * (float)M_PI;
+        vertices[i] = (vec2f){ cosf(angle), sinf(angle) };
+        nv_renderer_render_line(&rdr, (vec2f){ 0.0F, 0.0F }, vertices[i], (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F }, 0);
       }
 
       nv_renderer_render_quad(

@@ -16,3 +16,6 @@
 [submodule "src/external/spirv_reflect"]
 	path = src/external/spirv_reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "src/external/cgltf"]
+	path = src/external/cgltf
+	url = https://github.com/jkuhlmann/cgltf.git

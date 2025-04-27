@@ -20,7 +20,17 @@ struct nv_input_ctx_t;
 
 #define CAMERA_FAKE_BUFFER_COUNT 3
 
-#define ALIGN_UP(sz, align) (((unsigned long)(sz) + (align) - 1) & ~((align) - 1))
+static inline vk_size_t
+ALIGN_UP(vk_size_t sz, vk_size_t align)
+{
+  /* The previous implementation was technically */
+  /* next power of two, so it was causing errors. This is the closest next power of two. */
+  if (sz % align != 0)
+  {
+    sz += align - sz % align;
+  }
+  return sz;
+}
 
 struct nv_camera_uniform_buffer
 {
@@ -52,8 +62,8 @@ struct nv_camera_t
   vec3  front;
   vec3  up;
   vec3  right;
-  flt_t yaw;
-  flt_t pitch;
+  flt_t yaw_degrees;
+  flt_t pitch_degrees;
 
   flt_t fov;
   flt_t near_clip;

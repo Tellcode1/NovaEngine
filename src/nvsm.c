@@ -536,15 +536,45 @@ _nvsm_read_shader_file_null_terminated(const char* file_path, char** dst, size_t
   nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(dst_size != NULL, NV_ERROR_INVALID_ARG);
 
-  /**
-   * SDL_LoadFile null terminates the file data by default, we do not have to do anything
-   */
-  void* shader_file_data = SDL_LoadFile(file_path, dst_size);
-  nv_assert_else_return(shader_file_data != NULL, NV_ERROR_IO_ERROR);
-  nv_assert_else_return(*dst_size != 0, NV_ERROR_IO_ERROR);
+  FILE* file = fopen(file_path, "rb"); // open in binary mode
+  nv_assert_else_return(file != NULL, NV_ERROR_FILE_NOT_FOUND);
 
-  *dst = (char*)shader_file_data;
-  // dst_size is set by sdl
+  // Move to the end to get file size
+  if (fseek(file, 0, SEEK_END) != 0)
+  {
+    fclose(file);
+    return NV_ERROR_IO_ERROR;
+  }
+
+  long size = ftell(file);
+  if (size < 0)
+  {
+    fclose(file);
+    return NV_ERROR_IO_ERROR;
+  }
+
+  if (fseek(file, 0, SEEK_SET) != 0)
+  {
+    fclose(file);
+    return NV_ERROR_IO_ERROR;
+  }
+
+  *dst = nv_malloc((size_t)size + 1);
+  nv_assert_else_return(*dst != NULL, NV_ERROR_MALLOC_FAILED);
+
+  size_t read = fread(*dst, 1, (size_t)size, file);
+  fclose(file);
+
+  if (read != (size_t)size)
+  {
+    nv_free(*dst); // free the memory to avoid leak
+    *dst      = NULL;
+    *dst_size = 0;
+    return NV_ERROR_IO_ERROR;
+  }
+
+  (*dst)[size] = '\0'; // null-terminate
+  *dst_size    = (size_t)size;
 
   return NV_SUCCESS;
 }
@@ -627,6 +657,8 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
     nv_log_error("%s\n", input.code);
     glslang_shader_delete(shader);
+    nv_free(shader_source);
+
     return NV_ERROR_INVALID_INPUT;
   }
 
@@ -637,6 +669,8 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
     nv_log_error("%s\n", glslang_shader_get_preprocessed_code(shader));
     glslang_shader_delete(shader);
+    nv_free(shader_source);
+
     return NV_ERROR_INVALID_INPUT;
   }
 
@@ -650,6 +684,8 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
     nv_log_error("%s\n", glslang_program_get_info_debug_log(program));
     glslang_program_delete(program);
     glslang_shader_delete(shader);
+    nv_free(shader_source);
+
     return NV_ERROR_INVALID_INPUT;
   }
 
@@ -689,6 +725,8 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
       return code;
     }
   }
+
+  nv_free(shader_source);
 
   return NV_SUCCESS;
 }
@@ -949,7 +987,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
       .codeSize = entry->bin.byte_count,
       .pCode    = entry->bin.words,
     };
-    nvvk_result_check(*nvvkctx, vkCreateShaderModule(nvvkctx->device, &info, NOVA_VK_ALLOCATOR, &entry->module));
+    nvvk_result_check(*nvvkctx, vkCreateShaderModule(nvvkctx->device, &info, &nvvkctx->allocator, &entry->module));
 
     entry->resources = nv_shader_resources_extract(entry->bin.words, entry->bin.byte_count, &entry->num_resources);
 
@@ -1082,7 +1120,7 @@ nvsm_shutdown(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
     nvsm_list_file_entry_t* entry = (nvsm_list_file_entry_t*)node->value;
     if (entry->module != VK_NULL_HANDLE)
     {
-      vkDestroyShaderModule(nvvkctx->device, entry->module, NOVA_VK_ALLOCATOR);
+      vkDestroyShaderModule(nvvkctx->device, entry->module, &nvvkctx->allocator);
     }
     if (entry->resources != NULL && entry->num_resources > 0)
     {

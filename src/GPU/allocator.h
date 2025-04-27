@@ -9,12 +9,13 @@ NOVA_HEADER_START
 
 struct nvvk_driver_t;
 
-typedef struct nv_gpu_allocator_linear_s         nv_gpu_allocator_linear_t;
+typedef struct nv_gpu_allocator_stack_s          nv_gpu_allocator_stack_t;
 typedef struct nv_gpu_allocator_freelist_block_s nv_gpu_allocator_freelist_block_t;
 typedef struct nv_gpu_allocator_freelist_s       nv_gpu_allocator_freelist_t;
 typedef struct nv_gpu_memory_block_s             nv_gpu_memory_block_t;
 typedef struct nv_gpu_memory_pool_s              nv_gpu_memory_pool_t;
 typedef struct nv_gpu_memory_pool_create_info_s  nv_gpu_memory_pool_create_info_t;
+typedef union nv_gpu_allocator_payload_u         nv_gpu_allocator_payload_t;
 
 typedef VkResult (*nv_gpu_alloc_fn)(vk_size_t size, vk_size_t alignment);
 typedef VkResult (*nv_gpu_free_fn)(nv_gpu_memory_block_t* block);
@@ -22,7 +23,7 @@ typedef VkResult (*nv_gpu_free_fn)(nv_gpu_memory_block_t* block);
 /* https://www.ijtsrd.com/papers/ijtsrd26731.pdf */
 
 /**
- * Note that linear allocators do not use a policy.
+ * Note that stack allocators do not use a policy.
  * Their policy is simply first fit, if you can call it that.
  */
 typedef enum nv_gpu_allocator_policy
@@ -37,7 +38,7 @@ typedef enum nv_gpu_allocator_policy
    * Gives the highest sized block available.
    * Garbage memory utilization
    * Ensures large memory allocations get their memory.
-   * Can be used if memory utilization is linear-ey.
+   * Can be used if memory utilization is stack-ey.
    * id est you allocate some memory, use it, free it, on and on.
    */
   NV_GPU_ALLOCATOR_POLICY_WORST_FIT = 1,
@@ -56,7 +57,7 @@ typedef enum nv_gpu_allocator_type
    * The most primitive style of allocator.
    * Only allows freeing the last block allocated (LIFO).
    */
-  NV_GPU_ALLOCATOR_LINEAR = 0,
+  NV_GPU_ALLOCATOR_STACK = 0,
 
   /**
    * A far more complex, freelist backed allocator
@@ -74,26 +75,28 @@ typedef enum nv_gpu_memory_pool_create_flag_bits
   NV_GPU_MEMORY_POOL_CREATE_FLAGS_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT = 1 << 16,
 } nv_gpu_memory_pool_create_flag_bits;
 
-struct nv_gpu_allocator_linear_s
+struct nv_gpu_allocator_stack_s
 {
   /* Offset of the next allocation */
   vk_size_t bumper;
+
+  /* The offset of the previous allocation, used to pop elements */
+  vk_size_t last_allocation_bumper;
 };
 
 struct nv_gpu_allocator_freelist_block_s
 {
-  // The offset of this block/region in the total buffer.
-  vk_size_t offset;
-
-  // The aligned size of this block.
-  vk_size_t size;
-
-  struct nv_gpu_allocator_freelist_block_s* next;
+  struct nv_gpu_memory_block_s* next;
 };
 
 struct nv_gpu_allocator_freelist_s
 {
-  nv_gpu_allocator_freelist_block_t* root;
+  struct nv_gpu_memory_block_s* root;
+};
+
+union nv_gpu_allocator_payload_u
+{
+  nv_gpu_allocator_freelist_block_t freelist;
 };
 
 struct nv_gpu_memory_block_s
@@ -101,40 +104,79 @@ struct nv_gpu_memory_block_s
   nv_gpu_memory_pool_t* pool;
 
   vk_size_t size;
+  vk_size_t offset;
   vk_size_t alignment;
 
-  bool in_use;
+  nv_gpu_allocator_payload_t pload;
+
+  u64 user_data;
 };
 
 struct nv_gpu_memory_pool_s
 {
+  u32 canary; // = 0xDEADBEEF
+
   struct nvvk_driver_t* driver;
+
+  u64 user_data;
 
   VkDeviceMemory memory;
   vk_size_t      allocated_size;
+  vk_size_t      alignment;
+
+  nv_gpu_memory_new_flags         memory_flags;
+  nv_gpu_memory_pool_create_flags flags;
 
   nv_gpu_allocator_type   type;
   nv_gpu_allocator_policy policy;
 
   union
   {
-    nv_gpu_allocator_linear_t   linear;
+    nv_gpu_allocator_stack_t    stack;
     nv_gpu_allocator_freelist_t freelist;
   } backing_allocator;
+
+  /* DRIVER INFORMATION */
+
+  /* The entire block of memory is mapped at once. */
+  void* drv_mapped;
 };
 
 struct nv_gpu_memory_pool_create_info_s
 {
-  vk_size_t                       size;
-  nv_gpu_memory_flags             memory_flags;
+  vk_size_t size;
+
+  /**
+   * The minimum alignment that the driver will use for this pool.
+   */
+  vk_size_t                       minimum_alignment;
+  nv_gpu_memory_new_flags         memory_flags;
   nv_gpu_allocator_type           type;
   nv_gpu_allocator_policy         policy;
   nv_gpu_memory_pool_create_flags flags;
 };
 
-extern nv_error nv_gpu_memory_pool_init(const nv_gpu_memory_pool_create_info_t* info, nv_gpu_memory_pool_t* dst);
+extern nv_error nv_gpu_memory_pool_init(struct nvvk_driver_t* driver, const nv_gpu_memory_pool_create_info_t* info, nv_gpu_memory_pool_t* dst);
+extern void     nv_gpu_memory_pool_destroy(nv_gpu_memory_pool_t* pool);
 
-extern void nv_gpu_memory_pool_destroy(nv_gpu_memory_pool_t* pool);
+/**
+ * returns NV_ERROR_MALLOC_FAILED on pool exhaustion.
+ * Also returns NV_ERROR_MALLOC_FAILED if a CPU side allocator returned NULL.
+ */
+extern nv_error nv_gpu_memory_pool_allocate(nv_gpu_memory_pool_t* pool, vk_size_t size, vk_size_t alignment, nv_gpu_memory_block_t* dst_block);
+extern nv_error nv_gpu_memory_pool_free(nv_gpu_memory_pool_t* pool, nv_gpu_memory_block_t* block);
+
+/**
+ * Not to be called by the user
+ */
+extern nv_error nv_gpu_memory_allocator_stack_init(vk_size_t aligned_size, nv_gpu_allocator_stack_t* stack);
+extern nv_error nv_gpu_memory_allocator_freelist_init(vk_size_t aligned_size, nv_gpu_allocator_freelist_t* list);
+
+/**
+ * Not to be called by the user
+ */
+extern void nv_gpu_memory_allocator_stack_destroy(nv_gpu_allocator_stack_t* stack);
+extern void nv_gpu_memory_allocator_freelist_destroy(nv_gpu_allocator_freelist_t* list);
 
 NOVA_HEADER_END
 

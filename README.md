@@ -1,7 +1,10 @@
 ## NovaEngine
 
 A Vulkan-based game engine primarily written in **C99**.  
-**Dependencies**: FreeType, SDL, and Vulkan (managed via Git submodules).
+**Dependencies**: All dependencies used by this project are loaded as submodules. Install all of them by running the following command in any of the projects directories:
+```bash
+git submodule update --init --recursive
+```
 
 ## Installation
 
