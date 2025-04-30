@@ -1,3 +1,4 @@
+#include "GPU/_freelist.h"
 #include "GPU/driver.h"
 
 // #include "GPU/allocator.h"
@@ -9,13 +10,22 @@
 #include "GPU/vk.h"
 
 #include "engine/camera.h"
+#include "std/bit.h"
 #include "std/containers/list.h"
 #include "std/errorcodes.h"
 #include "std/stdafx.h"
 #include "std/string.h"
 
 #include "external/volk/volk.h"
+#include <stddef.h>
 #include <stdlib.h>
+#include <vulkan/vulkan_core.h>
+
+#ifndef NV_GPU_DISABLE_OPTIMIZATIONS
+#  define NV_GPU_DISABLE_OPTIMIZATIONS (true)
+#endif
+
+#define ALIASES_STACK_ARRAY(ptr, stack_array) ((void*)(ptr) >= (void*)(stack_array) && (void*)(ptr) <= (void*)((uchar*)(stack_array) + sizeof((stack_array))))
 
 static inline bool
 has_flag(u32 flags, u32 want)
@@ -51,11 +61,26 @@ _get_preferred_alignment(const nvvk_ctx_t* vkctx)
     props.limits.minStorageBufferOffsetAlignment, // for dynamic SSBOs
 
     // not necessarily needed, just optimal
+    // these raise the required alignment on my pc to 128 from 64
+    // so we don't use them
     // props.limits.optimalBufferCopyOffsetAlignment,   // for copy src/dst offsets
     // props.limits.optimalBufferCopyRowPitchAlignment, // for row pitch in image copies
   };
 
   return _max_elem(alignment_list, nv_arrlen(alignment_list));
+}
+
+static inline nv_error
+_generate_and_insert_buffer_copy(VkCommandBuffer cmd, nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, size_t num_bytes, size_t dst_offset, size_t src_offset)
+{
+  VkBufferCopy copy = (VkBufferCopy){
+    .srcOffset = src_offset,
+    .dstOffset = dst_offset,
+    .size      = num_bytes,
+  };
+  vkCmdCopyBuffer(cmd, src->buffer, dst->buffer, 1, &copy);
+
+  return NV_SUCCESS;
 }
 
 nv_error
@@ -82,12 +107,23 @@ nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst)
   nv_gpu_memory_pool_create_info_t pool_ci = (nv_gpu_memory_pool_create_info_t){
     .size              = 1000000,
     .minimum_alignment = 1,
-    .memory_flags      = NV_GPU_MEMORY_GPU_LOCAL_BIT | NV_GPU_MEMORY_MAPPABLE_BIT,
+    .memory_flags      = NV_GPU_MEMORY_MAPPABLE_BIT,
     .type              = NV_GPU_ALLOCATOR_FREELIST,
     .policy            = NV_GPU_ALLOCATOR_POLICY_BEST_FIT,
     .flags             = 0,
   };
-  code = nv_gpu_memory_pool_init(dst, &pool_ci, &dst->pool);
+  code = nv_gpu_memory_pool_init(dst, &pool_ci, &dst->cpu_mappable_pool);
+  nv_assert_else_return(code == NV_SUCCESS, code);
+
+  pool_ci = (nv_gpu_memory_pool_create_info_t){
+    .size              = 1000000,
+    .minimum_alignment = 1,
+    .memory_flags      = NV_GPU_MEMORY_GPU_LOCAL_BIT,
+    .type              = NV_GPU_ALLOCATOR_FREELIST,
+    .policy            = NV_GPU_ALLOCATOR_POLICY_BEST_FIT,
+    .flags             = 0,
+  };
+  code = nv_gpu_memory_pool_init(dst, &pool_ci, &dst->gpu_local_pool);
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   code = nv_gpu_buffer_init(
@@ -119,20 +155,21 @@ nvvk_driver_destroy(nvvk_driver_t* driver)
     nv_log_error("Driver still held %zu buffers at time of destruction.\n", nv_list_size(&driver->buffers));
   }
 
-  nv_gpu_memory_pool_destroy(&driver->pool);
+  nv_gpu_memory_pool_destroy(&driver->cpu_mappable_pool);
+  nv_gpu_memory_pool_destroy(&driver->gpu_local_pool);
 
   for (size_t i = 0; i < nv_list_size(&driver->samplers); i++)
   {
     nv_gpu_sampler_t* sampler = (nv_gpu_sampler_t*)nv_list_get(&driver->samplers, i);
     if (sampler && sampler->vksampler)
     {
-      vkDestroySampler(driver->ctx->device, sampler->vksampler, &driver->ctx->allocator);
+      vkDestroySampler(driver->ctx->device, sampler->vksampler, &driver->ctx->vkalloc);
     }
   }
 
   for (size_t i = 0; i < NOVA_GPU_COMMAND_BUFFER_CACHE_COUNT; i++)
   {
-    vkDestroyFence(driver->ctx->device, driver->ctx->cmd_buffer_fences[i], &driver->ctx->allocator);
+    vkDestroyFence(driver->ctx->device, driver->ctx->cmd_buffer_fences[i], &driver->ctx->vkalloc);
   }
 
   nv_list_destroy(&driver->buffers);
@@ -174,135 +211,6 @@ nvvk_driver_is_valid(const nvvk_driver_t* driver)
   // }
 
   return true;
-}
-
-static void
-_nv_gpu_allocator_freelist_insert_block(nv_gpu_allocator_freelist_t* list, nv_gpu_memory_block_t* block)
-{
-  nv_assert_else_return(block != NULL, );
-  nv_assert_else_return(block->size != 0, );
-
-  block->size = ALIGN_UP(block->size, block->alignment);
-
-  if (!list->root || block->offset < list->root->offset)
-  {
-    block->pload.freelist.next = list->root;
-    list->root                 = block;
-    return;
-  }
-
-  nv_gpu_memory_block_t* cur = list->root;
-  while (cur->pload.freelist.next && cur->pload.freelist.next->offset <= block->offset)
-  {
-    cur = cur->pload.freelist.next;
-  }
-  block->pload.freelist.next = cur->pload.freelist.next;
-  cur->pload.freelist.next   = block;
-}
-
-static void
-_nv_gpu_allocator_freelist_coalesce_blocks(nv_gpu_allocator_freelist_t* list)
-{
-  bool merged_any;
-  do
-  {
-    merged_any                 = false;
-    nv_gpu_memory_block_t* cur = list->root;
-    while (cur && cur->pload.freelist.next)
-    {
-      nv_gpu_memory_block_t* next = cur->pload.freelist.next;
-      // adjacent?
-      if (cur->offset + cur->size == next->offset)
-      {
-        cur->size                = cur->size + next->size;
-        cur->pload.freelist.next = next->pload.freelist.next;
-        nv_free(next);
-        merged_any = true;
-        break; // restart from list->root
-      }
-      cur = next;
-    }
-  } while (merged_any);
-}
-
-bool
-nv_gpu_allocator_freelist_allocate(nv_gpu_allocator_freelist_t* list, vk_size_t alignment, vk_size_t request_size, vk_size_t* out_offset)
-{
-  nv_gpu_memory_block_t* prev = NULL;
-  nv_gpu_memory_block_t* cur  = list->root;
-
-  while (cur)
-  {
-    vk_size_t aligned_off = ALIGN_UP(cur->offset, alignment);
-    vk_size_t padding     = aligned_off - cur->offset;
-    vk_size_t total_need  = padding + request_size;
-
-    if (cur->size >= total_need)
-    {
-      *out_offset = aligned_off;
-
-      vk_size_t tail_off  = aligned_off + request_size;
-      vk_size_t tail_size = cur->size - total_need;
-
-      if (padding > 0)
-      {
-        // keep the head fragment
-        cur->size = padding;
-
-        if (tail_size > 0)
-        {
-          nv_gpu_memory_block_t* tail = nv_malloc(sizeof(nv_gpu_memory_block_t));
-          tail->offset                = tail_off;
-          tail->size                  = tail_size;
-          tail->alignment             = alignment;
-          tail->pload.freelist.next   = cur->pload.freelist.next;
-          cur->pload.freelist.next    = tail;
-        }
-      }
-      else
-      {
-        // no head fragment: reuse or remove cur
-        if (tail_size > 0)
-        {
-          cur->offset = tail_off;
-          cur->size   = tail_size;
-        }
-        else
-        {
-          // exact fit — pull cur out
-          if (prev)
-          {
-            prev->pload.freelist.next = cur->pload.freelist.next;
-          }
-          else
-          {
-            list->root = cur->pload.freelist.next;
-          }
-          nv_free(cur);
-        }
-      }
-      return true;
-    }
-
-    prev = cur;
-    cur  = cur->pload.freelist.next;
-  }
-  return false;
-}
-
-void
-nv_gpu_allocator_freelist_free(nv_gpu_allocator_freelist_t* list, vk_size_t offset, vk_size_t size, vk_size_t alignment)
-{
-  nv_gpu_memory_block_t* block = nv_malloc(sizeof(nv_gpu_memory_block_t));
-  nv_assert_else_return(block != NULL, );
-
-  block->offset              = offset;
-  block->size                = size;
-  block->pload.freelist.next = NULL;
-  block->alignment           = alignment;
-
-  _nv_gpu_allocator_freelist_insert_block(list, block);
-  _nv_gpu_allocator_freelist_coalesce_blocks(list);
 }
 
 static inline nv_gpu_buffer_t*
@@ -424,16 +332,15 @@ nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_g
 
   nv_bzero(dst, sizeof(nv_gpu_buffer_t));
 
-  const vk_size_t aligned_size = ALIGN_UP(size, alignment);
+  const vk_size_t aligned_size = _align_up_size(size, alignment);
 
-  VkMemoryAllocateFlags vk_property_flags = _nv_to_vk_memory_properties(flags);
-  VkBufferUsageFlags    vk_buffer_flags   = _nv_to_vk_buffer_usage(flags);
+  const VkBufferUsageFlags vk_buffer_flags = _nv_to_vk_buffer_usage(flags);
 
   VkBufferCreateInfo buffer_info = nv_zero_init(VkBufferCreateInfo);
   buffer_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size               = size;
+  buffer_info.size               = aligned_size;
   buffer_info.usage              = vk_buffer_flags;
-  nvvk_result_check(*driver->ctx, vkCreateBuffer(driver->ctx->device, &buffer_info, &driver->ctx->allocator, &dst->buffer));
+  nvvk_result_check(*driver->ctx, vkCreateBuffer(driver->ctx->device, &buffer_info, &driver->ctx->vkalloc, &dst->buffer));
   nv_assert_else_return(dst->buffer != VK_NULL_HANDLE, NV_ERROR_EXTERNAL);
 
   VkMemoryRequirements memory_requirements;
@@ -441,31 +348,38 @@ nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_g
   nv_assert_else_return(memory_requirements.size != 0, NV_ERROR_EXTERNAL);
   nv_assert_else_return(memory_requirements.alignment != 0, NV_ERROR_EXTERNAL);
 
-  // VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
-  // allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  // allocInfo.allocationSize       = memory_requirements.size;
-  // allocInfo.memoryTypeIndex      = nv_vk_get_mem_type(driver->ctx, memory_requirements.memoryTypeBits, vk_property_flags);
-  // nvvk_result_check(*driver->ctx, vkAllocateMemory(driver->ctx->device, &allocInfo, &nvvkctx->allocator, &dst->memory));
-  // nv_assert_else_return(dst->memory != VK_NULL_HANDLE, NV_ERROR_EXTERNAL);
-  nv_error code = nv_gpu_memory_pool_allocate(&driver->pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
-  if (code != NV_SUCCESS)
+  if (flags & NV_GPU_BUFFER_MAPPABLE)
   {
-    return code;
+    nv_error code = nv_gpu_memory_pool_allocate(&driver->cpu_mappable_pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
+    if (code != NV_SUCCESS)
+    {
+      return code;
+    }
   }
+  else
+  {
+    nv_error code = nv_gpu_memory_pool_allocate(&driver->gpu_local_pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
+    if (code != NV_SUCCESS)
+    {
+      return code;
+    }
+  }
+  nv_assert_else_return((dst->block.size % alignment) == 0, NV_ERROR_INVALID_RETVAL);
+  nv_assert_else_return((dst->block.offset % alignment) == 0, NV_ERROR_INVALID_RETVAL);
 
   dst->size      = dst->block.size;
   dst->alignment = dst->block.alignment;
   dst->flags     = flags;
   dst->driver    = driver;
 
-  nvvk_result_check(*driver->ctx, vkBindBufferMemory(driver->ctx->device, dst->buffer, driver->pool.memory, dst->block.offset));
+  nvvk_result_check(*driver->ctx, vkBindBufferMemory(driver->ctx->device, dst->buffer, dst->block.pool->memory, dst->block.offset));
 
   if (flags & NV_GPU_BUFFER_PERSISTENT_MAPPED)
   {
     dst->drv_mapped = (uchar*)dst->block.pool->drv_mapped + dst->block.offset;
     nv_assert_else_return(dst->drv_mapped != NULL, NV_ERROR_EXTERNAL);
 
-    dst->drv_mapped_size   = size;
+    dst->drv_mapped_size   = aligned_size;
     dst->drv_mapped_offset = 0;
   }
 
@@ -481,10 +395,12 @@ nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer)
   }
 
   nvvk_ctx_t* ctx = buffer->driver->ctx;
+  nv_assert_else_return(nvvk_driver_is_valid(buffer->driver) == true, );
+  nv_assert_else_return(nvvk_ctx_is_valid(buffer->driver->ctx) == true, );
 
   vkDeviceWaitIdle(ctx->device);
 
-  vkDestroyBuffer(ctx->device, buffer->buffer, &ctx->allocator);
+  vkDestroyBuffer(ctx->device, buffer->buffer, &ctx->vkalloc);
   nv_gpu_memory_pool_free(buffer->block.pool, &buffer->block);
   // vkFreeMemory(ctx->device, buffer->driver->pool.memory, NULL);
 }
@@ -498,7 +414,7 @@ _nv_transfer_to_cpu_visible_buffer(nv_gpu_buffer_t* buffer, const void* data, vk
   nv_error code    = NV_SUCCESS;
 
   code = nv_gpu_buffer_map_memory(buffer, data_size, offset, &mapping);
-  if (!code)
+  if (code != NV_SUCCESS)
   {
     return code;
   }
@@ -508,7 +424,7 @@ _nv_transfer_to_cpu_visible_buffer(nv_gpu_buffer_t* buffer, const void* data, vk
   if (!(buffer->flags & NV_GPU_BUFFER_PERSISTENT_MAPPED))
   {
     code = nv_gpu_buffer_unmap_memory(buffer);
-    if (!code)
+    if (code != NV_SUCCESS)
     {
       return code;
     }
@@ -527,31 +443,45 @@ _nv_stage_transfer_to_buffer(nv_gpu_buffer_t* buffer, const void* data, vk_size_
 
   if ((buffer->size + offset) < NOVA_GPU_SMALL_TRANSFER_BUFFER_SIZE)
   {
-    code = nv_gpu_buffer_write_data(&driver->small_transfer_buffer, data, data_size, 0);
+    void* mapping = NULL;
+    code          = nv_gpu_buffer_map_memory(&driver->small_transfer_buffer, data_size, 0, &mapping);
     if (!code)
     {
       return code;
     }
+
+    nv_memmove(mapping, data, data_size);
 
     code = nv_gpu_buffer_copy(&driver->small_transfer_buffer, buffer, data_size, offset, 0);
     if (!code)
     {
       return code;
     }
+
+    nv_gpu_buffer_flush_writes(buffer);
   }
   else if ((buffer->size + offset) < NOVA_GPU_LARGE_TRANSFER_BUFFER_INITIAL_SIZE)
   {
-    code = nv_gpu_buffer_write_data(&driver->large_transfer_buffer, data, data_size, 0);
+    void* mapping = NULL;
+    code          = nv_gpu_buffer_map_memory(&driver->large_transfer_buffer, data_size, 0, &mapping);
     if (!code)
     {
       return code;
     }
+
+    nv_memmove(mapping, data, data_size);
 
     code = nv_gpu_buffer_copy(&driver->large_transfer_buffer, buffer, data_size, offset, 0);
     if (!code)
     {
       return code;
     }
+
+    nv_gpu_buffer_flush_writes(buffer);
+  }
+  else
+  {
+    return NV_ERROR_INVALID_RETVAL;
   }
 
   return NV_SUCCESS;
@@ -566,10 +496,11 @@ nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* data, vk_size_t da
   nv_assert_else_return(data_size != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(offset <= buffer->size, NV_ERROR_INVALID_ARG);
 
-  // if (buffer->flags & NV_GPU_BUFFER_CPU_VISIBLE)
-  // {
-  //   return _nv_transfer_to_cpu_visible_buffer(buffer, data, data_size, offset);
-  // }
+  // we stop writing to CPU visible memory for writes up to 64 KiB
+  if (buffer->flags & NV_GPU_BUFFER_MAPPABLE && data_size < nv_bytes_to_kib(64))
+  {
+    return _nv_transfer_to_cpu_visible_buffer(buffer, data, data_size, offset);
+  }
 
   return _nv_stage_transfer_to_buffer(buffer, data, data_size, offset);
 }
@@ -583,38 +514,8 @@ nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offs
   nv_assert_else_return(offset < buffer->size, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(has_flag(buffer->flags, NV_GPU_BUFFER_MAPPABLE) == true, NV_ERROR_INVALID_ARG);
 
-  VkDevice device = buffer->driver->ctx->device;
-
-  /**
-   * The buffer is transient, we won't be reading from it
-   * We just create a backing cache and let the user write to that and flush that
-   * to the GPU memory when needed.
-   */
-  if (buffer->flags & NV_GPU_BUFFER_TRANSIENT_BIT)
-  {
-    /**
-     * The second or will never be reached because we expect that the write cache isn't initialized
-     */
-    if (!buffer->drv_write_cache || buffer->drv_write_cache == 0 /* || (buffer->drv_write_cache_size + buffer->drv_write_cache_offset) >= buffer->size */)
-    {
-      buffer->drv_write_cache        = nv_calloc(size);
-      buffer->drv_write_cache_size   = size;
-      buffer->drv_write_cache_offset = offset;
-
-      nv_assert_else_return(buffer->drv_write_cache != NULL, NV_ERROR_MALLOC_FAILED);
-
-      *mapping = buffer->drv_write_cache;
-
-      return NV_SUCCESS;
-    }
-    else
-    {
-      /* trying to map the buffer twice */
-      return NV_ERROR_INVALID_OPERATION;
-    }
-  }
   /* If we're already mapped and the current mapping isn't out of bounds of the request */
-  else if ((buffer->flags & NV_GPU_BUFFER_PERSISTENT_MAPPED) && buffer->drv_mapped != NULL)
+  if ((buffer->flags & NV_GPU_BUFFER_PERSISTENT_MAPPED) && buffer->drv_mapped != NULL)
   {
     if (buffer->drv_mapped_size >= size && buffer->drv_mapped_offset <= offset)
     {
@@ -635,13 +536,16 @@ nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offs
   /* being CPU visible is an assertion */
   // VkResult result = vkMapMemory(device, buffer->driver->pool.memory, buffer->block.offset + offset, size, 0, &buffer->drv_mapped);
   // nv_assert_else_return(result == VK_SUCCESS, NV_ERROR_EXTERNAL);
-  // nv_assert_else_return(buffer->drv_mapped != NULL, NV_ERROR_EXTERNAL);
+  nv_assert_else_return(buffer->block.pool->drv_mapped != NULL, NV_ERROR_EXTERNAL);
   buffer->drv_mapped = (uchar*)buffer->block.pool->drv_mapped + buffer->block.offset + offset;
+  nv_assert_else_return(buffer->drv_mapped != NULL, NV_ERROR_EXTERNAL);
 
   buffer->drv_mapped_size   = size;
   buffer->drv_mapped_offset = offset;
 
   *mapping = buffer->drv_mapped;
+
+  nv_assert_else_return(*mapping != NULL, NV_ERROR_BROKEN_STATE);
 
   return NV_SUCCESS;
 }
@@ -654,20 +558,14 @@ nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer)
   nv_assert_else_return(buffer->drv_mapped_size != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(buffer->drv_mapped_offset < buffer->size, NV_ERROR_INVALID_ARG);
 
-  if (buffer->flags & NV_GPU_BUFFER_TRANSIENT_BIT && buffer->drv_write_cache != NULL && buffer->drv_write_cache_size > 0)
-  {
-    nv_error code = _nv_stage_transfer_to_buffer(buffer, buffer->drv_write_cache, buffer->drv_write_cache_size, buffer->drv_write_cache_offset);
-    return code;
-  }
-
   vk_size_t alignment = buffer->block.alignment;
 
   /* because we never really have host_coherent_bit in vk flags, we must always flush the memory */
   VkMappedMemoryRange range = {
     .sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-    .memory = buffer->driver->pool.memory,
+    .memory = buffer->block.pool->memory,
     .offset = buffer->drv_mapped_offset + buffer->block.offset,
-    .size   = ALIGN_UP(buffer->drv_mapped_size, alignment),
+    .size   = buffer->drv_mapped_size,
   };
   vkFlushMappedMemoryRanges(buffer->driver->ctx->device, 1, &range);
 
@@ -685,24 +583,13 @@ nv_gpu_buffer_unmap_memory(nv_gpu_buffer_t* buffer)
 
   VkDevice device = buffer->driver->ctx->device;
 
-  if (buffer->flags & NV_GPU_BUFFER_TRANSIENT_BIT)
-  {
-    nv_error code = nv_gpu_buffer_flush_mapped_memory(buffer);
-
-    buffer->drv_write_cache        = NULL;
-    buffer->drv_write_cache_size   = 0;
-    buffer->drv_write_cache_offset = 0;
-
-    return code;
-  }
-
   nv_error code = nv_gpu_buffer_flush_mapped_memory(buffer);
   if (code != NV_SUCCESS)
   {
     return code;
   }
 
-  vkUnmapMemory(device, buffer->driver->pool.memory);
+  vkUnmapMemory(device, buffer->block.pool->memory);
 
   buffer->drv_mapped        = NULL;
   buffer->drv_mapped_size   = 0;
@@ -784,27 +671,21 @@ nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_byt
   nv_assert_else_return(nvvk_driver_is_valid(src->driver) == true, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nvvk_driver_is_valid(dst->driver) == true, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(num_bytes != 0, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return((num_bytes + dst_offset) < dst->size != 0, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return((num_bytes + src_offset) < src->size != 0, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return((num_bytes + dst_offset) <= dst->size != 0, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return((num_bytes + src_offset) <= src->size != 0, NV_ERROR_INVALID_ARG);
 
-  VkBufferCopy copy = (VkBufferCopy){
-    .srcOffset = src_offset,
-    .dstOffset = dst_offset,
-    .size      = num_bytes,
-  };
+  if (src->block.pool == dst->block.pool)
+  {
+    nv_assert_else_return((num_bytes + src_offset) < dst_offset, NV_ERROR_INVALID_ARG);
+  }
+
   VkCommandBuffer cmd = nv_vk_begin_command_buffer(dst->driver);
 
-  vkCmdCopyBuffer(cmd, src->buffer, dst->buffer, 1, &copy);
+  _generate_and_insert_buffer_copy(cmd, dst, src, num_bytes, dst_offset, src_offset);
 
   nv_vk_end_command_buffer(dst->driver, cmd, dst->driver->ctx->transfer_queue, true);
 
   return NV_SUCCESS;
-}
-
-void
-_nv_gpu_buffer_flush_writes_if_any(nv_gpu_buffer_t* buffer)
-{
-  (void)buffer;
 }
 
 nv_gpu_memory_new_flags
@@ -879,7 +760,7 @@ nv_gpu_memory_pool_init(nvvk_driver_t* driver, const nv_gpu_memory_pool_create_i
   const vk_size_t preffered_alignment = _get_preferred_alignment(driver->ctx);
   const vk_size_t alignment           = NV_MAX(preffered_alignment, info->minimum_alignment);
 
-  const vk_size_t aligned_size = ALIGN_UP(info->size, alignment);
+  const vk_size_t aligned_size = _align_up_size(info->size, alignment);
 
   VkMemoryPropertyFlags vk_property_flags = nv_gpu_nv_memory_flags_to_vk_flags(info->memory_flags);
 
@@ -894,7 +775,7 @@ nv_gpu_memory_pool_init(nvvk_driver_t* driver, const nv_gpu_memory_pool_create_i
    */
   allocInfo.memoryTypeIndex = nv_vk_get_mem_type(driver->ctx, UINT32_MAX, vk_property_flags);
 
-  nvvk_result_check(*driver->ctx, vkAllocateMemory(driver->ctx->device, &allocInfo, &driver->ctx->allocator, &dst->memory));
+  nvvk_result_check(*driver->ctx, vkAllocateMemory(driver->ctx->device, &allocInfo, &driver->ctx->vkalloc, &dst->memory));
   nv_assert_else_return(dst->memory != VK_NULL_HANDLE, NV_ERROR_MALLOC_FAILED);
 
   dst->allocated_size = aligned_size;
@@ -909,8 +790,8 @@ nv_gpu_memory_pool_init(nvvk_driver_t* driver, const nv_gpu_memory_pool_create_i
 
   switch (info->type)
   {
-    case NV_GPU_ALLOCATOR_STACK: nv_gpu_memory_allocator_stack_init(dst->allocated_size, &dst->backing_allocator.stack); break;
-    case NV_GPU_ALLOCATOR_FREELIST: nv_gpu_memory_allocator_freelist_init(dst->allocated_size, &dst->backing_allocator.freelist); break;
+    case NV_GPU_ALLOCATOR_STACK: nv_gpu_memory_allocator_stack_init(aligned_size, &dst->backing_allocator.stack); break;
+    case NV_GPU_ALLOCATOR_FREELIST: nv_gpu_freelist_init(aligned_size, &dst->backing_allocator.flist); break;
     default: break;
   }
 
@@ -919,7 +800,8 @@ nv_gpu_memory_pool_init(nvvk_driver_t* driver, const nv_gpu_memory_pool_create_i
    */
   if (info->memory_flags & NV_GPU_MEMORY_MAPPABLE_BIT)
   {
-    vkMapMemory(driver->ctx->device, dst->memory, 0, aligned_size, 0, &dst->drv_mapped);
+    nvvk_result_check(*driver->ctx, vkMapMemory(driver->ctx->device, dst->memory, 0, aligned_size, 0, &dst->drv_mapped));
+    nv_assert_else_return(dst->drv_mapped != NULL, NV_ERROR_INVALID_RETVAL);
   }
 
   return NV_SUCCESS;
@@ -941,7 +823,7 @@ nv_gpu_memory_pool_destroy(nv_gpu_memory_pool_t* pool)
   if (pool->memory != VK_NULL_HANDLE)
   {
     vkDeviceWaitIdle(device);
-    vkFreeMemory(device, pool->memory, &pool->driver->ctx->allocator);
+    vkFreeMemory(device, pool->memory, &pool->driver->ctx->vkalloc);
   }
 }
 
@@ -954,10 +836,10 @@ nv_gpu_memory_pool_allocate(nv_gpu_memory_pool_t* pool, vk_size_t size, vk_size_
   nv_assert_else_return(size != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(alignment != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(size <= pool->allocated_size, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(ALIGN_UP(size, alignment) <= pool->allocated_size, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(_align_up_size(size, alignment) <= pool->allocated_size, NV_ERROR_INVALID_ARG);
 
   const vk_size_t preffered_alignment = NV_MAX(pool->alignment, alignment);
-  const vk_size_t aligned_size        = ALIGN_UP(size, preffered_alignment);
+  const vk_size_t aligned_size        = _align_up_size(size, preffered_alignment);
 
   // pool->user_data += aligned_size;
   // nv_log_info("VKMEMUSG::(%llu|+%llu)\n", pool->user_data, aligned_size);
@@ -971,22 +853,21 @@ nv_gpu_memory_pool_allocate(nv_gpu_memory_pool_t* pool, vk_size_t size, vk_size_
       .size      = aligned_size,
       .offset    = stack->bumper,
       .alignment = preffered_alignment,
-      .pload     = (nv_gpu_allocator_payload_t){},
     };
 
     stack->last_allocation_bumper = stack->bumper;
 
     stack->bumper += aligned_size;
-    stack->bumper = ALIGN_UP(stack->bumper, preffered_alignment);
+    stack->bumper = _align_up_size(stack->bumper, preffered_alignment);
 
     nv_assert_else_return(stack->bumper <= pool->allocated_size, NV_ERROR_MALLOC_FAILED);
   }
   else if (pool->type == NV_GPU_ALLOCATOR_FREELIST)
   {
-    nv_gpu_allocator_freelist_t* freelist = &pool->backing_allocator.freelist;
+    nv_gpu_freelist_t* freelist = &pool->backing_allocator.flist;
 
     vk_size_t offset = SIZE_MAX;
-    nv_gpu_allocator_freelist_allocate(freelist, aligned_size, preffered_alignment, &offset);
+    nv_gpu_freelist_alloc(freelist, aligned_size, preffered_alignment, &offset);
 
     nv_assert_else_return(offset != SIZE_MAX, NV_ERROR_INVALID_RETVAL);
     nv_assert_else_return((offset % preffered_alignment) == 0, NV_ERROR_INVALID_RETVAL);
@@ -996,7 +877,6 @@ nv_gpu_memory_pool_allocate(nv_gpu_memory_pool_t* pool, vk_size_t size, vk_size_
       .size      = aligned_size,
       .offset    = offset,
       .alignment = preffered_alignment,
-      .pload     = (nv_gpu_allocator_payload_t){},
     };
   }
   else
@@ -1030,14 +910,13 @@ nv_gpu_memory_pool_free(nv_gpu_memory_pool_t* pool, nv_gpu_memory_block_t* block
     if (block->offset == stack->last_allocation_bumper)
     {
       stack->bumper -= block->size;
-      stack->bumper = ALIGN_UP(stack->bumper, pool->alignment);
+      stack->bumper = _align_up_size(stack->bumper, pool->alignment);
     }
   }
   else if (pool->type == NV_GPU_ALLOCATOR_FREELIST)
   {
-    nv_gpu_allocator_freelist_t* freelist = &pool->backing_allocator.freelist;
-
-    nv_gpu_allocator_freelist_free(freelist, block->offset, block->size, block->alignment);
+    nv_gpu_freelist_t* freelist = &pool->backing_allocator.flist;
+    nv_gpu_freelist_free(freelist, block->size, block->offset);
   }
   else
   {
@@ -1046,44 +925,6 @@ nv_gpu_memory_pool_free(nv_gpu_memory_pool_t* pool, nv_gpu_memory_block_t* block
   }
 
   return NV_SUCCESS;
-}
-
-nv_error
-nv_gpu_memory_allocator_freelist_init(vk_size_t aligned_size, nv_gpu_allocator_freelist_t* list)
-{
-  nv_assert_else_return(list != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(aligned_size != 0, NV_ERROR_INVALID_ARG);
-
-  nv_bzero(list, sizeof(nv_gpu_allocator_freelist_t));
-
-  list->root = nv_calloc(sizeof(nv_gpu_memory_block_t));
-  if (!list->root)
-  {
-    return NV_ERROR_MALLOC_FAILED;
-  }
-
-  list->root->offset              = 0;
-  list->root->size                = aligned_size;
-  list->root->pload.freelist.next = NULL;
-
-  return NV_SUCCESS;
-}
-
-void
-nv_gpu_memory_allocator_freelist_destroy(nv_gpu_allocator_freelist_t* list)
-{
-  nv_assert_else_return(list != NULL, );
-
-  nv_gpu_memory_block_t* cur = list->root;
-  while (cur)
-  {
-    nv_gpu_memory_block_t* next = cur->pload.freelist.next;
-    nv_free(cur);
-    cur = next;
-  }
-  list->root = NULL;
-
-  nv_bzero(list, sizeof(nv_gpu_allocator_freelist_t));
 }
 
 nv_error
@@ -1108,37 +949,460 @@ nv_gpu_memory_allocator_stack_destroy(nv_gpu_allocator_stack_t* stack)
   nv_bzero(stack, sizeof(nv_gpu_allocator_stack_t));
 }
 
-void*
-nvvk_alloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
-{
-  (void)pUserData;
-  (void)allocationScope;
+vk_size_t total_alloc = 0;
+vk_size_t num_allocs  = 0;
 
-  return nv_aligned_alloc(size, alignment);
+static inline void
+_print_memory_usage_info(void)
+{
+  // nv_log_info("$%llu|#%llu|~%f\n", total_alloc, num_allocs, (float)total_alloc / (float)num_allocs);
 }
 
 void*
-nvvk_realloc(void* pUserData, void* pOriginal, size_t new_size, size_t alignment, VkSystemAllocationScope allocationScope)
+nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
 {
-  (void)pUserData;
   (void)allocationScope;
 
-  return nv_aligned_realloc(pOriginal, new_size, alignment);
+  /**
+   * We can't perform validity checks on vkctx,
+   * because this function is called for initialization
+   * of it
+   */
+  nvvk_ctx_t*       vkctx     = user_data;
+  nvvk_allocator_t* allocator = &vkctx->allocator;
+
+  if (_align_up_size(size, alignment) <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH && alignment <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH)
+  {
+    size = _align_up_size(size, alignment);
+
+    for (size_t i = 0; i < NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS; i++)
+    {
+      if (allocator->l1_cache_blocks_in_use[i])
+      {
+        continue;
+      }
+
+      allocator->l1_cache_blocks_in_use[i] = true;
+      return allocator->l1_cache_blocks[i];
+    }
+  }
+  else if (
+      (_align_up_size(size, alignment) <= NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE) && (allocationScope == VK_SYSTEM_ALLOCATION_SCOPE_COMMAND) && !allocator->command_page_in_use)
+  {
+    allocator->command_page_in_use = true;
+    return _align_up_ptr(allocator->command_page, alignment);
+  }
+
+  total_alloc += _align_up_size(size, alignment);
+  num_allocs++;
+  _print_memory_usage_info();
+
+  void* new_block = nv_aligned_alloc(size, alignment);
+  return new_block;
+}
+
+void*
+nvvk_realloc(void* user_data, void* orig, size_t new_size, size_t alignment, VkSystemAllocationScope allocationScope)
+{
+  (void)allocationScope;
+
+  nvvk_ctx_t*       vkctx     = user_data;
+  nvvk_allocator_t* allocator = &vkctx->allocator;
+
+  if (ALIASES_STACK_ARRAY(orig, allocator->l1_cache_blocks))
+  {
+    // the new size fits in a block, just return that.
+    if (_align_up_size(new_size, alignment) <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH)
+    {
+      return _align_up_ptr(orig, alignment);
+    }
+
+    // mark old block as free, allocate new aligned pointer and return that
+    for (size_t i = 0; i < NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS; i++)
+    {
+      if (ALIASES_STACK_ARRAY(orig, allocator->l1_cache_blocks[i]))
+      {
+        allocator->l1_cache_blocks_in_use[i] = false;
+        break;
+      }
+    }
+
+    return nv_aligned_alloc(new_size, alignment);
+  }
+  else if (ALIASES_STACK_ARRAY(orig, allocator->command_page))
+  {
+    if (new_size <= NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE)
+    {
+      return _align_up_ptr(orig, alignment);
+    }
+
+    // mark the page as unused and return an alloc'd pointer
+    allocator->command_page_in_use = false;
+
+    /* NOTE: this almost never gets called haha */
+    return nv_aligned_alloc(new_size, alignment);
+  }
+
+  if (orig)
+  {
+    total_alloc += _align_up_size(nv_aligned_ptr_get_size(orig), alignment);
+    num_allocs++;
+    _print_memory_usage_info();
+  }
+
+  void* new_block = nv_aligned_realloc(orig, new_size, alignment);
+  return new_block;
 }
 
 void
-nvvk_free(void* pUserData, void* pMemory)
+nvvk_free(void* pUserData, void* ptr)
 {
-  (void)pUserData;
-  nv_aligned_free(pMemory);
+  nvvk_ctx_t*       vkctx     = pUserData;
+  nvvk_allocator_t* allocator = &vkctx->allocator;
+
+  if (ALIASES_STACK_ARRAY(ptr, allocator->l1_cache_blocks))
+  {
+    // mark old block as free, allocate new aligned pointer and return that
+    for (size_t i = 0; i < NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS; i++)
+    {
+      if (ALIASES_STACK_ARRAY(ptr, allocator->l1_cache_blocks[i]))
+      {
+        allocator->l1_cache_blocks_in_use[i] = false;
+        return;
+      }
+    }
+  }
+  else if (ALIASES_STACK_ARRAY(ptr, allocator->command_page))
+  {
+    allocator->command_page_in_use = false;
+    return;
+  }
+
+  nv_aligned_free(ptr);
 }
 
 void
 nvvk_internal_allocation(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
 {
+  (void)pUserData;
+  (void)size;
+  (void)allocationType;
+  (void)allocationScope;
 }
 
 void
 nvvk_internal_free(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
 {
+  (void)pUserData;
+  (void)size;
+  (void)allocationType;
+  (void)allocationScope;
+}
+
+nv_error
+nv_gpu_buffer_flush_writes(nv_gpu_buffer_t* buffer)
+{
+  nv_assert_else_return(buffer != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(nvvk_driver_is_valid(buffer->driver) == true, NV_ERROR_INVALID_ARG);
+
+  if (buffer->drv_mapped != NULL && buffer->drv_mapped_size > 0)
+  {
+    return nv_gpu_buffer_flush_mapped_memory(buffer);
+  }
+
+  return NV_SUCCESS;
+}
+
+nv_error
+nv_gpu_buffer_resize(nv_gpu_buffer_t* buffer, size_t new_size, size_t new_alignment, bool copy_old_data)
+{
+  nv_assert_else_return(buffer != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(nvvk_driver_is_valid(buffer->driver) == true, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(buffer->flags & NV_GPU_BUFFER_RESIZABLE_BIT, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(new_size != 0, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(new_alignment != 0, NV_ERROR_INVALID_ARG);
+
+  VkBuffer              new_buffer = VK_NULL_HANDLE;
+  nv_gpu_memory_block_t new_block  = nv_zero_init(nv_gpu_memory_block_t);
+
+  nv_assert_else_return(0, NV_ERROR_BROKEN_STATE);
+
+  return NV_SUCCESS;
+}
+
+nv_error
+nv_gpu_freelist_resize(nv_gpu_freelist_t* flist, size_t new_capacity)
+{
+  nv_assert_else_return(flist != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(new_capacity != 0, NV_ERROR_INVALID_ARG);
+
+  return NV_SUCCESS;
+}
+
+nv_error
+nv_gpu_freelist_init(size_t initial_capacity, nv_gpu_freelist_t* dst)
+{
+  nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
+
+  nv_zero_structp(dst);
+
+  dst->root         = nv_alloc_struct(nv_gpu_freelist_block_t);
+  dst->root->offset = 0;
+  dst->root->size   = initial_capacity;
+  dst->root->next   = NULL;
+
+  return NV_SUCCESS;
+}
+
+void
+nv_gpu_freelist_destroy(nv_gpu_freelist_t* flist)
+{
+  if (!flist)
+  {
+    return;
+  }
+
+  nv_gpu_freelist_block_t* node = flist->root;
+  while (node)
+  {
+    nv_gpu_freelist_block_t* next = node->next;
+    nv_free(node);
+    node = node->next;
+  }
+}
+
+static inline nv_error
+_nv_gpu_freelist_insert_node_last(nv_gpu_freelist_t* flist, nv_gpu_freelist_block_t** ret)
+{
+  nv_assert_else_return(flist != NULL, NV_ERROR_INVALID_ARG);
+
+  flist->num_nodes++;
+  nv_log_info("NNODES:%zu\n", flist->num_nodes);
+
+  if (!flist->root)
+  {
+    flist->root = nv_alloc_struct(nv_gpu_freelist_block_t);
+    nv_assert_else_return(flist->root != NULL, NV_ERROR_MALLOC_FAILED);
+
+    *ret = flist->root;
+    return NV_SUCCESS;
+  }
+
+  nv_gpu_freelist_block_t* node = flist->root;
+  while (node->next)
+  {
+    node = node->next;
+  }
+
+  node->next = nv_alloc_struct(nv_gpu_freelist_block_t);
+  nv_assert_else_return(node->next != NULL, NV_ERROR_MALLOC_FAILED);
+
+  *ret = node->next;
+
+  return NV_SUCCESS;
+}
+
+/* first fit */
+bool
+nv_gpu_freelist_alloc(nv_gpu_freelist_t* flist, size_t size, size_t alignment, size_t* offset_out)
+{
+  nv_assert_else_return(flist, false);
+  nv_assert_else_return(flist->root != NULL, false);
+  nv_assert_else_return(offset_out, false);
+
+  nv_error code = nv_gpu_freelist_defrag(flist);
+  if (code != NV_SUCCESS)
+  {
+    return false;
+  }
+
+  const size_t aligned_size = _align_up_size(size, alignment);
+
+  nv_gpu_freelist_block_t* best_fit_node = NULL;
+
+  nv_gpu_freelist_block_t* prev = NULL;
+  nv_gpu_freelist_block_t* node = flist->root;
+  while (node)
+  {
+    if (node->size >= aligned_size)
+    {
+      best_fit_node = node;
+      break;
+    }
+    prev = node;
+    node = node->next;
+  }
+
+  if (!best_fit_node)
+  {
+    return false;
+  }
+
+  if (prev)
+  {
+    prev->next = best_fit_node->next;
+  }
+  else
+  {
+    flist->root = best_fit_node->next;
+  }
+
+  size_t aligned_offset    = _align_up_size(best_fit_node->offset, alignment);
+  size_t alignment_padding = aligned_offset - best_fit_node->offset;
+
+  if (best_fit_node->size < alignment_padding + size)
+  {
+    return NV_ERROR_MALLOC_FAILED;
+  }
+
+  best_fit_node->offset = aligned_offset;
+  best_fit_node->size -= alignment_padding + size;
+
+  size_t remaining = best_fit_node->size;
+
+  bool next_node_can_recieve_remaining = best_fit_node->next && best_fit_node->next->offset == (best_fit_node->offset + size);
+  if (remaining > 0 && next_node_can_recieve_remaining)
+  {
+    best_fit_node->next->offset = best_fit_node->offset + size;
+    best_fit_node->next->size += remaining;
+    best_fit_node->size = size;
+  }
+  else if (remaining > 0)
+  {
+    nv_gpu_freelist_block_t* suffix = NULL;
+    nv_error                 code   = _nv_gpu_freelist_insert_node_last(flist, &suffix);
+    nv_assert_else_return(code == NV_SUCCESS, code);
+
+    suffix->offset      = best_fit_node->offset + size;
+    suffix->size        = remaining;
+    best_fit_node->size = size;
+  }
+
+  *offset_out = best_fit_node->offset;
+
+  nv_free(best_fit_node);
+
+  return true;
+}
+
+nv_error
+nv_gpu_freelist_free(nv_gpu_freelist_t* flist, size_t offset, size_t size)
+{
+  nv_assert_else_return(flist != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(flist->root != NULL, NV_ERROR_INVALID_ARG);
+  if (size == 0)
+  {
+    return NV_SUCCESS;
+  }
+
+  nv_gpu_freelist_block_t* new_node = NULL;
+
+  nv_error code = _nv_gpu_freelist_insert_node_last(flist, &new_node);
+  nv_assert_else_return(new_node != NULL && code == NV_SUCCESS, code);
+
+  new_node->offset = offset;
+  new_node->size   = size;
+
+  code = nv_gpu_freelist_defrag(flist);
+  if (code != NV_SUCCESS)
+  {
+    return false;
+  }
+
+  return NV_SUCCESS;
+}
+
+static inline nv_gpu_freelist_block_t*
+_sorted_merge(nv_gpu_freelist_block_t* a, nv_gpu_freelist_block_t* b)
+{
+  if (!a)
+  {
+    return b;
+  }
+  if (!b)
+  {
+    return a;
+  }
+
+  if (a->offset <= b->offset)
+  {
+    a->next = _sorted_merge(a->next, b);
+    return a;
+  }
+  else
+  {
+    b->next = _sorted_merge(a, b->next);
+    return b;
+  }
+}
+
+static inline void
+_front_back_split(nv_gpu_freelist_block_t* source, nv_gpu_freelist_block_t** front, nv_gpu_freelist_block_t** back)
+{
+  nv_gpu_freelist_block_t* slow = source;
+  nv_gpu_freelist_block_t* fast = source->next;
+
+  while (fast)
+  {
+    fast = fast->next;
+    if (fast)
+    {
+      slow = slow->next;
+      fast = fast->next;
+    }
+  }
+
+  *front     = source;
+  *back      = slow->next;
+  slow->next = NULL;
+}
+
+static inline nv_gpu_freelist_block_t*
+_merge_sort(nv_gpu_freelist_block_t* root)
+{
+  if (!root || !root->next)
+  {
+    return root;
+  }
+
+  nv_gpu_freelist_block_t* a = NULL;
+  nv_gpu_freelist_block_t* b = NULL;
+
+  _front_back_split(root, &a, &b);
+
+  a = _merge_sort(a);
+  b = _merge_sort(b);
+
+  return _sorted_merge(a, b);
+}
+
+static inline void
+nv_gpu_freelist_sort(nv_gpu_freelist_t* flist)
+{
+  flist->root = _merge_sort(flist->root);
+}
+
+nv_error
+nv_gpu_freelist_defrag(nv_gpu_freelist_t* flist)
+{
+  nv_gpu_freelist_block_t* cur = flist->root;
+
+  while (cur && cur->next)
+  {
+    nv_gpu_freelist_block_t* next = cur->next;
+
+    if (cur->offset + cur->size == next->offset)
+    {
+      cur->size += next->size;
+      cur->next = next->next;
+
+      nv_free(next);
+    }
+    else
+    {
+      cur = next;
+    }
+  }
+
+  return NV_SUCCESS;
 }

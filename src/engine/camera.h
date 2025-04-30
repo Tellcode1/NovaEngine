@@ -21,15 +21,29 @@ struct nv_input_ctx_t;
 #define CAMERA_FAKE_BUFFER_COUNT 3
 
 static inline vk_size_t
-ALIGN_UP(vk_size_t sz, vk_size_t align)
+_align_up_size(vk_size_t sz, vk_size_t align)
 {
   /* The previous implementation was technically */
   /* next power of two, so it was causing errors. This is the closest next power of two. */
-  if (sz % align != 0)
+  if ((sz % align) != 0)
   {
     sz += align - sz % align;
   }
+  nv_assert_else_return((sz % align) == 0, 0);
   return sz;
+}
+
+static inline void*
+_align_up_ptr(void* ptr, vk_size_t align)
+{
+  /* The previous implementation was technically */
+  /* next power of two, so it was causing errors. This is the closest next power of two. */
+  if (((uintptr_t)ptr % align) != 0)
+  {
+    ptr = (void*)((uintptr_t)ptr + (align - ((uintptr_t)ptr) % align));
+  }
+  nv_assert_else_return(((uintptr_t)ptr % align) == 0, NULL);
+  return ptr;
 }
 
 struct nv_camera_uniform_buffer

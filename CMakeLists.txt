@@ -17,6 +17,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 endif()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+
 # We don't wanna enable address sanitizer on release builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOVA_SANITIZE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")

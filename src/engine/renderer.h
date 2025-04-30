@@ -175,7 +175,7 @@ struct nv_renderer_t
   void* mapped;
 };
 
-extern nv_error nv_renderer_init(struct nv_ctx_s*ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+extern nv_error nv_renderer_init(struct nv_ctx_s* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
 extern void     nv_renderer_destroy(nv_renderer_t* rd);
 
 extern bool     nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);

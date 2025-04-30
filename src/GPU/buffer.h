@@ -175,11 +175,6 @@ struct nv_gpu_buffer_t
   vk_size_t drv_mapped_size;   // the size of the mapping
   vk_size_t drv_mapped_offset; // the offset of the mapping
 
-  /* A backing for mapping transient buffers, CPU side */
-  void*     drv_write_cache;
-  vk_size_t drv_write_cache_size;
-  vk_size_t drv_write_cache_offset;
-
   /**
    * non-NULL if the buffer is using another buffer as a source
    * Really only used for transient buffers.
@@ -196,9 +191,20 @@ extern void     nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer);
 /**
  * Note that writes to the buffer aren't visible immediately.
  * This is more so a limitation of every graphics API.
+ * Note that this may map the memory and you will need to flush the writes
  * TODO: write only when needed.
  */
 extern nv_error nv_gpu_buffer_write_data(nv_gpu_buffer_t* buffer, const void* data, vk_size_t data_size, vk_size_t offset);
+
+/**
+ * Make all CPU writes visible to the GPU
+ * Always call this after you're done writing data to the GPU and before
+ * rendering or buffer reads.
+ * Note that if no writes had been performed, this function will
+ * simply exit and do nothing. So, it is safe to call this on a per frame
+ * basis.
+ */
+extern nv_error nv_gpu_buffer_flush_writes(nv_gpu_buffer_t* buffer);
 
 /**
  * It's perfectly valid to try to map persisten buffers
@@ -210,9 +216,15 @@ extern nv_error nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size
 
 /**
  * It is illegal to try to unmap persistent buffers
+ * Writes are automatically flushed when unmapping.
  */
 extern nv_error nv_gpu_buffer_unmap_memory(nv_gpu_buffer_t* buffer);
 
+/**
+ * Make CPU writes to GPU memory visible to the GPU.
+ * Note that you do not need to call this if you called _flush_writes()
+ * because it is called internally by _flush_writes()
+ */
 extern nv_error nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer);
 
 /**
@@ -232,9 +244,11 @@ extern nv_error nv_gpu_buffer_readback(nv_gpu_buffer_t* buffer, vk_size_t size, 
 extern nv_error nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_bytes, vk_size_t dst_offset, vk_size_t src_offset);
 
 /**
- * Flush all writes to the buffer from the cache to the GPU.
+ * Resize a buffer
+ * If buffer is transient, copy_old_data is ignored.
+ * new_size may be larger or smaller than the buffers size.
  */
-extern void _nv_gpu_buffer_flush_writes_if_any(nv_gpu_buffer_t* buffer);
+extern nv_error nv_gpu_buffer_resize(nv_gpu_buffer_t* buffer, size_t new_size, size_t new_alignment, bool copy_old_data);
 
 /**
  * Note that if the buffer is transient, this returns VK_NULL_HANDLE.

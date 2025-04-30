@@ -80,27 +80,68 @@ typedef struct nvvk_allocator_block_s
 #  define NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH 1024
 #endif
 
-#ifndef NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_ALIGNMENT
-#  define NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_ALIGNMENT 128
+#ifndef NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH
+#  define NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH 128
 #endif
 
-#define NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS (NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH / NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_ALIGNMENT)
+#define NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS (NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH / NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH)
 
-typedef struct nvvk_allocator_l1cache_header_s
-{
-  bool blocks_in_use[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
-} nvvk_allocator_l1cache_header_t;
+#ifndef NOVA_VK_ALLOCATOR_L2_CACHE_PAGE_SIZE
+#  define NOVA_VK_ALLOCATOR_L2_CACHE_PAGE_SIZE 16384
+#endif
+
+#ifndef NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED
+#  define NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED 32
+#endif
+
+#ifndef NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE
+#  define NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE 1024
+#endif
+
+#ifndef NOVA_VK_ALLOCATOR_COMMAND_PAGE_ALIGNMENT
+#  define NOVA_VK_ALLOCATOR_COMMAND_PAGE_ALIGNMENT 128
+#endif
+
+typedef uchar nvvk_allocator_l1_cache_block_t[NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH];
+
+typedef uchar nvvk_allocator_command_page_t[NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE];
 
 typedef struct nvvk_allocator_s
 {
   // I think this can be compressed down to a single byte but ok
-  bool l1_cache_usage_list[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
+  bool l1_cache_blocks_in_use[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
 
   /**
    * 8 blocks of 128 bytes each for fast access
-   * Note that allocations may use multiple blocks
+   * Note that allocations may NOT use multiple blocks
    */
-  uchar l1_cache[NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH];
+  nvvk_allocator_l1_cache_block_t l1_cache_blocks[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
+
+  nvvk_allocator_command_page_t command_page;
+  bool                          command_page_in_use;
+  char                          padding_x8sdf[7];
+
+  /**
+   * 16KiB pages of memory that's stack allocated out of
+   * These pages are routinely cleared
+   */
+  uchar* l2_cache_pages[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+
+  /**
+   * When this reaches 0 for any page, it's cleared
+   */
+  size_t l2_cache_pages_num_allocations[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+
+  size_t l2_cache_bumpers[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+
+  bool l2_cache_pages_in_use[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+
+  /**
+   * The L3 cache is the slowest, but most spacious heap available to the allocator
+   * It's allocated in 1MiB increments and has a freelist operating on top of it
+   */
+  void*  l3_cache;
+  size_t l3_cache_size;
 } nvvk_allocator_t;
 
 /* did you notice that the vulkan context is entirely independant of the global context? */
@@ -138,7 +179,8 @@ typedef struct nvvk_ctx_s
   nv_gpu_result_check_fn result_fn;
   u32                    flag_register;
 
-  VkAllocationCallbacks allocator;
+  VkAllocationCallbacks vkalloc;
+  nvvk_allocator_t      allocator;
 } nvvk_ctx_t;
 
 extern nv_error nvvk_ctx_init(struct nv_ctx_s* nvctx, nvvk_ctx_t* ctx);

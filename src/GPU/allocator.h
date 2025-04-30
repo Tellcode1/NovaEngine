@@ -2,6 +2,7 @@
 #define __NOVA_GPU_MEMORY_ALLOCATOR_H__
 
 #include "../std/stdafx.h"
+#include "_freelist.h"
 #include "newmemory.h"
 #include "types.h"
 
@@ -9,13 +10,14 @@ NOVA_HEADER_START
 
 struct nvvk_driver_t;
 
-typedef struct nv_gpu_allocator_stack_s          nv_gpu_allocator_stack_t;
-typedef struct nv_gpu_allocator_freelist_block_s nv_gpu_allocator_freelist_block_t;
-typedef struct nv_gpu_allocator_freelist_s       nv_gpu_allocator_freelist_t;
-typedef struct nv_gpu_memory_block_s             nv_gpu_memory_block_t;
-typedef struct nv_gpu_memory_pool_s              nv_gpu_memory_pool_t;
-typedef struct nv_gpu_memory_pool_create_info_s  nv_gpu_memory_pool_create_info_t;
-typedef union nv_gpu_allocator_payload_u         nv_gpu_allocator_payload_t;
+/**
+ * The core memory struct.
+ */
+typedef struct nv_gpu_memory_block_s nv_gpu_memory_block_t;
+
+typedef struct nv_gpu_allocator_stack_s         nv_gpu_allocator_stack_t;
+typedef struct nv_gpu_memory_pool_s             nv_gpu_memory_pool_t;
+typedef struct nv_gpu_memory_pool_create_info_s nv_gpu_memory_pool_create_info_t;
 
 typedef VkResult (*nv_gpu_alloc_fn)(vk_size_t size, vk_size_t alignment);
 typedef VkResult (*nv_gpu_free_fn)(nv_gpu_memory_block_t* block);
@@ -71,6 +73,9 @@ typedef enum nv_gpu_allocator_type
 typedef u32 nv_gpu_memory_pool_create_flags;
 typedef enum nv_gpu_memory_pool_create_flag_bits
 {
+  /**
+   * TODO: Implement
+   */
   NV_GPU_MEMORY_POOL_CREATE_FLAGS_,
   NV_GPU_MEMORY_POOL_CREATE_FLAGS_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT = 1 << 16,
 } nv_gpu_memory_pool_create_flag_bits;
@@ -84,30 +89,15 @@ struct nv_gpu_allocator_stack_s
   vk_size_t last_allocation_bumper;
 };
 
-struct nv_gpu_allocator_freelist_block_s
-{
-  struct nv_gpu_memory_block_s* next;
-};
-
-struct nv_gpu_allocator_freelist_s
-{
-  struct nv_gpu_memory_block_s* root;
-};
-
-union nv_gpu_allocator_payload_u
-{
-  nv_gpu_allocator_freelist_block_t freelist;
-};
-
 struct nv_gpu_memory_block_s
 {
   nv_gpu_memory_pool_t* pool;
 
+  nv_gpu_memory_new_flags flags;
+
   vk_size_t size;
   vk_size_t offset;
   vk_size_t alignment;
-
-  nv_gpu_allocator_payload_t pload;
 
   u64 user_data;
 };
@@ -132,8 +122,8 @@ struct nv_gpu_memory_pool_s
 
   union
   {
-    nv_gpu_allocator_stack_t    stack;
-    nv_gpu_allocator_freelist_t freelist;
+    nv_gpu_allocator_stack_t stack;
+    nv_gpu_freelist_t        flist;
   } backing_allocator;
 
   /* DRIVER INFORMATION */
@@ -170,13 +160,11 @@ extern nv_error nv_gpu_memory_pool_free(nv_gpu_memory_pool_t* pool, nv_gpu_memor
  * Not to be called by the user
  */
 extern nv_error nv_gpu_memory_allocator_stack_init(vk_size_t aligned_size, nv_gpu_allocator_stack_t* stack);
-extern nv_error nv_gpu_memory_allocator_freelist_init(vk_size_t aligned_size, nv_gpu_allocator_freelist_t* list);
 
 /**
  * Not to be called by the user
  */
 extern void nv_gpu_memory_allocator_stack_destroy(nv_gpu_allocator_stack_t* stack);
-extern void nv_gpu_memory_allocator_freelist_destroy(nv_gpu_allocator_freelist_t* list);
 
 NOVA_HEADER_END
 

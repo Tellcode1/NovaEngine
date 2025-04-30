@@ -91,7 +91,7 @@ filter_sdf_texture_nicely()
 void
 main()
 {
-  float alpha = filter_sdf_texture_approx();
+  float alpha = filter_sdf_texture_cleanest();
 
   if (alpha <= 0.001)
   {

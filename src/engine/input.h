@@ -65,7 +65,7 @@ struct nv_input_ctx_t
 };
 
 extern nv_error nv_input_init(nv_input_ctx_t* ctx);
-extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx_s*globalctx);
+extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx_s* globalctx);
 extern void     nv_input_shutdown(nv_input_ctx_t* ctx);
 
 void nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response);

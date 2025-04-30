@@ -1,4 +1,5 @@
 #include "GPU/driver.h"
+#include "SDL_keycode.h"
 #include "engine/camera.h"
 #include "engine/ctext.h"
 #include "engine/engine.h"
@@ -73,15 +74,27 @@ main(int argc, char* argv[])
 
   const nv_extent2d window_size = (nv_extent2d){ window_width, window_height };
 
-  nv_ctx_t   ctx     = nv_zero_init(nv_ctx_t);
-  nvvk_ctx_t nvvkctx = nv_zero_init(nvvk_ctx_t);
+  nv_ctx_t       ctx      = nv_zero_init(nv_ctx_t);
+  nvvk_ctx_t     vkctx    = nv_zero_init(nvvk_ctx_t);
+  nvvk_driver_t  driver   = nv_zero_init(nvvk_driver_t);
+  nv_renderer_t  rdr      = nv_zero_init(nv_renderer_t);
+  nv_input_ctx_t inputctx = nv_zero_init(nv_input_ctx_t);
+  nvsm_ctx_t     nvsmctx  = nv_zero_init(nvsm_ctx_t);
 
   nv_window_init(windowname, (int)window_size.width, (int)window_size.height, &ctx);
-  nvvk_ctx_init(&ctx, &nvvkctx);
 
-  nvsm_ctx_t nvsmctx = nv_zero_init(nvsm_ctx_t);
-  nvsmctx.list_file  = "Shaders/shaderlist";
-  nvsm_init(&nvsmctx);
+  nv_error code = NV_SUCCESS;
+
+  if ((code = nvvk_ctx_init(&ctx, &vkctx)) != NV_SUCCESS)
+  {
+    return code;
+  }
+
+  nvsmctx.list_file = "Shaders/shaderlist";
+  if ((code = nvsm_init(&nvsmctx)) != NV_SUCCESS)
+  {
+    return code;
+  }
 
   if (force_recompile_shaders)
   {
@@ -92,7 +105,7 @@ main(int argc, char* argv[])
     nvsm_compile_shaders(&nvsmctx);
   }
 
-  nvsm_create_shader_modules(&nvvkctx, &nvsmctx);
+  nvsm_create_shader_modules(&vkctx, &nvsmctx);
 
   nv_renderer_config rdconf   = nv_renderer_config_init();
   rdconf.vsync_enabled        = 1;
@@ -102,15 +115,11 @@ main(int argc, char* argv[])
   rdconf.multisampling_enable = 0;
   rdconf.samples              = NOVA_SAMPLE_COUNT_1_SAMPLES;
 
-  nv_error code = NV_SUCCESS;
-
-  nvvk_driver_t driver;
-  if ((code = nvvk_driver_init(&nvvkctx, &driver)) != NV_SUCCESS)
+  if ((code = nvvk_driver_init(&vkctx, &driver)) != NV_SUCCESS)
   {
     return code;
   }
 
-  nv_renderer_t rdr;
   if ((code = nv_renderer_init(&ctx, &nvsmctx, &driver, &rdconf, &rdr)) != NV_SUCCESS)
   {
     nv_log_error("Fatal error in initializing renderer (error:%s)\n", nv_error_str(code));
@@ -123,8 +132,10 @@ main(int argc, char* argv[])
   // and etc. and every event will have a preceding +, booleans will have a 0
   // and integers will have an i I'll drop the + (the user won't have to add it)
   // when i get to it
-  nv_input_ctx_t inputctx = nv_zero_init(nv_input_ctx_t);
-  nv_input_init(&inputctx);
+  if ((code = nv_input_init(&inputctx)) != NV_SUCCESS)
+  {
+    return code;
+  }
 
   const real_t updateTime = 3.0; // seconds. 1.5f = 1.5 seconds
   real_t       totalTime  = 0.0;
@@ -136,7 +147,7 @@ main(int argc, char* argv[])
 
   nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
 
-  ctext_load_font(&nvvkctx, &rdr, "Assets/roboto.ttf", 64, &amongus);
+  ctext_load_font(&vkctx, &rdr, "Assets/roboto.ttf", 64, &amongus);
 
   nv_sprite_t angwy = nv_zero_init(nv_sprite_t);
   if ((code = nv_sprite_load_from_disk(&driver, "Assets/i want to die.png", &angwy)) != NV_SUCCESS)
@@ -144,9 +155,7 @@ main(int argc, char* argv[])
     return code;
   }
 
-  nv_image_t angwy_img;
-  nv_image_load("Assets/i want to die.png", &angwy_img);
-  nv_image_write_png(&angwy_img, "piss.png");
+  char boofer[1000000] = {};
 
   while (nv_running(&ctx))
   {
@@ -160,6 +169,18 @@ main(int argc, char* argv[])
 
     while (SDL_PollEvent(&event))
     {
+      if (event.type == SDL_KEYDOWN)
+      {
+        if (event.key.keysym.sym == SDLK_BACKSPACE && (*boofer != 0))
+        {
+          boofer[nv_strlen(boofer) - 1] = 0;
+        }
+        else
+        {
+          char tmp[2] = { (char)event.key.keysym.sym, 0 };
+          nv_strlcat(boofer, tmp, sizeof(boofer));
+        }
+      }
       nv_consume_event(&ctx, &event);
     }
 
@@ -185,7 +206,7 @@ main(int argc, char* argv[])
       clock_info.scale                    = 3.0F;
       clock_info.bbox                     = (vec2){ camera.ortho_size.x, camera.ortho_size.y };
       clock_info.scale_for_fit            = 1;
-      ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec);
+      ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n%s\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec, boofer);
 
       const bezier_t bz = (bezier_t){
         .p1   = (vec2){ .x = 0.0F, .y = 0.0F },
@@ -193,7 +214,7 @@ main(int argc, char* argv[])
         .ctrl = (vec2){ .x = 30.0F, .y = -20.0F },
       };
 
-      const size_t circle_num_vertices = 100;
+      const size_t circle_num_vertices = 1000;
       vec2f        vertices[circle_num_vertices];
       for (int i = 0; i < circle_num_vertices; i++)
       {
@@ -215,15 +236,13 @@ main(int argc, char* argv[])
     }
   }
 
-  nv_sprite_destroy(&nvvkctx, &angwy);
-
-  nv_free(angwy_img.data);
+  nv_sprite_destroy(&vkctx, &angwy);
+  ctext_destroy_font(&vkctx, &amongus);
 
   nv_input_shutdown(&inputctx);
-  nvsm_shutdown(&nvvkctx, &nvsmctx);
-  ctext_destroy_font(&nvvkctx, &amongus);
+  nvsm_shutdown(&vkctx, &nvsmctx);
   nv_renderer_destroy(&rdr);
   nvvk_driver_destroy(&driver);
-  nvvk_ctx_destroy(&nvvkctx);
+  nvvk_ctx_destroy(&vkctx);
   nv_window_shutdown(&ctx);
 }

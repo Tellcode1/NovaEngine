@@ -987,7 +987,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
       .codeSize = entry->bin.byte_count,
       .pCode    = entry->bin.words,
     };
-    nvvk_result_check(*nvvkctx, vkCreateShaderModule(nvvkctx->device, &info, &nvvkctx->allocator, &entry->module));
+    nvvk_result_check(*nvvkctx, vkCreateShaderModule(nvvkctx->device, &info, &nvvkctx->vkalloc, &entry->module));
 
     entry->resources = nv_shader_resources_extract(entry->bin.words, entry->bin.byte_count, &entry->num_resources);
 
@@ -1120,7 +1120,7 @@ nvsm_shutdown(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
     nvsm_list_file_entry_t* entry = (nvsm_list_file_entry_t*)node->value;
     if (entry->module != VK_NULL_HANDLE)
     {
-      vkDestroyShaderModule(nvvkctx->device, entry->module, &nvvkctx->allocator);
+      vkDestroyShaderModule(nvvkctx->device, entry->module, &nvvkctx->vkalloc);
     }
     if (entry->resources != NULL && entry->num_resources > 0)
     {
