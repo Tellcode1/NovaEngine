@@ -12,7 +12,7 @@ NOVA_HEADER_START
 
 // Renderable sprite
 
-struct nvvk_driver_t;
+struct nvvk_driver;
 
 typedef struct nv_sprite_t nv_sprite_t;
 
@@ -27,8 +27,8 @@ struct nv_sprite_t
   nv_descriptor_set_t* set;
 };
 
-extern nv_error nv_sprite_load_from_memory(struct nvvk_driver_t* driver, const unsigned char* data, size_t w, size_t h, nv_format fmt, nv_sprite_t* dst);
-extern nv_error nv_sprite_load_from_disk(struct nvvk_driver_t* driver, const char* path, nv_sprite_t* dst);
+extern nv_error nv_sprite_load_from_memory(struct nvvk_driver* driver, const unsigned char* data, size_t w, size_t h, nv_format fmt, nv_sprite_t* dst);
+extern nv_error nv_sprite_load_from_disk(struct nvvk_driver* driver, const char* path, nv_sprite_t* dst);
 
 // force destroy
 extern void nv_sprite_destroy(nvvk_ctx_t* nvvkctx, nv_sprite_t* spr);

@@ -1,5 +1,4 @@
 #include "engine/engine.h"
-#include "SDL_video.h"
 #include "engine/camera.h"
 #include "engine/collider.h"
 #include "engine/input.h"
@@ -16,7 +15,7 @@
 #include "std/stdafx.h"
 #include "std/string.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 b2BodyId _nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shape shape, vec2 pos, vec2 siz, uint64_t layer, uint64_t mask, bool start_enabled);
 float    cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
@@ -33,8 +32,8 @@ nv_window_init(const char* window_title, int window_width, int window_height, nv
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
-  dst->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-  nv_assert_else_return(dst->window != NULL, );
+  dst->window = SDL_CreateWindow(window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  nv_assert_and_exec(dst->window != NULL, nv_log_error("%s\n", SDL_GetError()); return;);
 
   nv_log_info("Created window (name=%s w=%i h=%i flags=%#x)\n", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
@@ -62,13 +61,13 @@ nv_window_shutdown(nv_ctx_t* ctx)
 void
 nv_consume_event(nv_ctx_t* ctx, const SDL_Event* event)
 {
-  if ((event->type == SDL_QUIT) || ((event->type == SDL_WINDOWEVENT) && (event->window.event == SDL_WINDOWEVENT_CLOSE))
-      || (event->type == SDL_KEYDOWN && event->key.keysym.scancode == SDL_SCANCODE_ESCAPE))
+  if ((event->type == SDL_EVENT_QUIT) || ((event->type) && (event->window.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED))
+      || (event->type == SDL_EVENT_KEY_DOWN && event->key.scancode == SDL_SCANCODE_ESCAPE))
   {
     ctx->application_running = false;
   }
 
-  if (event->type == SDL_WINDOWEVENT && (event->window.event == SDL_WINDOWEVENT_RESIZED || event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED))
+  if ((event->type == SDL_EVENT_WINDOW_RESIZED || event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED))
   {
     ctx->window_framebuffer_resized = true;
   }
@@ -83,7 +82,7 @@ nv_get_last_frame_time(const nv_ctx_t* ctx)
 void
 nv_update(nv_ctx_t* ctx)
 {
-  ctx->time = (real_t)SDL_GetTicks64() * (1.0 / 1000.0);
+  ctx->time = (real_t)SDL_GetTicks() * (1.0 / 1000.0);
 
   ctx->last_frame_time = ctx->sdl_time;
   ctx->sdl_time        = SDL_GetPerformanceCounter();
@@ -839,13 +838,13 @@ nv_input_get_mouse_delta(nv_input_ctx_t* ctx)
 bool
 nv_input_is_mouse_just_signalled(nv_input_ctx_t* ctx, nv_input_mouse_button button)
 {
-  return ctx->input_mouse_state & SDL_BUTTON(button) && !(ctx->input_last_frame_mouse_state & SDL_BUTTON(button));
+  return ctx->input_mouse_state & SDL_BUTTON_MASK(button) && !(ctx->input_last_frame_mouse_state & SDL_BUTTON_MASK(button));
 }
 
 bool
 nv_input_is_mouse_signalled(nv_input_ctx_t* ctx, nv_input_mouse_button button)
 {
-  return ctx->input_mouse_state & SDL_BUTTON((int)button);
+  return ctx->input_mouse_state & SDL_BUTTON_MASK((int)button);
 }
 
 unsigned str_hash(const void* key1, const void* key2, size_t keysize);
@@ -882,12 +881,12 @@ nv_input_init(nv_input_ctx_t* ctx)
     return code;
   }
 
-  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_kb_state)) != NV_SUCCESS)
+  if ((code = nv_bitset_init(SDL_SCANCODE_COUNT, nv_allocator_c, &ctx->input_kb_state)) != NV_SUCCESS)
   {
     return code;
   }
 
-  if ((code = nv_bitset_init(SDL_NUM_SCANCODES, nv_allocator_c, &ctx->input_last_frame_kb_state)) != NV_SUCCESS)
+  if ((code = nv_bitset_init(SDL_SCANCODE_COUNT, nv_allocator_c, &ctx->input_last_frame_kb_state)) != NV_SUCCESS)
   {
     return code;
   }
@@ -916,7 +915,7 @@ nv_input_shutdown(nv_input_ctx_t* ctx)
 void
 nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
 {
-  int mx, my;
+  float mx, my;
   ctx->input_last_frame_mouse_state = ctx->input_mouse_state;
   ctx->input_mouse_state            = SDL_GetMouseState(&mx, &my);
 
@@ -928,9 +927,9 @@ nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
   ctx->input_mouse_position.y          = ((flt_t)my / height) * 2.0f - 1.0f;
   ctx->input_mouse_position.y *= -1.0f;
 
-  const u8* const sdl_kb_state = SDL_GetKeyboardState(NULL);
+  const bool* sdl_kb_state = SDL_GetKeyboardState(NULL);
   nv_bitset_copy_from(&ctx->input_last_frame_kb_state, &ctx->input_kb_state);
-  for (int i = 0; i < SDL_NUM_SCANCODES; i++)
+  for (int i = 0; i < SDL_SCANCODE_COUNT; i++)
   {
     nv_bitset_set_bit_to(&ctx->input_kb_state, i, sdl_kb_state[i]);
   }
@@ -957,7 +956,7 @@ nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
     if (ia->mouse != 255)
     {
       // it's or'd with ia->this_frame so that we can call the response multiple times, as expected.
-      ia->this_frame = ia->this_frame || (mouse_state & SDL_BUTTON(ia->mouse)) != 0;
+      ia->this_frame = ia->this_frame || (mouse_state & SDL_BUTTON_MASK(ia->mouse)) != 0;
       if (ia->response)
       {
         ia->response((const char*)node->key, ia);

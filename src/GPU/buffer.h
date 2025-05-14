@@ -8,8 +8,8 @@
 
 NOVA_HEADER_START
 
-struct nvvk_driver_t;
-struct nv_gpu_memory_new_t;
+struct nvvk_driver;
+struct nv_gpu_memory_new;
 
 #ifndef NOVA_VK_DRIVER_BUFFER_REGION_SAMPLE_TIME_INTERVAL_SECONDS
 /**
@@ -47,13 +47,9 @@ struct nv_gpu_memory_new_t;
 #endif
 
 /**
- * A buffer from which 'regions' can be allocated.
- * These regions can contain similar data which changes on similar frequencies.
- * Or to allow for multiple smaller buffers to take host on a single VkBuffer instance.
  *
- * This is an interface over a simple memory allocator.
  */
-typedef struct nv_gpu_buffer_t nv_gpu_buffer_t;
+typedef struct nv_gpu_buffer nv_gpu_buffer_t;
 
 typedef u32 nv_gpu_buffer_flags;
 typedef enum nv_gpu_buffer_flags_bits
@@ -119,11 +115,11 @@ typedef enum nv_gpu_buffer_flags_bits
 
 } nv_gpu_buffer_flags_bits;
 
-struct nv_gpu_buffer_t
+struct nv_gpu_buffer
 {
   /* everything in this struct is readonly! */
 
-  struct nvvk_driver_t* driver;
+  struct nvvk_driver* driver;
 
   u64 user_data; // read/write
 
@@ -163,29 +159,18 @@ struct nv_gpu_buffer_t
   char padding_cl2x3[5];
 
   /**
-   * If the buffer is a transfer only buffer, then this contains a pointer to the actual
-   * buffer being used.
-   */
-  void* drv_payload;
-
-  /**
    * Really only used for uniform buffers || Persistent mapped buffers
    */
   void*     drv_mapped;
   vk_size_t drv_mapped_size;   // the size of the mapping
   vk_size_t drv_mapped_offset; // the offset of the mapping
-
-  /**
-   * non-NULL if the buffer is using another buffer as a source
-   * Really only used for transient buffers.
-   */
-  nv_gpu_buffer_t* backing_buffer;
 };
 
 /**
  * The contents of the buffer will NOT be initialized
+ * WARNING: For buffers with multiple backings, only the size of ONE must be specified.
  */
-extern nv_error nv_gpu_buffer_init(struct nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst);
+extern nv_error nv_gpu_buffer_init(struct nvvk_driver* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst);
 extern void     nv_gpu_buffer_destroy(nv_gpu_buffer_t* buffer);
 
 /**
@@ -256,6 +241,8 @@ extern nv_error nv_gpu_buffer_resize(nv_gpu_buffer_t* buffer, size_t new_size, s
  * and the driver can't provide you with a single backing.
  */
 extern VkBuffer nv_gpu_buffer_get_backing(const nv_gpu_buffer_t* buffer);
+
+extern void _nv_gpu_buffer_insert_read_barrier(const nv_gpu_buffer_t* buffer, VkCommandBuffer cmd);
 
 NOVA_HEADER_END
 

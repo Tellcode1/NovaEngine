@@ -1,10 +1,6 @@
 #version 450 core
 
-layout(set = 0, binding = 0, std140) uniform camera_buffer {
-    mat4 perspective;
-    mat4 ortho;
-    mat4 view;
-} cam_ub;
+#include "../camera.glsl"
 
 layout (push_constant) uniform push_constants {
     mat4 model;

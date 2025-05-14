@@ -9,13 +9,7 @@
 #include "GPU/texture.h"
 #include "GPU/types.h"
 #include "GPU/vk.h"
-
-#include "std/format.h"
-#include "std/image.h"
-
-#include "std/containers/atlas.h"
-#include "std/containers/hashmap.h"
-#include "std/containers/list.h"
+#include "GPU/vkstdafx.h"
 
 #include "engine/camera.h"
 #include "engine/ctext.h"
@@ -34,8 +28,16 @@
 #include "std/stdafx.h"
 #include "std/string.h"
 
-#include <SDL2/SDL_vulkan.h>
-#include <stdint.h>
+#include "std/format.h"
+#include "std/image.h"
+
+#include "std/containers/atlas.h"
+#include "std/containers/hashmap.h"
+#include "std/containers/list.h"
+
+#include <SDL2/SDL_video.h>
+#include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #define CGLTF_IMPLEMENTATION
 #include "external/cgltf/cgltf.h"
@@ -122,6 +124,18 @@ struct push_constants
   flt_t scale;
 };
 
+size_t
+nv_camera_get_read_offset(const nv_camera_t* cam)
+{
+  return (cam->offset_index * sizeof(nv_camera_uniform_buffer_t));
+}
+
+size_t
+nv_camera_get_write_offset(const nv_camera_t* cam)
+{
+  return (((cam->offset_index + 1) % CAMERA_FAKE_BUFFER_COUNT) * sizeof(nv_camera_uniform_buffer_t));
+}
+
 u32
 nv_renderer_get_frame(const nv_renderer_t* rd)
 {
@@ -205,7 +219,7 @@ __drawcall_compar(const void* obj1, const void* obj2)
 static inline void
 _nv_renderer_flush_renders(nv_renderer_t* rd)
 {
-  const uint32_t camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
+  const uint32_t camera_ub_offset = nv_camera_get_read_offset(&camera);
 
   const VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
   nv_assert_else_return(cmd != VK_NULL_HANDLE, );
@@ -222,9 +236,9 @@ _nv_renderer_flush_renders(nv_renderer_t* rd)
   for (size_t i = 0; i < nv_list_size(&rd->drawcalls); i++)
   {
     const nv_draw_call_t* drawcall = &((nv_draw_call_t*)nv_list_data(&rd->drawcalls))[i];
-    nv_assert_and_exec(drawcall != NULL, { continue; })
+    nv_assert_and_exec(drawcall != NULL, { continue; });
 
-        if (drawcall->type == NOVA_DRAWCALL_QUAD)
+    if (drawcall->type == NOVA_DRAWCALL_QUAD)
     {
       // if (!nv_Quad_Visible(&drawcall->drawcall.quad.pos,
       // &drawcall->drawcall.quad.siz)) {
@@ -692,7 +706,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 }
 
 nv_error
-nv_renderer_init(struct nv_ctx_s* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst)
+nv_renderer_init(struct nv_ctx* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver* driver, const nv_renderer_config* conf, nv_renderer_t* dst)
 {
   nv_assert_else_return(conf != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(conf->initial_window_size.width != 0, NV_ERROR_INVALID_ARG);
@@ -827,10 +841,6 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
 
   vkDeviceWaitIdle(rd->nvvkctx->device);
 
-  const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
-
-  const VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
-
   // adhoc method of resetting them
   for (size_t i = 0; i < rd->swap_chain_image_count; i++)
   {
@@ -870,14 +880,15 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
     // as the view was silently smushed into the
     // structure, we just kinda smush it out as well.
     vkDestroyImageView(rd->nvvkctx->device, nv_gpu_texture_get_view(&data->sc_image), &rd->nvvkctx->vkalloc);
+    nv_zero_struct(data->sc_image);
 
     nv_assert_else_return(data->color_framebuffer.handle != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
     nv_gpu_destroy_framebuffer(rd->nvvkctx, &data->color_framebuffer);
   }
   nv_list_clear(&rd->render_data);
 
-  i32 w, h;
-  SDL_Vulkan_GetDrawableSize(rd->ctx->window, &w, &h);
+  int w, h;
+  SDL_GetWindowSizeInPixels(rd->ctx->window, &w, &h);
 
   VkSurfaceCapabilitiesKHR surface_capabilities;
   nvvk_result_check(*rd->nvvkctx, vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rd->nvvkctx->phys_device, rd->nvvkctx->surface, &surface_capabilities));
@@ -947,6 +958,9 @@ _nvvk_renderer_resize(nv_renderer_t* rd)
     return code;
   }
 
+  const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
+  const VkFenceCreateInfo     fenceCreateInfo     = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
+
   for (size_t i = 0; i < rd->swap_chain_image_count; i++)
   {
     nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, i);
@@ -972,7 +986,8 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   nv_assert_else_return(nv_ctx_is_valid(rd->ctx) == true, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->nvvkctx) == true, NV_ERROR_BROKEN_STATE);
 
-  nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, rd->frame);
+  nv_renderer_frame_render_info* data       = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, rd->frame);
+  nv_renderer_frame_render_info* image_data = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, rd->image_index);
   nv_assert_else_return(data != NULL, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(data->in_flight_fence != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
 
@@ -994,14 +1009,11 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   const VkCommandBuffer drawBuffer = *(VkCommandBuffer*)nv_list_get(&rd->draw_cmd_buffers, rd->frame);
   nv_assert_else_return(drawBuffer != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
 
-  vkResetFences(rd->nvvkctx->device, 1, &data->in_flight_fence);
+  vkResetFences(rd->nvvkctx->device, 1, &image_data->in_flight_fence);
 
   // I do, in fact, care about my beloveds
 
-  nv_renderer_frame_render_info* image_render_info = (nv_renderer_frame_render_info*)(nv_list_get(&rd->render_data, rd->image_index));
-  nv_assert_else_return(image_render_info != NULL, NV_ERROR_BROKEN_STATE);
-
-  VkFramebuffer framebuffer = image_render_info->color_framebuffer.handle;
+  VkFramebuffer framebuffer = image_data->color_framebuffer.handle;
   nv_assert_else_return(framebuffer != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
 
   nv_assert_else_return(rd->render_extent.width != 0, NV_ERROR_BROKEN_STATE);
@@ -1056,8 +1068,8 @@ nv_renderer_end(nv_renderer_t* rd)
   nv_assert_else_return(nv_ctx_is_valid(rd->ctx) == true, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->nvvkctx) == true, NV_ERROR_BROKEN_STATE);
 
-  const VkCommandBuffer draw_cmd_buffer = nv_renderer_get_draw_buffer(rd);
-  nv_assert_else_return(draw_cmd_buffer != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
+  const VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
+  nv_assert_else_return(cmd != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
 
   for (size_t i = 0; i < nv_list_size(&rd->ctext->labels); i++)
   {
@@ -1078,47 +1090,47 @@ nv_renderer_end(nv_renderer_t* rd)
   nvui_render(rd);
   _nv_renderer_flush_renders(rd);
 
-  vkCmdEndRenderPass(draw_cmd_buffer);
-  vkEndCommandBuffer(draw_cmd_buffer);
+  vkCmdEndRenderPass(cmd);
+  vkEndCommandBuffer(cmd);
 
-  VkSubmitInfo submitInfo = nv_zero_init(VkSubmitInfo);
-  submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  VkSubmitInfo submit_info = nv_zero_init(VkSubmitInfo);
+  submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   const nv_renderer_frame_render_info* data = (nv_renderer_frame_render_info*)nv_list_get(&rd->render_data, rd->frame);
   nv_assert_else_return(data != NULL, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(data->image_available_semaphore != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(data->render_finish_semaphore != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
 
-  const VkSemaphore waitSemaphores[]   = { data->image_available_semaphore };
-  const VkSemaphore signalSemaphores[] = { data->render_finish_semaphore };
+  const VkSemaphore wait_semaphores[]   = { data->image_available_semaphore };
+  const VkSemaphore signal_semaphores[] = { data->render_finish_semaphore };
 
   VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-  submitInfo.pWaitDstStageMask      = waitStages;
+  submit_info.pWaitDstStageMask     = waitStages;
 
-  submitInfo.waitSemaphoreCount = 1;
-  submitInfo.pWaitSemaphores    = waitSemaphores;
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores    = wait_semaphores;
 
-  const VkCommandBuffer buffers[] = { draw_cmd_buffer };
-  submitInfo.commandBufferCount   = nv_arrlen(buffers);
-  submitInfo.pCommandBuffers      = buffers;
+  const VkCommandBuffer buffers[] = { cmd };
+  submit_info.commandBufferCount  = nv_arrlen(buffers);
+  submit_info.pCommandBuffers     = buffers;
 
-  submitInfo.signalSemaphoreCount = 1;
-  submitInfo.pSignalSemaphores    = signalSemaphores;
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores    = signal_semaphores;
 
-  vkQueueSubmit(rd->nvvkctx->present_queue, 1, &submitInfo, data->in_flight_fence);
+  vkQueueSubmit(rd->nvvkctx->present_queue, 1, &submit_info, data->in_flight_fence);
 
-  VkPresentInfoKHR presentInfo   = nv_zero_init(VkPresentInfoKHR);
-  presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  presentInfo.waitSemaphoreCount = 1;
+  VkPresentInfoKHR present_info   = nv_zero_init(VkPresentInfoKHR);
+  present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  present_info.waitSemaphoreCount = 1;
   // This starts as soon as the semaphores are signalled,
   /* id est, As soon as the render finished semaphore is signalled, it is presented to the screen */
-  presentInfo.pWaitSemaphores = signalSemaphores;
-  presentInfo.pImageIndices   = &rd->image_index;
-  presentInfo.swapchainCount  = 1;
-  presentInfo.pSwapchains     = &rd->swapchain;
+  present_info.pWaitSemaphores = signal_semaphores;
+  present_info.pImageIndices   = &rd->image_index;
+  present_info.swapchainCount  = 1;
+  present_info.pSwapchains     = &rd->swapchain;
 
   VkResult result = VK_SUCCESS;
-  result          = vkQueuePresentKHR(rd->nvvkctx->present_queue, &presentInfo);
+  result          = vkQueuePresentKHR(rd->nvvkctx->present_queue, &present_info);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || nv_get_frame_buffer_resized(rd->ctx))
   {
@@ -1387,7 +1399,7 @@ nvvk_setup_debug_messenger(nvvk_ctx_t* nvvkctx)
 
 /* returned_valid_extensions contains a list of valid extensions */
 static inline void
-nvvk_get_valid_extensions(nv_ctx_t* ctx, nv_list_t* returned_valid_extensions)
+nvvk_get_valid_extensions(nv_list_t* returned_valid_extensions)
 {
   uchar buffer[1024];
 
@@ -1395,13 +1407,10 @@ nvvk_get_valid_extensions(nv_ctx_t* ctx, nv_list_t* returned_valid_extensions)
   stack.buffer            = buffer;
   stack.buffer_size       = sizeof(buffer);
 
-  uint32_t SDLExtensionCount = 0;
-  nv_assert(SDL_Vulkan_GetInstanceExtensions(ctx->window, &SDLExtensionCount, NULL) == SDL_TRUE);
+  uint32_t           SDLExtensionCount = 0;
+  const char* const* sdl_extensions;
 
-  const size_t sdl_extensions_size = sizeof(const char*) * SDLExtensionCount;
-  const char** sdl_extensions      = nv_allocator_estack(&stack, NULL, NV_ALLOC_NEW_BLOCK, sdl_extensions_size);
-
-  nv_assert(SDL_Vulkan_GetInstanceExtensions(ctx->window, &SDLExtensionCount, sdl_extensions) == SDL_TRUE);
+  nv_assert((sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&SDLExtensionCount)) != NULL);
 
   u32 extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
@@ -1436,12 +1445,11 @@ nvvk_get_valid_extensions(nv_ctx_t* ctx, nv_list_t* returned_valid_extensions)
     }
   }
 
-  nv_allocator_estack(&stack, sdl_extensions, sdl_extensions_size, NV_ALLOC_FREE);
   nv_list_destroy(&vk_extensions);
 }
 
 static inline VkInstance
-nvvk_create_instance(nvvk_ctx_t* nvvkctx, nv_ctx_t* ctx, const char* title)
+nvvk_create_instance(nvvk_ctx_t* nvvkctx, const char* title)
 {
   if (volkInitialize() != VK_SUCCESS)
   {
@@ -1467,7 +1475,7 @@ nvvk_create_instance(nvvk_ctx_t* nvvkctx, nv_ctx_t* ctx, const char* title)
   stack.buffer_size       = sizeof(buffer);
 
   uint32_t SDLExtensionCount = 0;
-  nv_assert(SDL_Vulkan_GetInstanceExtensions(ctx->window, &SDLExtensionCount, NULL) == SDL_TRUE);
+  nv_assert(SDL_Vulkan_GetInstanceExtensions(&SDLExtensionCount) != NULL);
 
   u32 extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
@@ -1480,7 +1488,7 @@ nvvk_create_instance(nvvk_ctx_t* nvvkctx, nv_ctx_t* ctx, const char* title)
       &stack,
       &enabled_extensions);
 
-  nvvk_get_valid_extensions(ctx, &enabled_extensions);
+  nvvk_get_valid_extensions(&enabled_extensions);
 
   VkInstanceCreateInfo instance_create_info = {
     .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -1961,13 +1969,18 @@ nvvk_ctx_init(nv_ctx_t* nvctx, nvvk_ctx_t* dst)
     .pfnInternalAllocation = nvvk_internal_allocation,
     .pfnInternalFree       = nvvk_internal_free,
   };
+  nv_error code = nvvk_allocator_init(&dst->allocator);
+  if (code != NV_SUCCESS)
+  {
+    return code;
+  }
 
   dst->result_fn = _nvvk_default_result_check_fn;
 
-  dst->instance = nvvk_create_instance(dst, nvctx, SDL_GetWindowTitle(nvctx->window));
+  dst->instance = nvvk_create_instance(dst, SDL_GetWindowTitle(nvctx->window));
   nv_assert_else_return(dst->instance != VK_NULL_HANDLE, NV_ERROR_EXTERNAL);
 
-  if (SDL_Vulkan_CreateSurface(nvctx->window, dst->instance, &dst->surface) != SDL_TRUE)
+  if (SDL_Vulkan_CreateSurface(nvctx->window, dst->instance, &dst->vkalloc, &dst->surface) != true)
   {
     nv_log_and_abort("Surface creation failed.\nSDL reports: %s\n", SDL_GetError());
   }
@@ -1981,7 +1994,6 @@ nvvk_ctx_init(nv_ctx_t* nvctx, nvvk_ctx_t* dst)
 
   volkLoadDevice(dst->device);
 
-  nv_error code = NV_SUCCESS;
   if ((code = _nvvk_ctx_setup_queues(dst)) != NV_SUCCESS)
   {
     return code;
@@ -2040,11 +2052,13 @@ nvvk_ctx_destroy(nvvk_ctx_t* ctx)
   }
 
   vkDestroyDebugUtilsMessengerEXT(ctx->instance, ctx->debug_messenger, &ctx->vkalloc);
-  vkDestroySurfaceKHR(ctx->instance, ctx->surface, NULL);
+  vkDestroySurfaceKHR(ctx->instance, ctx->surface, &ctx->vkalloc);
   vkDestroyDevice(ctx->device, &ctx->vkalloc);
   vkDestroyInstance(ctx->instance, &ctx->vkalloc);
 
   volkFinalize();
+
+  nvvk_allocator_destroy(&ctx->allocator);
 
   nv_bzero(ctx, sizeof(nvvk_ctx_t));
 }
@@ -2082,9 +2096,12 @@ _ctext_load_font_upload_glyph_atlas(nvvk_ctx_t* nvvkctx, nv_renderer_t* rd, cons
   nv_gpu_write_to_texture(rd->driver, &dst->texture, &atlas_img);
 
   const nv_gpu_sampler_create_info sampler_info = {
-    .filter        = NV_FILTER_LINEAR,
-    .mipmap_filter = NV_FILTER_LINEAR,
-    .address_mode  = NV_TEXTURE_ADDRESS_MODE_REPEAT,
+    .min_filter = NV_FILTER_LINEAR,
+    .mag_filter = NV_FILTER_LINEAR,
+    .wrapu      = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapv      = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapw      = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .anisotropy = 1.0F,
   };
   nv_gpu_create_sampler(rd->driver, &sampler_info, &dst->sampler);
 }
@@ -2291,8 +2308,9 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
     return;
   }
 
-  const VkCommandBuffer cmd       = nv_renderer_get_draw_buffer(rd);
-  const VkDeviceSize    offsets[] = { 0 };
+  const VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
+
+  const VkDeviceSize offsets[] = { 0 };
 
   struct push_constants pc = nv_zero_init(struct push_constants);
 
@@ -2300,7 +2318,7 @@ _ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   const VkPipelineLayout pipeline_layout = g_Pipelines.ctext.pipeline_layout;
 
   const VkDescriptorSet sets[]           = { camera.sets->set, rd->ctext->desc_set->set };
-  const uint32_t        camera_ub_offset = nv_renderer_get_frame(rd) * sizeof(nv_camera_uniform_buffer);
+  const uint32_t        camera_ub_offset = nv_camera_get_read_offset(&camera);
 
   // Viewport && scissor are set by renderer so no need to set them here
   vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 2, sets, 1, &camera_ub_offset);
@@ -2793,6 +2811,10 @@ _ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 
   nv_gpu_buffer_copy(&fnt->buffer, &fnt->staging_buffer, total_buffer_size, 0, 0);
 
+  /**
+   * The buffers are swapped after inserting the render commands
+   */
+
   nv_free(write_cache);
 }
 
@@ -2833,7 +2855,7 @@ ctext_flush_renders(nv_renderer_t* rd)
 }
 
 nv_error
-ctext_init(struct nv_renderer_t* rd)
+ctext_init(struct nv_renderer* rd)
 {
   nv_assert_else_return(rd != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->nvvkctx) == true, NV_ERROR_INVALID_ARG);
@@ -2897,7 +2919,7 @@ ctext_init(struct nv_renderer_t* rd)
 }
 
 void
-ctext_shutdown(struct nv_renderer_t* rd)
+ctext_shutdown(struct nv_renderer* rd)
 {
   if (!rd || !rd->ctext)
   {
@@ -4241,7 +4263,7 @@ CLEANUP_AND_RETURN:
 }
 
 void
-nv_vk_stage_image_transfer(struct nvvk_driver_t* driver, VkImage dst, const void* data, size_t width, size_t height, size_t image_size)
+nv_vk_stage_image_transfer(struct nvvk_driver* driver, VkImage dst, const void* data, size_t width, size_t height, size_t image_size)
 {
   nvvk_ctx_t* nvvkctx = driver->ctx;
 
@@ -4320,7 +4342,7 @@ nv_vk_stage_image_transfer(struct nvvk_driver_t* driver, VkImage dst, const void
 }
 
 void
-nv_vk_create_texture_from_memory(struct nvvk_driver_t* driver, u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem)
+nv_vk_create_texture_from_memory(struct nvvk_driver* driver, u8* buffer, u32 width, u32 height, nv_format format, VkImage* dst, VkDeviceMemory* dstMem)
 {
   nv_vk_create_texture_empty(driver->ctx, width, height, format, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, NULL, dst, dstMem);
   nv_vk_stage_image_transfer(driver, *dst, buffer, width, height, width * height * nv_format_get_bytes_per_pixel(format));
@@ -4409,7 +4431,7 @@ nv_vk_create_texture_empty(
 }
 
 u8*
-nv_vk_create_texture_from_disk(struct nvvk_driver_t* driver, const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem)
+nv_vk_create_texture_from_disk(struct nvvk_driver* driver, const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem)
 {
   nv_image_t tex = nv_zero_init(nv_image_t);
 
@@ -4805,9 +4827,11 @@ nv_gpu_create_sampler(nvvk_driver_t* driver, const nv_gpu_sampler_create_info* p
       continue;
     }
 
-    if (cache != NULL && cache->filter == pInfo->filter && cache->mipmap_filter == pInfo->mipmap_filter && cache->address_mode == pInfo->address_mode
-        && cache->max_anisotropy == pInfo->max_anisotropy && cache->mip_lod_bias == pInfo->mip_lod_bias && cache->min_lod == pInfo->min_lod && cache->max_lod == pInfo->max_lod
-        && cache->vksampler != VK_NULL_HANDLE)
+    bool match = (cache->min_filter == pInfo->min_filter) && (cache->mag_filter == pInfo->mag_filter) && (cache->wrapu == pInfo->wrapu) && (cache->wrapv == pInfo->wrapv)
+        && (cache->wrapw == pInfo->wrapw) && (cache->anisotropy == pInfo->anisotropy) && (cache->compare_mode == pInfo->compare_mode) && (cache->min_lod == pInfo->min_lod)
+        && (cache->max_lod == pInfo->max_lod);
+
+    if (cache != NULL && match && cache->vksampler != VK_NULL_HANDLE)
     {
       *dst = cache;
       return;
@@ -4817,13 +4841,13 @@ nv_gpu_create_sampler(nvvk_driver_t* driver, const nv_gpu_sampler_create_info* p
   nv_gpu_sampler_t* new_sampler = (nv_gpu_sampler_t*)nv_list_push_empty(&driver->samplers);
 
   *new_sampler = (nv_gpu_sampler_t){
-    .filter         = pInfo->filter,
-    .mipmap_filter  = pInfo->mipmap_filter,
-    .address_mode   = pInfo->address_mode,
-    .max_anisotropy = pInfo->max_anisotropy,
-    .mip_lod_bias   = pInfo->mip_lod_bias,
-    .min_lod        = pInfo->min_lod,
-    .max_lod        = pInfo->max_lod,
+    .min_filter   = NV_FILTER_LINEAR,
+    .mag_filter   = NV_FILTER_LINEAR,
+    .wrapu        = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapv        = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapw        = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .anisotropy   = 1.0F,
+    .compare_mode = NV_GPU_SAMPLER_COMPARE_MODE_NONE,
   };
 
   /**
@@ -4839,20 +4863,20 @@ nv_gpu_create_sampler(nvvk_driver_t* driver, const nv_gpu_sampler_create_info* p
 
   VkSamplerCreateInfo samplerInfo = nv_zero_init(VkSamplerCreateInfo);
   samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-  samplerInfo.magFilter           = (VkFilter)pInfo->filter;
-  samplerInfo.minFilter           = (VkFilter)pInfo->filter;
-  samplerInfo.mipmapMode          = (VkSamplerMipmapMode)pInfo->mipmap_filter;
-  samplerInfo.addressModeU        = (VkSamplerAddressMode)pInfo->address_mode;
-  samplerInfo.addressModeV        = (VkSamplerAddressMode)pInfo->address_mode;
-  samplerInfo.addressModeW        = (VkSamplerAddressMode)pInfo->address_mode;
-  samplerInfo.anisotropyEnable    = pInfo->max_anisotropy > 1.0f;
+  samplerInfo.magFilter           = (VkFilter)pInfo->mag_filter;
+  samplerInfo.minFilter           = (VkFilter)pInfo->min_filter;
+  samplerInfo.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  samplerInfo.addressModeU        = (VkSamplerAddressMode)pInfo->wrapu;
+  samplerInfo.addressModeV        = (VkSamplerAddressMode)pInfo->wrapv;
+  samplerInfo.addressModeW        = (VkSamplerAddressMode)pInfo->wrapw;
+  samplerInfo.anisotropyEnable    = pInfo->anisotropy > 1.0F;
   samplerInfo.maxLod              = pInfo->max_lod;
   samplerInfo.minLod              = pInfo->min_lod;
   nvvk_result_check(*driver->ctx, vkCreateSampler(driver->ctx->device, &samplerInfo, &driver->ctx->vkalloc, &new_sampler->vksampler));
 }
 
 void
-nv_gpu_write_to_texture(struct nvvk_driver_t* driver, nv_gpu_texture* tex, const nv_image_t* src)
+nv_gpu_write_to_texture(struct nvvk_driver* driver, nv_gpu_texture* tex, const nv_image_t* src)
 {
   if (!(tex->usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
   {
@@ -4888,6 +4912,23 @@ VkSampler
 nv_gpu_sampler_get(const nv_gpu_sampler_t* sampler)
 {
   return sampler ? sampler->vksampler : VK_NULL_HANDLE;
+}
+
+VkCompareOp
+nv_gpu_sampler_compare_mode_to_vk_op(nv_gpu_sampler_compare_mode mode)
+{
+  switch (mode)
+  {
+    case NV_GPU_SAMPLER_COMPARE_MODE_NONE: return VK_COMPARE_OP_ALWAYS;
+    case NV_GPU_SAMPLER_COMPARE_MODE_LESS: return VK_COMPARE_OP_LESS;
+    case NV_GPU_SAMPLER_COMPARE_MODE_LEQUAL: return VK_COMPARE_OP_LESS_OR_EQUAL;
+    case NV_GPU_SAMPLER_COMPARE_MODE_EQUAL: return VK_COMPARE_OP_EQUAL;
+    case NV_GPU_SAMPLER_COMPARE_MODE_GEQUAL: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+    case NV_GPU_SAMPLER_COMPARE_MODE_GREATER: return VK_COMPARE_OP_GREATER;
+    case NV_GPU_SAMPLER_COMPARE_MODE_NOTEQUAL: return VK_COMPARE_OP_NOT_EQUAL;
+    case NV_GPU_SAMPLER_COMPARE_MODE_ALWAYS: return VK_COMPARE_OP_ALWAYS;
+    case NV_GPU_SAMPLER_COMPARE_MODE_NEVER: return VK_COMPARE_OP_NEVER;
+  }
 }
 
 void
@@ -5092,13 +5133,14 @@ nv_sprite_load_from_memory(nvvk_driver_t* driver, const unsigned char* data, siz
   nv_gpu_write_to_texture(driver, &dst->tex, &img);
 
   nv_gpu_sampler_create_info sampler_info = {
-    .filter         = NV_FILTER_NEAREST,
-    .mipmap_filter  = NV_FILTER_NEAREST,
-    .address_mode   = NV_TEXTURE_ADDRESS_MODE_REPEAT,
-    .max_anisotropy = 1.0f,
-    .mip_lod_bias   = 0.0f,
-    .min_lod        = 0.0f,
-    .max_lod        = VK_LOD_CLAMP_NONE,
+    .min_filter = NV_FILTER_NEAREST,
+    .mag_filter = NV_FILTER_NEAREST,
+    .wrapu      = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapv      = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapw      = NV_GPU_SAMPLER_WRAP_MODE_REPEAT,
+    .anisotropy = 1.0f,
+    .min_lod    = 0.0f,
+    .max_lod    = VK_LOD_CLAMP_NONE,
   };
   nv_gpu_create_sampler(driver, &sampler_info, &dst->sampler);
 
@@ -5262,8 +5304,6 @@ nv_camera_init(nvvk_driver_t* driver, nv_camera_t* cam)
     .position    = (vec3){ 0.0f, 0.0f, 10.0f },
     .actual_pos  = (vec3){ 0.0f, 0.0f, 10.0f },
     .front       = (vec3){ 0.0f, 0.0f, 1.0f },
-    .up          = (vec3){ 0.0f, 1.0f, 0.0f },
-    .right       = (vec3){ 1.0f, 0.0f, 0.0f },
 
     // These angles should not be in radians because they're converted at update() time.
     .yaw_degrees   = -90.0F,
@@ -5281,7 +5321,7 @@ nv_camera_init(nvvk_driver_t* driver, nv_camera_t* cam)
   nv_assert_else_return(ub_align != 0, NV_ERROR_INVALID_RETVAL);
 
   // the size of a single uniform buffer.
-  size_t ub_size = _align_up_size(sizeof(nv_camera_uniform_buffer), ub_align);
+  size_t ub_size = _align_up_size(sizeof(nv_camera_uniform_buffer_t), ub_align);
   nv_assert_else_return(ub_size != 0, NV_ERROR_INVALID_RETVAL);
 
   // nv_gpu_create_buffer(nvvkctx, ub_size * CAMERA_FAKE_BUFFER_COUNT, ub_align, NOVA_GPU_BUFFER_USAGE_UNIFORM_BUFFER, &cam->ub);
@@ -5342,15 +5382,21 @@ nv_camera_get_view(nv_camera_t* cam)
 }
 
 vec3
-nv_camera_get_up_vector(nv_camera_t* cam)
+nv_camera_get_up(nv_camera_t* cam)
 {
-  return cam->up;
+  return v3normalize(v3cross(nv_camera_get_right(cam), nv_camera_get_front(cam)));
 }
 
 vec3
-nv_camera_get_front_vector(nv_camera_t* cam)
+nv_camera_get_front(nv_camera_t* cam)
 {
   return cam->front;
+}
+
+vec3
+nv_camera_get_right(nv_camera_t* cam)
+{
+  return v3normalize(v3cross(nv_camera_get_front(cam), NOVA_CAMERA_WORLD_UP));
 }
 
 void
@@ -5368,9 +5414,9 @@ nv_camera_rotate(nv_camera_t* cam, flt_t yaw_, flt_t pitch_)
 void
 nv_camera_move(nv_camera_t* cam, const vec3 amt)
 {
-  cam->actual_pos = v3add(cam->actual_pos, v3muls(cam->right, amt.x));
-  cam->actual_pos = v3add(cam->actual_pos, v3muls(cam->up, amt.y));
-  cam->actual_pos = v3add(cam->actual_pos, v3muls(cam->front, amt.z));
+  cam->actual_pos = v3add(cam->actual_pos, v3muls(nv_camera_get_right(cam), amt.x));
+  cam->actual_pos = v3add(cam->actual_pos, v3muls(nv_camera_get_up(cam), amt.y));
+  cam->actual_pos = v3add(cam->actual_pos, v3muls(nv_camera_get_front(cam), amt.z));
 }
 
 void
@@ -5380,34 +5426,40 @@ nv_camera_set_position(nv_camera_t* cam, const vec3 pos)
 }
 
 void
-nv_camera_update(nv_camera_t* cam, struct nv_renderer_t* rd)
+nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
 {
-  const flt_t yaw_rads = NVM_DEG2RAD(cam->yaw_degrees), pitch_rads = NVM_DEG2RAD(cam->pitch_degrees);
-  const flt_t cospitch = SDL_cosf(pitch_rads);
+  const flt_t yaw_rads   = NVM_DEG2RAD(cam->yaw_degrees);
+  const flt_t pitch_rads = NVM_DEG2RAD(cam->pitch_degrees);
+  const flt_t cospitch   = SDL_cosf(pitch_rads);
   vec3        new_front;
   new_front.x = SDL_cosf(yaw_rads) * cospitch;
   new_front.y = SDL_sinf(pitch_rads);
   new_front.z = SDL_sinf(yaw_rads) * cospitch;
 
-  const vec3 world_up = (vec3){ 0.0f, 1.0f, 0.0f };
-
   cam->front = v3normalize(new_front);
-  cam->right = v3normalize(v3cross(cam->front, world_up));
-  cam->up    = v3normalize(v3cross(cam->right, cam->front));
 
-  cam->view = m4lookat(cam->actual_pos, v3add(cam->actual_pos, cam->front), cam->up);
+  cam->view = m4lookat(cam->actual_pos, v3add(cam->actual_pos, nv_camera_get_front(cam)), nv_camera_get_up(cam));
 
   cam->position = cam->actual_pos;
 
-  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
-  const flt_t       aspect       = (flt_t)RenderExtent.width / (flt_t)RenderExtent.height;
-  cam->perspective               = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
+  const nv_extent2d render_extent = nv_renderer_get_render_extent(rd);
+  const flt_t       aspect        = (flt_t)render_extent.width / (flt_t)render_extent.height;
+  cam->perspective                = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
 
-  nv_camera_uniform_buffer ub = nv_zero_init(nv_camera_uniform_buffer);
+  const vec3 right = nv_camera_get_right(cam);
+
+  nv_camera_uniform_buffer_t ub = nv_zero_init(nv_camera_uniform_buffer_t);
   NV_MATRIX_COPY(ub.perspective, cam->perspective);
   NV_MATRIX_COPY(ub.ortho, cam->ortho);
   NV_MATRIX_COPY(ub.view, cam->view);
-  cam->mem_mapped[nv_renderer_get_frame(rd)] = ub;
+  ub.camera_position = (vec3f){ cam->position.x, cam->position.y, cam->position.z };
+  ub.camera_front    = (vec3f){ cam->front.x, cam->front.y, cam->front.z };
+  ub.camera_right    = (vec3f){ right.x, right.y, right.z };
+  ub.clip_plane      = (vec3f){ cam->fov, cam->near_clip, cam->far_clip };
+  ub.render_extent   = (vec2u){ (u32)render_extent.width, (u32)render_extent.height };
+  ub.image_index     = nv_renderer_get_frame(rd);
+
+  cam->mem_mapped[nv_camera_get_read_offset(&camera) / sizeof(nv_camera_uniform_buffer_t)] = ub;
 }
 
 vec2

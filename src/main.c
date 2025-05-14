@@ -1,5 +1,7 @@
+#define SDL_MAIN_HANDLED
+
 #include "GPU/driver.h"
-#include "SDL_keycode.h"
+
 #include "engine/camera.h"
 #include "engine/ctext.h"
 #include "engine/engine.h"
@@ -7,45 +9,32 @@
 #include "engine/nvsm.h"
 #include "engine/renderer.h"
 #include "engine/sprite.h"
+
 #include "std/errorcodes.h"
-#include "std/image.h"
-#include "std/math/vec2.h"
 #include "std/print.h"
 #include "std/props.h"
 #include "std/stdafx.h"
-#include "std/string.h"
 #include "std/timer.h"
 
-#include <math.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
-static inline const char*
-get_day_str(const struct tm* t)
+typedef struct layer
 {
-  return (const char*[]){ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }[t->tm_wday];
-}
+  size_t width;
+  size_t height;
+  size_t order;
+  uchar* pixels;
+} layer_t;
 
-static inline const char*
-get_month_str(const struct tm* t)
+typedef struct canvas
 {
-  return (const char*[]){ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }[t->tm_mon];
-}
-
-typedef struct bezier_t
-{
-  vec2 p1;
-  vec2 p2;
-  vec2 ctrl;
-} bezier_t;
-
-static inline vec2
-bezier_curve(const bezier_t* bz, flt_t t)
-{
-  nv_assert_else_return(t >= 0 && t < 1, (vec2){});
-  return v2add(bz->p1, v2muls(v2sub(bz->p2, bz->p1), t));
-}
+  size_t        width;
+  size_t        height;
+  struct layer* layers;
+  size_t        num_layers;
+} canvas_t;
 
 int
 main(int argc, char* argv[])
@@ -105,7 +94,10 @@ main(int argc, char* argv[])
     nvsm_compile_shaders(&nvsmctx);
   }
 
-  nvsm_create_shader_modules(&vkctx, &nvsmctx);
+  if ((code = nvsm_create_shader_modules(&vkctx, &nvsmctx)) != NV_SUCCESS)
+  {
+    return code;
+  }
 
   nv_renderer_config rdconf   = nv_renderer_config_init();
   rdconf.vsync_enabled        = 1;
@@ -155,8 +147,6 @@ main(int argc, char* argv[])
     return code;
   }
 
-  char boofer[1000000] = {};
-
   while (nv_running(&ctx))
   {
     nv_update(&ctx);
@@ -169,69 +159,14 @@ main(int argc, char* argv[])
 
     while (SDL_PollEvent(&event))
     {
-      if (event.type == SDL_KEYDOWN)
-      {
-        if (event.key.keysym.sym == SDLK_BACKSPACE && (*boofer != 0))
-        {
-          boofer[nv_strlen(boofer) - 1] = 0;
-        }
-        else
-        {
-          char tmp[2] = { (char)event.key.keysym.sym, 0 };
-          nv_strlcat(boofer, tmp, sizeof(boofer));
-        }
-      }
       nv_consume_event(&ctx, &event);
     }
 
-    totalTime += dt;
-    numFrames++;
-    if (totalTime >= updateTime)
+    const vec4 background = (vec4){ 0.0F, 0.0F, 0.0F, 1.0F };
+    if (nv_renderer_begin(&rdr, background))
     {
-      curr_showing_fps = ceil(numFrames / totalTime);
-      nv_log_info("%i FPS %f MS/Frame\n", curr_showing_fps, (totalTime / (flt_t)(numFrames)));
-      numFrames = 0;
-      totalTime = 0.0;
-    }
-
-    if (nv_renderer_begin(&rdr, (vec4){ 0.0F, 0.0F, 0.0F, 1.0F }))
-    {
-      struct tm* time = _nv_get_time();
-
-      const char* day  = get_day_str(time);
-      const char* mon  = get_month_str(time);
-      size_t      year = time->tm_year + 1900;
-
-      ctext_text_render_info_t clock_info = ctext_init_text_render_info();
-      clock_info.scale                    = 3.0F;
-      clock_info.bbox                     = (vec2){ camera.ortho_size.x, camera.ortho_size.y };
-      clock_info.scale_for_fit            = 1;
-      ctext_render(&amongus, &clock_info, "%i %s %s %zu\n%d:%d:%i\n%s\n", time->tm_mday, day, mon, year, time->tm_hour % 12, time->tm_min, time->tm_sec, boofer);
-
-      const bezier_t bz = (bezier_t){
-        .p1   = (vec2){ .x = 0.0F, .y = 0.0F },
-        .p2   = (vec2){ .x = 0.0F, .y = 60.0F },
-        .ctrl = (vec2){ .x = 30.0F, .y = -20.0F },
-      };
-
-      const size_t circle_num_vertices = 1000;
-      vec2f        vertices[circle_num_vertices];
-      for (int i = 0; i < circle_num_vertices; i++)
-      {
-        float angle = (float)i / (float)circle_num_vertices * 2.0f * (float)M_PI;
-        vertices[i] = (vec2f){ cosf(angle), sinf(angle) };
-        nv_renderer_render_line(&rdr, (vec2f){ 0.0F, 0.0F }, vertices[i], (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F }, 0);
-      }
-
-      nv_renderer_render_quad(
-          &rdr,
-          &angwy,
-          (vec2f){ 1.0f, 1.0f },
-          (vec3f){ 0.5F * sinf(0.5F * (float)_nv_timer_get_currtime()), 0.5F * cosf(0.5F * (float)_nv_timer_get_currtime()), 0.0f },
-          (vec3f){ 1.0f, 1.0f, 1.0f },
-          (vec4f){ 1.0f, 1.0f, 1.0f, 1.0f },
-          0);
-
+      ctext_text_render_info_t i = ctext_init_text_render_info();
+      ctext_render(&amongus, &i, "Pee is stored in the balls");
       nv_renderer_end(&rdr);
     }
   }
@@ -245,4 +180,6 @@ main(int argc, char* argv[])
   nvvk_driver_destroy(&driver);
   nvvk_ctx_destroy(&vkctx);
   nv_window_shutdown(&ctx);
+
+  return 0;
 }

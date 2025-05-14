@@ -17,9 +17,9 @@ NOVA_HEADER_START
  * The driver also serves to seperate the vulkan logic from the renderer to allow optimization
  * but still be seperated from the renderer
  */
-typedef struct nvvk_driver_t nvvk_driver_t;
+typedef struct nvvk_driver nvvk_driver_t;
 
-struct nvvk_driver_t
+struct nvvk_driver
 {
   u32 canary; // = 0xDEADBEEF
 

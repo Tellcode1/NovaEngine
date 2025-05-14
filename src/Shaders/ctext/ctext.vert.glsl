@@ -1,16 +1,10 @@
 #version 450 core
 
+#include "../camera.glsl"
+
 layout(location = 0) in vec3 v_vertices;
 
 layout(location = 1) in vec2 v_uv;
-
-layout(set = 0, binding = 0, std140) uniform camera_buffer
-{
-  mat4 perspective;
-  mat4 ortho;
-  mat4 view;
-}
-cam_ub;
 
 layout(push_constant) uniform push_constants
 {

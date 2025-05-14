@@ -14,6 +14,7 @@
 #include "../GPU/buffer.h"
 #include "../GPU/sampler.h"
 #include "../GPU/texture.h"
+#include <sys/cdefs.h>
 
 // THE PLAN
 // Write all the glyph vertices to the GPU
@@ -23,7 +24,7 @@
 
 NOVA_HEADER_START
 
-struct nvvk_ctx_s;
+struct nvvk_ctx;
 
 // DEPRECATE THIS YOU FOOL
 // IT WAS ONLY MEANT FOR SIMPLE TESTING
@@ -34,6 +35,14 @@ typedef struct ctext_label_t ctext_label_t;
 typedef struct ctext_glyph_t            ctext_glyph_t;
 typedef struct ctext_drawcall_t         ctext_drawcall_t;
 typedef struct ctext_text_render_info_t ctext_text_render_info_t;
+
+typedef enum ctext_text_style
+{
+  CTEXT_TEXT_STYLE_NORMAL      = 0,
+  CTEXT_TEXT_STYLE_ITALIC      = 1,
+  CTEXT_TEXT_STYLE_BOLD        = 2,
+  CTEXT_TEXT_STYLE_BOLD_ITALIC = 3,
+} ctext_text_style;
 
 typedef enum ctext_hori_align
 {
@@ -58,10 +67,10 @@ ctext_compare_glyph_keys(const void* key1, const void* key2, size_t nbytes, void
 }
 
 // Initializes the text renderer for ONLY that renderer
-extern nv_error ctext_init(struct nv_renderer_t* rd);
-extern void     ctext_shutdown(struct nv_renderer_t* rd);
+extern nv_error ctext_init(struct nv_renderer* rd);
+extern void     ctext_shutdown(struct nv_renderer* rd);
 
-extern void ctext_load_font(struct nvvk_ctx_s* nvvkctx, struct nv_renderer_t* rd, const char* font_path, int scale, cfont_t* dst);
+extern void ctext_load_font(struct nvvk_ctx* nvvkctx, struct nv_renderer* rd, const char* font_path, int scale, cfont_t* dst);
 
 /*
   Returns 0 if the font is ok and anything else if it is on life support (hasn't crashed your program yet)
@@ -70,10 +79,10 @@ extern int ctext_validate_font(const cfont_t* fnt);
 
 extern void ctext_destroy_font(nvvk_ctx_t* nvvkctx, cfont_t* fnt);
 
-extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...);
+extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...) __attribute__((format(printf, 3, 4)));
 
-extern void ctext_flush_renders(struct nv_renderer_t* rd);
-extern void _ctext_flush_font(struct nv_renderer_t* rd, cfont_t* fnt);
+extern void ctext_flush_renders(struct nv_renderer* rd);
+extern void _ctext_flush_font(struct nv_renderer* rd, cfont_t* fnt);
 
 extern void ctext_get_text_size(const cfont_t* fnt, const char* str, flt_t* w, flt_t* h);
 
@@ -124,11 +133,13 @@ struct cfont_t
   bool   buffer_resized;
   bool   rendered_this_frame;
 
+  size_t current_buffer_index;
+
   size_t       chars_drawn;
   nv_list_t    drawcalls;
   nv_hashmap_t glyph_map;
 
-  struct nv_renderer_t* rd;
+  struct nv_renderer* rd;
 };
 
 static inline ctext_text_render_info_t

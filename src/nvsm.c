@@ -1,10 +1,12 @@
 #include "engine/nvsm.h"
 #include "GPU/pipeline.h"
+#include "GPU/prep.h"
 #include "GPU/types.h"
 #include "GPU/vk.h"
 #include "std/alloc.h"
 #include "std/containers/hashmap.h"
 #include "std/errorcodes.h"
+#include "std/file.h"
 #include "std/hash.h"
 #include "std/stdafx.h"
 #include "std/string.h"
@@ -17,9 +19,7 @@
 #include "external/glslang/glslang/Include/glslang_c_shader_types.h"
 #include "external/glslang/glslang/Public/resource_limits_c.h"
 
-#include <SDL2/SDL_rwops.h>
-#include <stdio.h>
-#include <vulkan/vulkan_core.h>
+#include <SDL3/SDL_filesystem.h>
 
 glslang_stage_t _nvsm_glslang_shader_stage_from_string(const char stage[4]);
 
@@ -62,71 +62,15 @@ _nvsm_get_cache_file_path(const char* cache_file_dir, char buffer[256])
   nv_strlcat(buffer, NVSM_CACHE_FILENAME, 256);
 }
 
-#include <time.h>
-#ifdef _WIN32
-#  include <windows.h>
-#else
-#  include <sys/stat.h>
-#endif
-
-#ifdef _WIN32
-size_t
-make_timestamp(const SYSTEMTIME* st)
-{
-  size_t timestamp = 0;
-
-  timestamp |= (size_t)st->wYear << 44;   // 4 bytes
-  timestamp |= (size_t)st->wMonth << 40;  // 1 byte
-  timestamp |= (size_t)st->wDay << 35;    // 1 byte
-  timestamp |= (size_t)st->wHour << 30;   // 1 byte
-  timestamp |= (size_t)st->wMinute << 24; // 1 byte
-  timestamp |= (size_t)st->wSecond << 18; // 1 byte
-  timestamp |= (size_t)st->wMilliseconds; // 2 bytes
-
-  return timestamp;
-}
-#endif
-
-/* https://qb64phoenix.com/forum/showthread.php?tid=2724&pid=25455#pid25455 */
-static inline size_t
-get_last_modified_time(const char* filepath)
-{
-#ifdef _WIN32
-  WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-  if (GetFileAttributesEx(filepath, GetFileExInfoStandard, &fileInfo))
-  {
-    FILETIME   ft = fileInfo.ftLastWriteTime;
-    SYSTEMTIME st;
-    FileTimeToSystemTime(&ft, &st);
-
-    /* we form a size_t from the struct to use */
-    return make_timestamp(&st);
-  }
-  else
-  {
-    nv_log_error("Failed to get file attributes for %s\n", filepath);
-  }
-
-  // TODO: does this work on android? I mean android *is* linux, right?
-#else /* unix */
-  struct stat attr;
-  if (stat(filepath, &attr) == 0)
-  {
-    return attr.st_mtime;
-  }
-  else
-  {
-    nv_log_error("stat");
-  }
-#endif
-
-  return 0;
-}
-
 static inline bool
 was_file_modified(const char* filepath, size_t saved_mtime)
 {
-  return get_last_modified_time(filepath) > saved_mtime;
+  size_t tmp;
+  if (nv_fs_file_get_modified_time(filepath, &tmp) != NV_SUCCESS)
+  {
+    return true;
+  }
+  return tmp > saved_mtime;
 }
 
 /* https://cboard.cprogramming.com/c-programming/77564-line-counting-post548900.html#post548900 */
@@ -189,41 +133,6 @@ _nvsm_get_default_compile_options(void)
 #endif
   opts.validate = true;
   return opts;
-}
-
-static inline nv_error
-read_shader_spirv(const char* spirv_path, nvsm_spirv_binary_t* bin)
-{
-  SDL_RWops* rw = SDL_RWFromFile(spirv_path, "rb");
-  if (rw == NULL)
-  {
-    nv_log_error("%s : %s\n", spirv_path, SDL_GetError());
-    return NV_ERROR_FILE_NOT_FOUND;
-  }
-
-  bin->byte_count = SDL_RWsize(rw);
-  if ((Sint64)bin->byte_count <= 0)
-  {
-    nv_log_error("Error in read size of stream %p : %s\n", rw, SDL_GetError());
-    SDL_RWclose(rw);
-    return NV_ERROR_IO_ERROR;
-  }
-
-  bin->words = (uint32_t*)nv_calloc(bin->byte_count);
-  nv_assert_else_return(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
-
-  /* SDL_RWread returns 0 if an error occured or if the entire stream was read. */
-  if (SDL_RWread(rw, (void*)bin->words, 1, bin->byte_count) == 0)
-  {
-    nv_log_error("Error in read of stream %p (err:%s)\n", rw, SDL_GetError());
-    bin->words      = NULL;
-    bin->byte_count = 0;
-    SDL_RWclose(rw);
-    return NV_ERROR_IO_ERROR;
-  }
-
-  SDL_RWclose(rw);
-  return NV_SUCCESS;
 }
 
 nv_error
@@ -346,7 +255,15 @@ _nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   // the mtime of the list file to check if it itself has been modified.
   // If the list has been modified, then this cache is obviously out of date
   size_t list_file_mtime = 0;
-  if (fread(&list_file_mtime, sizeof(list_file_mtime), 1, cache_file) != 1 || list_file_mtime != get_last_modified_time(list_file_path))
+
+  size_t list_file_new_mtime;
+  if (nv_fs_file_get_modified_time(list_file_path, &list_file_new_mtime) != NV_SUCCESS)
+  {
+    fclose(cache_file);
+    return NV_ERROR_INVALID_CACHE;
+  }
+
+  if (fread(&list_file_mtime, sizeof(list_file_mtime), 1, cache_file) != 1 || list_file_mtime != list_file_new_mtime)
   {
     fclose(cache_file);
     return NV_ERROR_INVALID_CACHE;
@@ -441,7 +358,11 @@ _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_fi
 
     *convert = nv_zero_init(nvsm_cache_file_entry_t);
 
-    convert->last_mod_time    = get_last_modified_time(entry->shader_path);
+    if (nv_fs_file_get_modified_time(entry->shader_path, &convert->last_mod_time) != NV_SUCCESS)
+    {
+      continue;
+    }
+
     convert->hash_name        = NVSM_STRING_HASH_FUNCTION((void*)entry->name, 0, NULL);
     convert->hash_shader_path = NVSM_STRING_HASH_FUNCTION((void*)entry->shader_path, 0, NULL);
   }
@@ -456,125 +377,39 @@ _nvsm_generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_fi
   return NV_SUCCESS;
 }
 
-#ifdef _WIN32
-#  include <direct.h>
-#  define MKDIR(path) _mkdir(path)
-#  define PATH_SEP '\\'
-#else
-#  include <sys/stat.h>
-#  include <sys/types.h>
-#  define MKDIR(path) (mkdir(path, 0777))
-#  define PATH_SEP '/'
-#endif
-
-/* why was this function modifying a const variable? */
-static inline void
-create_parent_dirs(const char path[256])
-{
-  char path_copy[256];
-  nv_strlcpy(path_copy, path, sizeof(path_copy));
-
-  char* last_separator = nv_strrchr(path_copy, PATH_SEP);
-  if (last_separator != NULL)
-  {
-    *last_separator = '\0';
-
-    char buffer[256];
-
-    nv_strcpy(buffer, path_copy);
-    size_t len = nv_strlen(buffer);
-
-    if (buffer[len - 1] == PATH_SEP)
-    {
-      buffer[len - 1] = 0;
-    }
-
-    for (char* p = buffer + 1; *p; p++)
-    {
-      if (*p == PATH_SEP)
-      {
-        *p = 0;
-        MKDIR(buffer);
-        *p = PATH_SEP;
-      }
-    }
-
-    MKDIR(buffer);
-  }
-}
-
 static inline nv_error
 _nvsm_dump_shader(const nvsm_spirv_binary_t* bin, const char* out_filename)
 {
   nv_assert_else_return(bin != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(out_filename != NULL, NV_ERROR_INVALID_ARG);
 
-  /**
-   * Does SDL create parent directories?
-   * Just to be safe
-   */
-  create_parent_dirs(out_filename);
+  nv_error code = NV_SUCCESS;
 
-  SDL_RWops* rw = SDL_RWFromFile(out_filename, "wb");
-  nv_assert_and_exec(rw != NULL, nv_log_error("SDL reports %s\n", SDL_GetError()); return NV_ERROR_IO_ERROR;);
-
-  if (SDL_RWwrite(rw, bin->words, 1, bin->byte_count) != bin->byte_count)
+  code = nv_fs_dir_create_recursive_for_file(out_filename, NV_FS_PERMISSION_READ_WRITE);
+  if (code != NV_SUCCESS)
   {
-    nv_log_error("Could not dump SPIRV binary to disk");
-    return NV_ERROR_IO_ERROR;
+    nv_log_error("%s\n", nv_error_str(code));
+    return code;
   }
 
-  SDL_RWclose(rw);
+  code = nv_fs_file_writeall(out_filename, (const void*)bin->words, bin->byte_count);
+  if (code != NV_SUCCESS)
+  {
+    nv_log_error("%s:%s\n", nv_error_str(code), out_filename);
+    return code;
+  }
 
   return NV_SUCCESS;
 }
 
 static inline nv_error
-_nvsm_read_shader_file_null_terminated(const char* file_path, char** dst, size_t* dst_size)
+_nvsm_read_file_flattened(const char* file_path, char** dst, size_t* dst_size)
 {
   nv_assert_else_return(file_path != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(dst_size != NULL, NV_ERROR_INVALID_ARG);
 
-  FILE* file = fopen(file_path, "rb"); // open in binary mode
-  nv_assert_else_return(file != NULL, NV_ERROR_FILE_NOT_FOUND);
-
-  // Move to the end to get file size
-  if (fseek(file, 0, SEEK_END) != 0)
-  {
-    fclose(file);
-    return NV_ERROR_IO_ERROR;
-  }
-
-  long size = ftell(file);
-  if (size < 0)
-  {
-    fclose(file);
-    return NV_ERROR_IO_ERROR;
-  }
-
-  if (fseek(file, 0, SEEK_SET) != 0)
-  {
-    fclose(file);
-    return NV_ERROR_IO_ERROR;
-  }
-
-  *dst = nv_malloc((size_t)size + 1);
-  nv_assert_else_return(*dst != NULL, NV_ERROR_MALLOC_FAILED);
-
-  size_t read = fread(*dst, 1, (size_t)size, file);
-  fclose(file);
-
-  if (read != (size_t)size)
-  {
-    nv_free(*dst); // free the memory to avoid leak
-    *dst      = NULL;
-    *dst_size = 0;
-    return NV_ERROR_IO_ERROR;
-  }
-
-  (*dst)[size] = '\0'; // null-terminate
-  *dst_size    = (size_t)size;
+  nv_prep_flatten_file_to_buffer(file_path, dst, dst_size);
 
   return NV_SUCCESS;
 }
@@ -624,7 +459,7 @@ _nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts
 
   char*  shader_source = NULL;
   size_t shader_size   = 0;
-  if ((code = _nvsm_read_shader_file_null_terminated(shader_path, &shader_source, &shader_size)) != NV_SUCCESS)
+  if ((code = _nvsm_read_file_flattened(shader_path, &shader_source, &shader_size)) != NV_SUCCESS)
   {
     return code;
   }
@@ -784,10 +619,10 @@ _nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, n
         if (!was_file_modified(list_entry->shader_path, cache_entry->last_mod_time))
         {
           /* this is possibly a stupid idea */
-          code = read_shader_spirv(list_entry->spirv_path, &list_entry->bin);
+          code = nv_fs_file_readall(list_entry->spirv_path, nv_allocator_c, NULL, (char**)&list_entry->bin.words, &list_entry->bin.byte_count);
           if (code != NV_SUCCESS)
           {
-            nv_log_error("Failed to read shader %s\n", list_entry->shader_path);
+            nv_log_error("Failed to read shader %s $(%s)\n", list_entry->shader_path, nv_error_str(code));
           }
           wasnt_modified = true;
           break;
@@ -899,7 +734,10 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
      * TODO: Do we always want to dump a cache file? Even for no cache compilation runs?
      * Should we add a ctx configuration for that? Or a preprocessor maybe?
      */
-    _generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, get_last_modified_time(list_file_path));
+    size_t list_file_mtime = 0;
+    nv_fs_file_get_modified_time(list_file_path, &list_file_mtime);
+
+    _generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, list_file_mtime);
   }
   else if (code != NV_SUCCESS)
   {
@@ -929,7 +767,10 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
      * I mean to say that the cache may become invalidated.
      * The function returns a code if the cache has been invalidated or not, and it is used accordingly
      */
-    _generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, get_last_modified_time(list_file_path));
+
+    size_t list_file_mtime = 0;
+    nv_fs_file_get_modified_time(list_file_path, &list_file_mtime);
+    _generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, list_file_mtime);
   }
 
   _nvsm_destroy_list_file(&list_file);
@@ -970,7 +811,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* nvvkctx, nvsm_ctx_t* ctx)
 
     if (entry->bin.words == NULL || entry->bin.byte_count == 0)
     {
-      code = read_shader_spirv(entry->spirv_path, &entry->bin);
+      code = nv_fs_file_readall(entry->spirv_path, nv_allocator_c, NULL, (char**)&entry->bin.words, &entry->bin.byte_count);
       if (code != NV_SUCCESS)
       {
         code = _nvsm_compile_shader(entry->shader_path, &compile_options, entry->spirv_path, entry->stage, &entry->bin, true);
@@ -1050,7 +891,10 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
     FILE* generated_cache_file = fopen(cache_file_path, "wb");
     nv_assert_else_return(generated_cache_file != NULL, NV_ERROR_IO_ERROR);
 
-    _nvsm_generate_and_write_cache_file(&list_file, get_last_modified_time(list_file_path), generated_cache_file);
+    size_t list_file_mtime = 0;
+    nv_fs_file_get_modified_time(list_file_path, &list_file_mtime);
+
+    _nvsm_generate_and_write_cache_file(&list_file, list_file_mtime, generated_cache_file);
 
     fclose(generated_cache_file);
   }

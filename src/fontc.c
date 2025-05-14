@@ -245,6 +245,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
   FT_Set_Pixel_Sizes(face, 0, pixel_size);
 
   *out_file = nv_zero_init(fontc_file_t);
+
   nv_texture_atlas_t atlas;
   nv_texture_atlas_init(init_atlas_w, init_atlas_h, NOVA_FORMAT_R8, 4, &atlas);
 
@@ -259,7 +260,51 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     goto CLEANUP_AND_RETURN;
   }
 
-  size_t glyph_count = 0;
+  /**
+   * 1 because we loaded the NULL glyph first
+   */
+  size_t glyph_count = 1;
+
+  {
+    FT_Load_Glyph(face, 0, FT_LOAD_DEFAULT);
+    FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF);
+    FT_GlyphSlot g = face->glyph;
+
+    const size_t         w      = g->bitmap.width;
+    const size_t         h      = g->bitmap.rows;
+    const unsigned char* buffer = g->bitmap.buffer;
+
+    size_t x = SIZE_MAX, y = SIZE_MAX;
+    if (buffer)
+    {
+      nv_image_t image = (nv_image_t){ .width = w, .height = h, .format = NOVA_FORMAT_R8, .data = (unsigned char*)buffer };
+      if (!nv_texture_atlas_add(&atlas, &image, &x, &y))
+      {
+        nv_log_error("Atlas error\n");
+        retcode = FONTC_ATLAS_ERROR;
+      }
+    }
+
+    FT_Glyph gl;
+    FT_Get_Glyph(face->glyph, &gl);
+
+    FT_BBox box;
+    FT_Glyph_Get_CBox(gl, FT_GLYPH_BBOX_UNSCALED, &box);
+    FT_Done_Glyph(gl);
+
+    glyphs[0] = (fontc_glyph_t){
+      .codepoint = 0,
+      .x0        = (flt_t)box.xMin,
+      .x1        = (flt_t)box.xMax,
+      .y0        = (flt_t)box.yMin,
+      .y1        = (flt_t)box.yMax,
+      .l         = (flt_t)x,
+      .r         = (flt_t)x + (flt_t)w,
+      .b         = (flt_t)y + (flt_t)h,
+      .t         = (flt_t)y,
+      .advance   = (flt_t)face->glyph->metrics.horiAdvance,
+    };
+  }
 
   omp_set_num_threads((int)num_threads);
   nv_log_info("Using %i threads\n", num_threads);
@@ -318,7 +363,8 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
       size_t x = SIZE_MAX, y = SIZE_MAX;
       if (buffer)
       {
-        if (!nv_texture_atlas_add(&atlas, &(nv_image_t){ .width = w, .height = h, .format = NOVA_FORMAT_R8, .data = (unsigned char*)buffer }, &x, &y))
+        nv_image_t image = (nv_image_t){ .width = w, .height = h, .format = NOVA_FORMAT_R8, .data = (unsigned char*)buffer };
+        if (!nv_texture_atlas_add(&atlas, &image, &x, &y))
         {
           nv_log_error("Atlas error\n");
 #pragma omp atomic write

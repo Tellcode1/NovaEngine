@@ -16,7 +16,9 @@ struct nvsm_ctx_t;
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
   if ((ptr) == (VK_NULL_HANDLE))                                                                                                                                              \
-  nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)
+  {                                                                                                                                                                           \
+    nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.", nv_basename(__FILE__), __LINE__, __func__)                                                \
+  }
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
   if ((val) == (to))                                                                                                                                                          \
   nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".", nv_basename(__FILE__), __LINE__, __func__)
@@ -58,26 +60,9 @@ _nvvk_default_result_check_fn(const VkResult result, const char* file, const cha
 
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors
-  nv_printf("[%d:%d:%d] [%s:%li] %s: %s returned %s", time->tm_hour, time->tm_min, time->tm_sec, file, line, errstr, func, result_string);
+  nv_printf("[%d:%d:%d] [%s:%li] %s: %s returned %s\n", time->tm_hour, time->tm_min, time->tm_sec, file, line, errstr, func, result_string);
 
   return result;
-}
-
-/*
-  Set the result checking function for the API. This is called every time the program requests something in the order of vkCreate* that this namespace
-  has a hold of. Use NULL to deattach the function.
-*/
-static inline void
-nv_gpu_set_result_check_fn(nvvk_ctx_t* ctx, nv_gpu_result_check_fn func)
-{
-  if (func != NULL)
-  {
-    ctx->result_fn = func;
-  }
-  else
-  {
-    ctx->result_fn = _nvvk_default_result_check_fn;
-  }
 }
 
 extern u32 nv_GPU_vk_flag_register;

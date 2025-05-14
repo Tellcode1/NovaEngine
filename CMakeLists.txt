@@ -17,8 +17,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-
 # We don't wanna enable address sanitizer on release builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOVA_SANITIZE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
@@ -27,8 +25,8 @@ endif()
 find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIRS})
 
-find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS})
+find_package(SDL3 REQUIRED)
+include_directories(${SDL3_INCLUDE_DIRS})
 
 find_package(Freetype REQUIRED)
 include_directories(${FREETYPE_INCLUDE_DIRS})
@@ -93,7 +91,7 @@ set(LIBS
     nvstd
     volk
     m
-    SDL2
+    SDL3
     freetype
     box2d
     OpenMP::OpenMP_C
@@ -102,7 +100,7 @@ set(LIBS
 )
 
 # Box2D uses C17 but still complains about C11 features.
-target_compile_options(box2d PRIVATE -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition)
+# target_compile_options(box2d PRIVATE -Wall -Wextra -Wno-unused-function -Wno-typedef-redefinition)
 
 target_precompile_headers(Nova PUBLIC ${NOVA_ROOT_DIR}/src/std/stdafx.h)
 target_link_options(Nova PRIVATE ${LFLAGS} -g)

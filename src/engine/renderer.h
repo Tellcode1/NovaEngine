@@ -33,14 +33,14 @@ typedef struct nv_ctext_module     nv_ctext_module;
 typedef struct nv_quad_draw_call_t nv_quad_draw_call_t;
 typedef struct nv_line_draw_call_t nv_line_draw_call_t;
 typedef struct nv_draw_call_t      nv_draw_call_t;
-typedef struct nv_renderer_t       nv_renderer_t;
+typedef struct nv_renderer         nv_renderer_t;
 
-struct nv_ctx_s;
-struct nvvk_driver_t;
+struct nv_ctx;
+struct nvvk_driver;
 struct nvsm_ctx_t;
 
 extern nv_descriptor_pool_t g_pool;
-extern struct nv_camera_t   camera;
+extern struct nv_camera     camera;
 
 // Move ownership to camera VV
 typedef struct nv_renderer_frame_render_info
@@ -124,7 +124,7 @@ struct nv_draw_call_t
   } drawcall;
 };
 
-struct nv_renderer_t
+struct nv_renderer
 {
   nv_ctx_t*      ctx;
   nvvk_ctx_t*    nvvkctx;
@@ -175,7 +175,7 @@ struct nv_renderer_t
   void* mapped;
 };
 
-extern nv_error nv_renderer_init(struct nv_ctx_s* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+extern nv_error nv_renderer_init(struct nv_ctx* ctx, struct nvsm_ctx_t* nvsmctx, struct nvvk_driver* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
 extern void     nv_renderer_destroy(nv_renderer_t* rd);
 
 extern bool     nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);

@@ -6,7 +6,7 @@
 #include "../std/containers/bitset.h"
 #include "../std/containers/hashmap.h"
 #include "../std/math/vec2.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 NOVA_HEADER_START
 
@@ -15,7 +15,7 @@ NOVA_HEADER_START
 typedef struct nv_input_action_t nv_input_action_t;
 typedef struct nv_input_ctx_t    nv_input_ctx_t;
 
-struct nv_ctx_s;
+struct nv_ctx;
 
 // A function that is called every time an action is signalled
 // This is better than polling the event every frame when the action is signalled multiple times per frame
@@ -65,7 +65,7 @@ struct nv_input_ctx_t
 };
 
 extern nv_error nv_input_init(nv_input_ctx_t* ctx);
-extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx_s* globalctx);
+extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx* globalctx);
 extern void     nv_input_shutdown(nv_input_ctx_t* ctx);
 
 void nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response);

@@ -1,15 +1,15 @@
-#include "GPU/_freelist.h"
-#include "GPU/driver.h"
+#include <stdlib.h>
 
-// #include "GPU/allocator.h"
 #include "GPU/allocator.h"
 #include "GPU/buffer.h"
+#include "GPU/driver.h"
 #include "GPU/newmemory.h"
 #include "GPU/pipeline.h"
+#include "GPU/prep.h"
 #include "GPU/types.h"
 #include "GPU/vk.h"
+#include "GPU/vkstdafx.h"
 
-#include "engine/camera.h"
 #include "std/bit.h"
 #include "std/containers/list.h"
 #include "std/errorcodes.h"
@@ -17,15 +17,12 @@
 #include "std/string.h"
 
 #include "external/volk/volk.h"
-#include <stddef.h>
-#include <stdlib.h>
-#include <vulkan/vulkan_core.h>
 
 #ifndef NV_GPU_DISABLE_OPTIMIZATIONS
 #  define NV_GPU_DISABLE_OPTIMIZATIONS (true)
 #endif
 
-#define ALIASES_STACK_ARRAY(ptr, stack_array) ((void*)(ptr) >= (void*)(stack_array) && (void*)(ptr) <= (void*)((uchar*)(stack_array) + sizeof((stack_array))))
+#define DOES_ALIAS(ptr, array, size) ((void*)(ptr) >= (void*)(array) && (void*)(ptr) <= (void*)((uchar*)(array) + size))
 
 static inline bool
 has_flag(u32 flags, u32 want)
@@ -120,7 +117,7 @@ nvvk_driver_init(nvvk_ctx_t* ctx, nvvk_driver_t* dst)
     .minimum_alignment = 1,
     .memory_flags      = NV_GPU_MEMORY_GPU_LOCAL_BIT,
     .type              = NV_GPU_ALLOCATOR_FREELIST,
-    .policy            = NV_GPU_ALLOCATOR_POLICY_BEST_FIT,
+    .policy            = NV_GPU_ALLOCATOR_POLICY_WORST_FIT,
     .flags             = 0,
   };
   code = nv_gpu_memory_pool_init(dst, &pool_ci, &dst->gpu_local_pool);
@@ -320,6 +317,21 @@ _nv_to_vk_memory_properties(nv_gpu_buffer_flags flags)
   return props;
 }
 
+static inline nv_error
+_create_buffer(nvvk_driver_t* driver, vk_size_t size, nv_gpu_buffer_flags flags, VkBuffer* dst)
+{
+  const VkBufferUsageFlags vk_buffer_flags = _nv_to_vk_buffer_usage(flags);
+
+  VkBufferCreateInfo buffer_info = nv_zero_init(VkBufferCreateInfo);
+  buffer_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.size               = size;
+  buffer_info.usage              = vk_buffer_flags;
+  nvvk_result_check(*driver->ctx, vkCreateBuffer(driver->ctx->device, &buffer_info, &driver->ctx->vkalloc, dst));
+  nv_assert_else_return(*dst != VK_NULL_HANDLE, NV_ERROR_EXTERNAL);
+
+  return NV_SUCCESS;
+}
+
 nv_error
 nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_gpu_buffer_flags flags, nv_gpu_buffer_t* dst)
 {
@@ -327,21 +339,18 @@ nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_g
   nv_assert_else_return(size != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
 
+  nv_bzero(dst, sizeof(nv_gpu_buffer_t));
+
+  nv_error code = NV_SUCCESS;
+
   alignment = NV_MAX(alignment, NOVA_GPU_BUFFER_MINIMUM_ALIGNMENT);
   alignment = NV_MAX(alignment, _get_preferred_alignment(driver->ctx));
 
-  nv_bzero(dst, sizeof(nv_gpu_buffer_t));
-
-  const vk_size_t aligned_size = _align_up_size(size, alignment);
-
-  const VkBufferUsageFlags vk_buffer_flags = _nv_to_vk_buffer_usage(flags);
-
-  VkBufferCreateInfo buffer_info = nv_zero_init(VkBufferCreateInfo);
-  buffer_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size               = aligned_size;
-  buffer_info.usage              = vk_buffer_flags;
-  nvvk_result_check(*driver->ctx, vkCreateBuffer(driver->ctx->device, &buffer_info, &driver->ctx->vkalloc, &dst->buffer));
-  nv_assert_else_return(dst->buffer != VK_NULL_HANDLE, NV_ERROR_EXTERNAL);
+  const vk_size_t buffer_size = _align_up_size(size, alignment);
+  if ((code = _create_buffer(driver, buffer_size, flags, &dst->buffer)) != NV_SUCCESS)
+  {
+    return code;
+  }
 
   VkMemoryRequirements memory_requirements;
   vkGetBufferMemoryRequirements(driver->ctx->device, dst->buffer, &memory_requirements);
@@ -350,7 +359,7 @@ nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_g
 
   if (flags & NV_GPU_BUFFER_MAPPABLE)
   {
-    nv_error code = nv_gpu_memory_pool_allocate(&driver->cpu_mappable_pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
+    code = nv_gpu_memory_pool_allocate(&driver->cpu_mappable_pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
     if (code != NV_SUCCESS)
     {
       return code;
@@ -358,7 +367,7 @@ nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_g
   }
   else
   {
-    nv_error code = nv_gpu_memory_pool_allocate(&driver->gpu_local_pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
+    code = nv_gpu_memory_pool_allocate(&driver->gpu_local_pool, memory_requirements.size, memory_requirements.alignment, &dst->block);
     if (code != NV_SUCCESS)
     {
       return code;
@@ -379,7 +388,7 @@ nv_gpu_buffer_init(nvvk_driver_t* driver, vk_size_t size, size_t alignment, nv_g
     dst->drv_mapped = (uchar*)dst->block.pool->drv_mapped + dst->block.offset;
     nv_assert_else_return(dst->drv_mapped != NULL, NV_ERROR_EXTERNAL);
 
-    dst->drv_mapped_size   = aligned_size;
+    dst->drv_mapped_size   = buffer_size;
     dst->drv_mapped_offset = 0;
   }
 
@@ -527,9 +536,7 @@ nv_gpu_buffer_map_memory(nv_gpu_buffer_t* buffer, vk_size_t size, vk_size_t offs
       /* The current size is out of bounds, unmap it and map it again */
       // vkUnmapMemory(device, buffer->driver->pool.memory);
 
-      buffer->drv_mapped        = NULL;
-      buffer->drv_mapped_size   = size;
-      buffer->drv_mapped_offset = offset;
+      buffer->drv_mapped = NULL;
     }
   }
 
@@ -557,8 +564,6 @@ nv_gpu_buffer_flush_mapped_memory(nv_gpu_buffer_t* buffer)
   nv_assert_else_return(nvvk_driver_is_valid(buffer->driver) == true, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(buffer->drv_mapped_size != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(buffer->drv_mapped_offset < buffer->size, NV_ERROR_INVALID_ARG);
-
-  vk_size_t alignment = buffer->block.alignment;
 
   /* because we never really have host_coherent_bit in vk flags, we must always flush the memory */
   VkMappedMemoryRange range = {
@@ -682,6 +687,7 @@ nv_gpu_buffer_copy(nv_gpu_buffer_t* dst, nv_gpu_buffer_t* src, vk_size_t num_byt
   VkCommandBuffer cmd = nv_vk_begin_command_buffer(dst->driver);
 
   _generate_and_insert_buffer_copy(cmd, dst, src, num_bytes, dst_offset, src_offset);
+  _nv_gpu_buffer_insert_read_barrier(dst, cmd);
 
   nv_vk_end_command_buffer(dst->driver, cmd, dst->driver->ctx->transfer_queue, true);
 
@@ -867,7 +873,7 @@ nv_gpu_memory_pool_allocate(nv_gpu_memory_pool_t* pool, vk_size_t size, vk_size_
     nv_gpu_freelist_t* freelist = &pool->backing_allocator.flist;
 
     vk_size_t offset = SIZE_MAX;
-    nv_gpu_freelist_alloc(freelist, aligned_size, preffered_alignment, &offset);
+    nv_gpu_freelist_alloc(freelist, aligned_size, preffered_alignment, pool->policy, &offset);
 
     nv_assert_else_return(offset != SIZE_MAX, NV_ERROR_INVALID_RETVAL);
     nv_assert_else_return((offset % preffered_alignment) == 0, NV_ERROR_INVALID_RETVAL);
@@ -958,11 +964,111 @@ _print_memory_usage_info(void)
   // nv_log_info("$%llu|#%llu|~%f\n", total_alloc, num_allocs, (float)total_alloc / (float)num_allocs);
 }
 
-void*
-nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
+static inline bool
+_free_if_from_l2_page(nvvk_allocator_t* allocator, void* ptr)
 {
-  (void)allocationScope;
+  for (size_t i = 0; i < nv_arrlen(allocator->l2_pages); i++)
+  {
+    void* page = allocator->l2_pages[i];
+    if (DOES_ALIAS(ptr, page, NOVA_VK_ALLOCATOR_L2_CACHE_PAGE_SIZE))
+    {
+      allocator->l2_pages_num_allocations[i]--;
+      if (allocator->l2_pages_num_allocations[i] <= 0)
+      {
+        nv_free(allocator->l2_pages[i]);
+        allocator->l2_pages[i]        = NULL;
+        allocator->l2_page_bumpers[i] = 0;
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
+static inline void*
+_try_allocate_from_l2_page(nvvk_allocator_t* allocator, size_t new_size, size_t alignment)
+{
+  const size_t aligned_size = _align_up_size(new_size, alignment);
+
+  size_t page_index = SIZE_MAX;
+  for (size_t i = 0; i < nv_arrlen(allocator->l2_pages); i++)
+  {
+    bool fits_in_page = (allocator->l2_page_bumpers[i] + aligned_size) <= NOVA_VK_ALLOCATOR_L2_CACHE_PAGE_SIZE;
+    if (allocator->l2_pages[i] != NULL && fits_in_page)
+    {
+      page_index = i;
+      break;
+    }
+  }
+
+  if (page_index == SIZE_MAX)
+  {
+    // allocate a new page
+    for (size_t i = 0; i < nv_arrlen(allocator->l2_pages); i++)
+    {
+      if (!allocator->l2_pages[i])
+      {
+        allocator->l2_pages[i]                          = nv_calloc(NOVA_VK_ALLOCATOR_L2_CACHE_PAGE_SIZE);
+        allocator->l2_page_bumpers[page_index]          = 0;
+        allocator->l2_pages_num_allocations[page_index] = 0;
+        if (!allocator->l2_pages[i])
+        {
+          nv_log_error("L2 Cache Page allocation failed\n");
+          abort();
+        }
+        page_index = i;
+        break;
+      }
+    }
+  }
+
+  if (page_index == SIZE_MAX)
+  {
+    return NULL;
+  }
+
+  size_t* bumperptr = &allocator->l2_page_bumpers[page_index];
+
+  *bumperptr = _align_up_size(*bumperptr, alignment);
+
+  void* alloc = (uchar*)allocator->l2_pages[page_index] + *bumperptr;
+  alloc       = _align_up_ptr(alloc, alignment);
+
+  *bumperptr += aligned_size;
+
+  allocator->l2_pages_num_allocations[page_index]++;
+
+  return alloc;
+}
+
+static size_t piss = 0;
+
+nv_error
+nvvk_allocator_init(nvvk_allocator_t* dst)
+{
+  nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
+  nv_zero_structp(dst);
+
+  dst->command_page = nv_calloc(NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE);
+  nv_assert_else_return(dst->command_page != NULL, NV_ERROR_MALLOC_FAILED);
+
+  return NV_SUCCESS;
+}
+
+void
+nvvk_allocator_destroy(nvvk_allocator_t* alloc)
+{
+  if (!alloc)
+  {
+    return;
+  }
+
+  nv_free(alloc->command_page);
+}
+
+void*
+nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationScope scope)
+{
   /**
    * We can't perform validity checks on vkctx,
    * because this function is called for initialization
@@ -971,10 +1077,23 @@ nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationSco
   nvvk_ctx_t*       vkctx     = user_data;
   nvvk_allocator_t* allocator = &vkctx->allocator;
 
-  if (_align_up_size(size, alignment) <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH && alignment <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH)
-  {
-    size = _align_up_size(size, alignment);
+  const size_t aligned_size = _align_up_size(size, alignment);
 
+  bool fits_in_command_page = (aligned_size + allocator->command_page_bumper) < NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE;
+
+  if ((scope == VK_SYSTEM_ALLOCATION_SCOPE_COMMAND) && fits_in_command_page)
+  {
+    allocator->command_page_bumper = _align_up_size(allocator->command_page_bumper, alignment);
+
+    void* alloc = (uchar*)allocator->command_page + allocator->command_page_bumper;
+    allocator->command_page_bumper += aligned_size;
+
+    nv_assert_else_return(((uintptr_t)alloc % alignment) == 0, NULL);
+
+    return alloc;
+  }
+  else if (aligned_size <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH && alignment <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH && scope == VK_SYSTEM_ALLOCATION_SCOPE_COMMAND)
+  {
     for (size_t i = 0; i < NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS; i++)
     {
       if (allocator->l1_cache_blocks_in_use[i])
@@ -986,12 +1105,14 @@ nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationSco
       return allocator->l1_cache_blocks[i];
     }
   }
-  else if (
-      (_align_up_size(size, alignment) <= NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE) && (allocationScope == VK_SYSTEM_ALLOCATION_SCOPE_COMMAND) && !allocator->command_page_in_use)
-  {
-    allocator->command_page_in_use = true;
-    return _align_up_ptr(allocator->command_page, alignment);
-  }
+  // else if (aligned_size <= NOVA_VK_ALLOCATOR_L2_CACHE_PAGE_SIZE)
+  // {
+  //   void* try = _try_allocate_from_l2_page(allocator, aligned_size, alignment);
+  //   if (try != NULL)
+  //   {
+  //     return try;
+  //   }
+  // }
 
   total_alloc += _align_up_size(size, alignment);
   num_allocs++;
@@ -1002,17 +1123,19 @@ nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationSco
 }
 
 void*
-nvvk_realloc(void* user_data, void* orig, size_t new_size, size_t alignment, VkSystemAllocationScope allocationScope)
+nvvk_realloc(void* user_data, void* orig, size_t new_size, size_t alignment, VkSystemAllocationScope scope)
 {
-  (void)allocationScope;
+  (void)scope;
 
   nvvk_ctx_t*       vkctx     = user_data;
   nvvk_allocator_t* allocator = &vkctx->allocator;
 
-  if (ALIASES_STACK_ARRAY(orig, allocator->l1_cache_blocks))
+  const size_t aligned_size = _align_up_size(new_size, alignment);
+
+  if (DOES_ALIAS(orig, allocator->l1_cache_blocks, NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH))
   {
     // the new size fits in a block, just return that.
-    if (_align_up_size(new_size, alignment) <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH)
+    if (aligned_size <= NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH)
     {
       return _align_up_ptr(orig, alignment);
     }
@@ -1020,7 +1143,7 @@ nvvk_realloc(void* user_data, void* orig, size_t new_size, size_t alignment, VkS
     // mark old block as free, allocate new aligned pointer and return that
     for (size_t i = 0; i < NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS; i++)
     {
-      if (ALIASES_STACK_ARRAY(orig, allocator->l1_cache_blocks[i]))
+      if (DOES_ALIAS(orig, allocator->l1_cache_blocks[i], NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH))
       {
         allocator->l1_cache_blocks_in_use[i] = false;
         break;
@@ -1029,19 +1152,45 @@ nvvk_realloc(void* user_data, void* orig, size_t new_size, size_t alignment, VkS
 
     return nv_aligned_alloc(new_size, alignment);
   }
-  else if (ALIASES_STACK_ARRAY(orig, allocator->command_page))
+  else if (DOES_ALIAS(orig, allocator->command_page, NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE))
   {
-    if (new_size <= NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE)
+    bool still_fits_in_command_page = _align_up_size(aligned_size + allocator->command_page_bumper, alignment) < NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE;
+    if (still_fits_in_command_page)
     {
-      return _align_up_ptr(orig, alignment);
+      allocator->command_page_bumper = _align_up_size(allocator->command_page_bumper, alignment);
+
+      void* alloc = (uchar*)allocator->command_page + allocator->command_page_bumper;
+      allocator->command_page_bumper += aligned_size;
+
+      nv_assert_else_return(((uintptr_t)alloc % alignment) == 0, NULL);
+
+      return alloc;
     }
 
-    // mark the page as unused and return an alloc'd pointer
-    allocator->command_page_in_use = false;
+    allocator->command_page_num_allocations--;
+    if (allocator->command_page_num_allocations <= 0)
+    {
+      allocator->command_page_bumper = 0;
+    }
 
     /* NOTE: this almost never gets called haha */
     return nv_aligned_alloc(new_size, alignment);
   }
+  // else // check whether it's an l2 cache page
+  // {
+  //   // we don't really support resizing on an l2 cache page, too much of a hassle
+  //   void* try = _try_allocate_from_l2_page(allocator, new_size, alignment);
+  //   nvvk_free(user_data, orig);
+
+  //   if (try != NULL)
+  //   {
+  //     return try;
+  //   }
+  //   else
+  //   {
+  //     return nv_aligned_alloc(new_size, alignment);
+  //   }
+  // }
 
   if (orig)
   {
@@ -1060,23 +1209,31 @@ nvvk_free(void* pUserData, void* ptr)
   nvvk_ctx_t*       vkctx     = pUserData;
   nvvk_allocator_t* allocator = &vkctx->allocator;
 
-  if (ALIASES_STACK_ARRAY(ptr, allocator->l1_cache_blocks))
+  if (DOES_ALIAS(ptr, allocator->l1_cache_blocks, NOVA_VK_ALLOCATOR_L1_CACHE_LENGTH))
   {
     // mark old block as free, allocate new aligned pointer and return that
     for (size_t i = 0; i < NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS; i++)
     {
-      if (ALIASES_STACK_ARRAY(ptr, allocator->l1_cache_blocks[i]))
+      if (DOES_ALIAS(ptr, allocator->l1_cache_blocks[i], NOVA_VK_ALLOCATOR_L1_CACHE_BLOCK_LENGTH))
       {
         allocator->l1_cache_blocks_in_use[i] = false;
         return;
       }
     }
   }
-  else if (ALIASES_STACK_ARRAY(ptr, allocator->command_page))
+  else if (DOES_ALIAS(ptr, allocator->command_page, NOVA_VK_ALLOCATOR_COMMAND_PAGE_SIZE))
   {
-    allocator->command_page_in_use = false;
+    allocator->command_page_num_allocations--;
+    if (allocator->command_page_num_allocations <= 0)
+    {
+      allocator->command_page_bumper = 0;
+    }
     return;
   }
+  // else if (_free_if_from_l2_page(allocator, ptr)) // check whether it's an l2 cache page
+  // {
+  //   return;
+  // }
 
   nv_aligned_free(ptr);
 }
@@ -1122,21 +1279,35 @@ nv_gpu_buffer_resize(nv_gpu_buffer_t* buffer, size_t new_size, size_t new_alignm
   nv_assert_else_return(new_size != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(new_alignment != 0, NV_ERROR_INVALID_ARG);
 
+  (void)(copy_old_data);
+
   VkBuffer              new_buffer = VK_NULL_HANDLE;
   nv_gpu_memory_block_t new_block  = nv_zero_init(nv_gpu_memory_block_t);
 
   nv_assert_else_return(0, NV_ERROR_BROKEN_STATE);
+  nv_assert_else_return(new_buffer != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
+  nv_assert_else_return(new_block.size != 0, NV_ERROR_BROKEN_STATE);
 
   return NV_SUCCESS;
 }
 
-nv_error
-nv_gpu_freelist_resize(nv_gpu_freelist_t* flist, size_t new_capacity)
+static inline nv_gpu_freelist_block_t*
+_alloc_node(nv_gpu_freelist_t* flist)
 {
-  nv_assert_else_return(flist != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(new_capacity != 0, NV_ERROR_INVALID_ARG);
+  if (flist->free_nodes)
+  {
+    nv_gpu_freelist_block_t* node = flist->free_nodes;
+    flist->free_nodes             = node->next;
+    return node;
+  }
+  return nv_alloc_struct(nv_gpu_freelist_block_t);
+}
 
-  return NV_SUCCESS;
+static inline void
+_free_node(nv_gpu_freelist_t* flist, nv_gpu_freelist_block_t* node)
+{
+  node->next        = flist->free_nodes;
+  flist->free_nodes = node;
 }
 
 nv_error
@@ -1146,7 +1317,7 @@ nv_gpu_freelist_init(size_t initial_capacity, nv_gpu_freelist_t* dst)
 
   nv_zero_structp(dst);
 
-  dst->root         = nv_alloc_struct(nv_gpu_freelist_block_t);
+  dst->root         = _alloc_node(dst);
   dst->root->offset = 0;
   dst->root->size   = initial_capacity;
   dst->root->next   = NULL;
@@ -1166,8 +1337,16 @@ nv_gpu_freelist_destroy(nv_gpu_freelist_t* flist)
   while (node)
   {
     nv_gpu_freelist_block_t* next = node->next;
+    _free_node(flist, node);
+    node = next;
+  }
+
+  node = flist->free_nodes;
+  while (node)
+  {
+    nv_gpu_freelist_block_t* next = node->next;
     nv_free(node);
-    node = node->next;
+    node = next;
   }
 }
 
@@ -1177,11 +1356,11 @@ _nv_gpu_freelist_insert_node_last(nv_gpu_freelist_t* flist, nv_gpu_freelist_bloc
   nv_assert_else_return(flist != NULL, NV_ERROR_INVALID_ARG);
 
   flist->num_nodes++;
-  nv_log_info("NNODES:%zu\n", flist->num_nodes);
+  // nv_log_info("NNODES:%zu\n", flist->num_nodes);
 
   if (!flist->root)
   {
-    flist->root = nv_alloc_struct(nv_gpu_freelist_block_t);
+    flist->root = _alloc_node(flist);
     nv_assert_else_return(flist->root != NULL, NV_ERROR_MALLOC_FAILED);
 
     *ret = flist->root;
@@ -1194,7 +1373,7 @@ _nv_gpu_freelist_insert_node_last(nv_gpu_freelist_t* flist, nv_gpu_freelist_bloc
     node = node->next;
   }
 
-  node->next = nv_alloc_struct(nv_gpu_freelist_block_t);
+  node->next = _alloc_node(flist);
   nv_assert_else_return(node->next != NULL, NV_ERROR_MALLOC_FAILED);
 
   *ret = node->next;
@@ -1202,9 +1381,71 @@ _nv_gpu_freelist_insert_node_last(nv_gpu_freelist_t* flist, nv_gpu_freelist_bloc
   return NV_SUCCESS;
 }
 
-/* first fit */
+static inline nv_gpu_freelist_block_t*
+_fl_alloc(nv_gpu_freelist_t* flist, size_t aligned_size, nv_gpu_allocator_policy policy, nv_gpu_freelist_block_t** prev)
+{
+  nv_gpu_freelist_block_t* best_fit_node  = NULL;
+  nv_gpu_freelist_block_t* worst_fit_node = NULL;
+  nv_gpu_freelist_block_t* best_fit_prev  = NULL;
+  nv_gpu_freelist_block_t* worst_fit_prev = NULL;
+
+  nv_gpu_freelist_block_t* node = flist->root;
+
+  size_t min_fit_size    = SIZE_MAX;
+  size_t curr_worst_size = 0;
+
+  nv_gpu_freelist_block_t* prev_node = NULL;
+  *prev                              = NULL;
+
+  while (node)
+  {
+    if (node->size < aligned_size)
+    {
+      prev_node = node;
+      node      = node->next;
+      continue;
+    }
+
+    if (policy == NV_GPU_ALLOCATOR_POLICY_FIRST_FIT)
+    {
+      *prev = prev_node;
+      return node;
+    }
+
+    if (node->size > curr_worst_size)
+    {
+      worst_fit_node  = node;
+      curr_worst_size = node->size;
+      worst_fit_prev  = prev_node;
+    }
+
+    if (node->size < min_fit_size)
+    {
+      best_fit_node = node;
+      min_fit_size  = node->size;
+      best_fit_prev = prev_node;
+    }
+
+    prev_node = node;
+    node      = node->next;
+  }
+
+  if (policy == NV_GPU_ALLOCATOR_POLICY_WORST_FIT && worst_fit_node != NULL)
+  {
+    *prev = worst_fit_prev;
+    return worst_fit_node;
+  }
+  else if (best_fit_node != NULL)
+  {
+    *prev = best_fit_prev;
+    return best_fit_node;
+  }
+
+  return NULL;
+}
+
 bool
-nv_gpu_freelist_alloc(nv_gpu_freelist_t* flist, size_t size, size_t alignment, size_t* offset_out)
+nv_gpu_freelist_alloc(nv_gpu_freelist_t* flist, size_t size, size_t alignment, nv_gpu_allocator_policy policy, size_t* offset_out)
 {
   nv_assert_else_return(flist, false);
   nv_assert_else_return(flist->root != NULL, false);
@@ -1218,20 +1459,8 @@ nv_gpu_freelist_alloc(nv_gpu_freelist_t* flist, size_t size, size_t alignment, s
 
   const size_t aligned_size = _align_up_size(size, alignment);
 
-  nv_gpu_freelist_block_t* best_fit_node = NULL;
-
-  nv_gpu_freelist_block_t* prev = NULL;
-  nv_gpu_freelist_block_t* node = flist->root;
-  while (node)
-  {
-    if (node->size >= aligned_size)
-    {
-      best_fit_node = node;
-      break;
-    }
-    prev = node;
-    node = node->next;
-  }
+  nv_gpu_freelist_block_t* prev          = NULL;
+  nv_gpu_freelist_block_t* best_fit_node = _fl_alloc(flist, aligned_size, policy, &prev);
 
   if (!best_fit_node)
   {
@@ -1280,7 +1509,7 @@ nv_gpu_freelist_alloc(nv_gpu_freelist_t* flist, size_t size, size_t alignment, s
 
   *offset_out = best_fit_node->offset;
 
-  nv_free(best_fit_node);
+  _free_node(flist, best_fit_node);
 
   return true;
 }
@@ -1396,7 +1625,7 @@ nv_gpu_freelist_defrag(nv_gpu_freelist_t* flist)
       cur->size += next->size;
       cur->next = next->next;
 
-      nv_free(next);
+      _free_node(flist, next);
     }
     else
     {
@@ -1404,5 +1633,357 @@ nv_gpu_freelist_defrag(nv_gpu_freelist_t* flist)
     }
   }
 
+  return NV_SUCCESS;
+}
+
+void
+_nv_gpu_buffer_insert_read_barrier(const nv_gpu_buffer_t* buffer, VkCommandBuffer cmd)
+{
+  VkBufferMemoryBarrier barrier = {
+    .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+    .pNext               = NULL,
+    .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+    .dstAccessMask       = VK_ACCESS_MEMORY_READ_BIT,
+    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+    .buffer              = buffer->buffer,
+    .offset              = 0,
+    .size                = VK_WHOLE_SIZE, // or specific size
+  };
+
+  vkCmdPipelineBarrier(
+      cmd,
+      VK_PIPELINE_STAGE_TRANSFER_BIT,     // what stage just ran
+      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // what stage is coming next
+      0,
+      0,
+      NULL,
+      1,
+      &barrier,
+      0,
+      NULL);
+}
+
+#define _PATHMAX 4096
+
+static inline nv_error
+readfile(const char* fname, char** data, size_t* data_size)
+{
+  nv_assert_else_return(fname != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(data != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(data_size != NULL, NV_ERROR_INVALID_ARG);
+
+  FILE* f = fopen(fname, "rb");
+  if (!f)
+  {
+    return NV_ERROR_FILE_NOT_FOUND;
+  }
+
+  fseek(f, 0, SEEK_END);
+  long size = ftell(f);
+  if (size < 0)
+  {
+    fclose(f);
+    return NV_ERROR_IO_ERROR;
+  }
+  rewind(f);
+
+  *data = (char*)nv_calloc(size + 1);
+  if (!*data)
+  {
+    fclose(f);
+    return NV_ERROR_MALLOC_FAILED;
+  }
+
+  size_t read_size = fread(*data, 1, size, f);
+  fclose(f);
+
+  if (read_size != (size_t)size)
+  {
+    nv_free(*data);
+    *data = NULL;
+    return NV_ERROR_IO_ERROR;
+  }
+
+  *data_size          = read_size;
+  (*data)[*data_size] = '\0';
+  return NV_SUCCESS;
+}
+
+nv_error
+nv_prep_flatten_file_to_file(const char* file, FILE* out)
+{
+  nv_assert_else_return(file != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(out != NULL, NV_ERROR_INVALID_ARG);
+
+  char*  contents      = NULL;
+  size_t contents_size = 0;
+
+  nv_error code = readfile(file, &contents, &contents_size);
+  if (code != NV_SUCCESS)
+  {
+    return code;
+  }
+
+  char* ctx  = NULL;
+  char* line = nv_strtok(contents, "\n", &ctx);
+
+  while (line != NULL)
+  {
+    char* p = line;
+    while (*p == ' ' || *p == '\t')
+    {
+      p++;
+    }
+
+    if (*p != '#')
+    {
+      fputs(line, out);
+      fputc('\n', out);
+      line = nv_strtok(NULL, "\n", &ctx);
+      continue;
+    }
+
+    p++;
+
+    while (*p == ' ' || *p == '\t')
+    {
+      p++;
+    }
+
+    if (nv_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t' || p[7] == '\"'))
+    {
+      p += sizeof("include") - 1;
+
+      while (*p == ' ' || *p == '\t')
+      {
+        p++;
+      }
+
+      if (*p != '\"')
+      {
+        fputs(line, out);
+        fputc('\n', out);
+        line = nv_strtok(NULL, "\n", &ctx);
+        continue;
+      }
+
+      const char* start = p + 1;
+      const char* end   = nv_strchr(start, '\"');
+
+      if (!end || end <= start)
+      {
+        fputs(line, out);
+        fputc('\n', out);
+        line = nv_strtok(NULL, "\n", &ctx);
+        continue;
+      }
+
+      size_t name_len = end - start;
+
+      char tmp[1] = { 0 };
+
+      /* 1) figure out directory of `file` */
+      char*       base = NULL;
+      const char* s1   = nv_strrchr(file, '/');
+      const char* s2   = nv_strrchr(file, '\\');
+      const char* sep  = s1 > s2 ? s1 : s2;
+      if (sep)
+      {
+        size_t dir_len = sep - file + 1; /* include the slash */
+        base           = nv_calloc(dir_len + 1);
+        nv_memcpy(base, file, dir_len);
+        base[dir_len] = '\0';
+      }
+      else
+      {
+        /**
+         * Point base to a 0 byte.
+         * This effectively sets the string to 0 length
+         */
+        base = tmp;
+      }
+
+      size_t full_len = nv_strlen(base) + name_len;
+
+      char* fullpath = nv_calloc(full_len + 1);
+      nv_snprintf(fullpath, full_len + 1, "%s%.*s", base, (int)name_len, start);
+      fullpath[full_len] = 0;
+
+      nv_error sub = nv_prep_flatten_file_to_file(fullpath, out);
+      if (sub != NV_SUCCESS)
+      {
+        return sub;
+      }
+
+      fputc('\n', out);
+      line = nv_strtok(NULL, "\n", &ctx);
+
+      /**
+       * We may point base to a stack
+       * buffer. We dont' want to free that.
+       */
+      if (base != tmp)
+      {
+        nv_free(base);
+      }
+      nv_free(fullpath);
+      continue;
+    }
+
+    fputs(line, out);
+    fputc('\n', out);
+    line = nv_strtok(NULL, "\n", &ctx);
+  }
+
+  nv_free(contents);
+  return NV_SUCCESS;
+}
+
+nv_error
+nv_prep_flatten_file_to_buffer(const char* file, char** buffer, size_t* buffer_size)
+{
+  nv_assert_else_return(file != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(buffer != NULL, NV_ERROR_INVALID_ARG);
+  nv_assert_else_return(buffer_size != NULL, NV_ERROR_INVALID_ARG);
+
+  char*  contents      = NULL;
+  size_t contents_size = 0;
+
+  nv_error code = readfile(file, &contents, &contents_size);
+  if (code != NV_SUCCESS)
+  {
+    return code;
+  }
+
+  if (!*buffer || *buffer_size == 0)
+  {
+    const size_t buffer_start_size = 4096;
+
+    *buffer      = nv_calloc(buffer_start_size);
+    *buffer_size = buffer_start_size;
+  }
+
+  const size_t buflen = nv_strlen(*buffer);
+  if ((*buffer_size - buflen) <= contents_size)
+  {
+    const size_t new_buffer_size = NV_MAX(*buffer_size * 2, buflen + contents_size);
+    *buffer                      = nv_realloc(*buffer, new_buffer_size);
+    *buffer_size                 = new_buffer_size;
+  }
+
+  char* ctx  = NULL;
+  char* line = nv_strtok(contents, "\n", &ctx);
+
+  while (line != NULL)
+  {
+    char* p = line;
+    while (*p == ' ' || *p == '\t')
+    {
+      p++;
+    }
+
+    if (*p != '#')
+    {
+      nv_strlcat(*buffer, line, *buffer_size);
+      nv_strlcat(*buffer, "\n", *buffer_size);
+      line = nv_strtok(NULL, "\n", &ctx);
+      continue;
+    }
+
+    p++;
+
+    while (*p == ' ' || *p == '\t')
+    {
+      p++;
+    }
+
+    if (nv_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t' || p[7] == '\"'))
+    {
+      p += sizeof("include") - 1;
+
+      while (*p == ' ' || *p == '\t')
+      {
+        p++;
+      }
+
+      if (*p != '\"')
+      {
+        nv_strlcat(*buffer, line, *buffer_size);
+        nv_strlcat(*buffer, "\n", *buffer_size);
+        line = nv_strtok(NULL, "\n", &ctx);
+        continue;
+      }
+
+      const char* start = p + 1;
+      const char* end   = nv_strchr(start, '\"');
+
+      if (!end || end <= start)
+      {
+        nv_strlcat(*buffer, line, *buffer_size);
+        nv_strlcat(*buffer, "\n", *buffer_size);
+        line = nv_strtok(NULL, "\n", &ctx);
+        continue;
+      }
+
+      size_t name_len = end - start;
+
+      char tmp[1] = { 0 };
+
+      /* 1) figure out directory of `file` */
+      char*       base = NULL;
+      const char* s1   = nv_strrchr(file, '/');
+      const char* s2   = nv_strrchr(file, '\\');
+      const char* sep  = s1 > s2 ? s1 : s2;
+      if (sep)
+      {
+        size_t dir_len = sep - file + 1; /* include the slash */
+        base           = nv_calloc(dir_len + 1);
+        nv_memcpy(base, file, dir_len);
+        base[dir_len] = '\0';
+      }
+      else
+      {
+        /**
+         * Point base to a 0 byte.
+         * This effectively sets the string to 0 length
+         */
+        base = tmp;
+      }
+
+      size_t full_len = nv_strlen(base) + name_len;
+
+      char* fullpath = nv_calloc(full_len + 1);
+      nv_snprintf(fullpath, full_len + 1, "%s%.*s", base, (int)name_len, start);
+      fullpath[full_len] = 0;
+
+      nv_error sub = nv_prep_flatten_file_to_buffer(fullpath, buffer, buffer_size);
+      if (sub != NV_SUCCESS)
+      {
+        return sub;
+      }
+
+      nv_strlcat(*buffer, "\n", *buffer_size);
+
+      line = nv_strtok(NULL, "\n", &ctx);
+
+      /**
+       * We may point base to a stack
+       * buffer. We dont' want to free that.
+       */
+      if (base != tmp)
+      {
+        nv_free(base);
+      }
+      nv_free(fullpath);
+      continue;
+    }
+
+    nv_strlcat(*buffer, line, *buffer_size);
+    nv_strlcat(*buffer, "\n", *buffer_size);
+    line = nv_strtok(NULL, "\n", &ctx);
+  }
+
+  nv_free(contents);
   return NV_SUCCESS;
 }

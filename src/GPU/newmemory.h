@@ -4,8 +4,8 @@
 #include "../external/volk/volk.h"
 #include "types.h"
 
-typedef struct nv_gpu_memory_new_s nv_gpu_memory_new_t;
-struct nvvk_driver_t;
+typedef struct nv_gpu_memory_new nv_gpu_memory_new_t;
+struct nvvk_driver;
 
 typedef u32 nv_gpu_memory_new_flags;
 typedef enum nv_gpu_memory_new_flag_bits
@@ -41,15 +41,15 @@ typedef enum nv_gpu_memory_pattern
   NV_GPU_MEMORY_PATTERN_STREAMING_BIT = 2,
 } nv_gpu_memory_pattern;
 
-struct nv_gpu_memory_new_s
+struct nv_gpu_memory_new
 {
-  struct nvvk_driver_t* driver;
+  struct nvvk_driver* driver;
 
   /**
    * If non NULL, then this memory derives from a parent
    * memory and owns_memory will be set to false.
    */
-  struct nv_gpu_memory_new_s* parent; // readonly
+  struct nv_gpu_memory_new* parent; // readonly
 
   nv_gpu_memory_new_flags flags;
 

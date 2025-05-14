@@ -2,22 +2,21 @@
 #define __NOVA_GPU_MEMORY_ALLOCATOR_H__
 
 #include "../std/stdafx.h"
-#include "_freelist.h"
 #include "newmemory.h"
 #include "types.h"
 
 NOVA_HEADER_START
 
-struct nvvk_driver_t;
+struct nvvk_driver;
 
 /**
  * The core memory struct.
  */
-typedef struct nv_gpu_memory_block_s nv_gpu_memory_block_t;
+typedef struct nv_gpu_memory_block nv_gpu_memory_block_t;
 
-typedef struct nv_gpu_allocator_stack_s         nv_gpu_allocator_stack_t;
-typedef struct nv_gpu_memory_pool_s             nv_gpu_memory_pool_t;
-typedef struct nv_gpu_memory_pool_create_info_s nv_gpu_memory_pool_create_info_t;
+typedef struct nv_gpu_allocator_stack         nv_gpu_allocator_stack_t;
+typedef struct nv_gpu_memory_pool             nv_gpu_memory_pool_t;
+typedef struct nv_gpu_memory_pool_create_info nv_gpu_memory_pool_create_info_t;
 
 typedef VkResult (*nv_gpu_alloc_fn)(vk_size_t size, vk_size_t alignment);
 typedef VkResult (*nv_gpu_free_fn)(nv_gpu_memory_block_t* block);
@@ -80,7 +79,7 @@ typedef enum nv_gpu_memory_pool_create_flag_bits
   NV_GPU_MEMORY_POOL_CREATE_FLAGS_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT = 1 << 16,
 } nv_gpu_memory_pool_create_flag_bits;
 
-struct nv_gpu_allocator_stack_s
+struct nv_gpu_allocator_stack
 {
   /* Offset of the next allocation */
   vk_size_t bumper;
@@ -88,8 +87,28 @@ struct nv_gpu_allocator_stack_s
   /* The offset of the previous allocation, used to pop elements */
   vk_size_t last_allocation_bumper;
 };
+/**
+ * A lot of this code is stolen from places.
+ */
 
-struct nv_gpu_memory_block_s
+typedef struct nv_gpu_freelist       nv_gpu_freelist_t;
+typedef struct nv_gpu_freelist_block nv_gpu_freelist_block_t;
+
+struct nv_gpu_freelist_block
+{
+  size_t                   size;
+  size_t                   offset;
+  nv_gpu_freelist_block_t* next;
+};
+
+struct nv_gpu_freelist
+{
+  nv_gpu_freelist_block_t* root;
+  nv_gpu_freelist_block_t* free_nodes;
+  size_t                   num_nodes;
+};
+
+struct nv_gpu_memory_block
 {
   nv_gpu_memory_pool_t* pool;
 
@@ -102,11 +121,11 @@ struct nv_gpu_memory_block_s
   u64 user_data;
 };
 
-struct nv_gpu_memory_pool_s
+struct nv_gpu_memory_pool
 {
   u32 canary; // = 0xDEADBEEF
 
-  struct nvvk_driver_t* driver;
+  struct nvvk_driver* driver;
 
   u64 user_data;
 
@@ -132,7 +151,7 @@ struct nv_gpu_memory_pool_s
   void* drv_mapped;
 };
 
-struct nv_gpu_memory_pool_create_info_s
+struct nv_gpu_memory_pool_create_info
 {
   vk_size_t size;
 
@@ -146,7 +165,7 @@ struct nv_gpu_memory_pool_create_info_s
   nv_gpu_memory_pool_create_flags flags;
 };
 
-extern nv_error nv_gpu_memory_pool_init(struct nvvk_driver_t* driver, const nv_gpu_memory_pool_create_info_t* info, nv_gpu_memory_pool_t* dst);
+extern nv_error nv_gpu_memory_pool_init(struct nvvk_driver* driver, const nv_gpu_memory_pool_create_info_t* info, nv_gpu_memory_pool_t* dst);
 extern void     nv_gpu_memory_pool_destroy(nv_gpu_memory_pool_t* pool);
 
 /**
@@ -165,6 +184,17 @@ extern nv_error nv_gpu_memory_allocator_stack_init(vk_size_t aligned_size, nv_gp
  * Not to be called by the user
  */
 extern void nv_gpu_memory_allocator_stack_destroy(nv_gpu_allocator_stack_t* stack);
+
+extern nv_error nv_gpu_freelist_init(size_t initial_capacity, nv_gpu_freelist_t* dst);
+
+extern void nv_gpu_freelist_destroy(nv_gpu_freelist_t* flist);
+
+/* first fit */
+extern bool nv_gpu_freelist_alloc(nv_gpu_freelist_t* flist, size_t size, size_t alignment, nv_gpu_allocator_policy policy, size_t* offset_out);
+
+extern nv_error nv_gpu_freelist_free(nv_gpu_freelist_t* flist, size_t offset, size_t size);
+
+extern nv_error nv_gpu_freelist_defrag(nv_gpu_freelist_t* flist);
 
 NOVA_HEADER_END
 

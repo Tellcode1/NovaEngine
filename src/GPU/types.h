@@ -16,7 +16,7 @@ typedef uint64_t vk_size_t;
 /* Return the result, but if it was handled, return whatever you want. */
 typedef VkResult (*nv_gpu_result_check_fn)(const VkResult result, const char* FILE, const char* FUNC, unsigned long LINE);
 
-struct nv_ctx_s;
+struct nv_ctx;
 
 /* Why the fuck are the three enums in GPU/????? */
 typedef enum nv_window_flag_bits
@@ -117,24 +117,25 @@ typedef struct nvvk_allocator_s
    */
   nvvk_allocator_l1_cache_block_t l1_cache_blocks[NOVA_VK_ALLOCATOR_L1_CACHE_NUM_BLOCKS];
 
-  nvvk_allocator_command_page_t command_page;
-  bool                          command_page_in_use;
-  char                          padding_x8sdf[7];
+  uchar* command_page;
+  size_t command_page_num_allocations;
+  size_t command_page_bumper;
+
+  char padding_x8sdf[7];
 
   /**
    * 16KiB pages of memory that's stack allocated out of
    * These pages are routinely cleared
+   * If non-NULL, points to the page
    */
-  uchar* l2_cache_pages[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+  uchar* l2_pages[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
 
   /**
    * When this reaches 0 for any page, it's cleared
    */
-  size_t l2_cache_pages_num_allocations[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+  size_t l2_pages_num_allocations[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
 
-  size_t l2_cache_bumpers[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
-
-  bool l2_cache_pages_in_use[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
+  size_t l2_page_bumpers[NOVA_VK_ALLOCATOR_L2_CACHE_MAX_PAGES_ALLOCATED];
 
   /**
    * The L3 cache is the slowest, but most spacious heap available to the allocator
@@ -146,7 +147,7 @@ typedef struct nvvk_allocator_s
 
 /* did you notice that the vulkan context is entirely independant of the global context? */
 /* beauty. */
-typedef struct nvvk_ctx_s
+typedef struct nvvk_ctx
 {
   VkInstance               instance;
   VkDevice                 device;
@@ -183,7 +184,7 @@ typedef struct nvvk_ctx_s
   nvvk_allocator_t      allocator;
 } nvvk_ctx_t;
 
-extern nv_error nvvk_ctx_init(struct nv_ctx_s* nvctx, nvvk_ctx_t* ctx);
+extern nv_error nvvk_ctx_init(struct nv_ctx* nvctx, nvvk_ctx_t* ctx);
 extern void     nvvk_ctx_destroy(nvvk_ctx_t* ctx);
 
 static inline bool
@@ -209,6 +210,9 @@ nvvk_ctx_is_valid(const nvvk_ctx_t* ctx)
   nv_assert_else_return(ctx->result_fn != NULL, false);
   return true;
 }
+
+extern nv_error nvvk_allocator_init(nvvk_allocator_t* dst);
+extern void     nvvk_allocator_destroy(nvvk_allocator_t* alloc);
 
 extern void* nvvk_alloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
 extern void* nvvk_realloc(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
