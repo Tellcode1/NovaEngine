@@ -10,7 +10,7 @@ layout(location = 1) in vec4 f_col;
 */
 layout(set = 1, binding = 0) uniform sampler2D bitmap;
 
-layout(push_constant) uniform push_constants
+layout(push_constant) uniform push_constant_block
 {
   mat4  model;
   vec4  color;

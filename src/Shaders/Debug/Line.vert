@@ -2,7 +2,7 @@
 
 #include "../camera.glsl"
 
-layout (push_constant) uniform push_constants {
+layout (push_constant) uniform push_constant_block {
     mat4 model;
     vec4 color;
     vec2 line_begin;

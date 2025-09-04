@@ -7,6 +7,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(NOVA_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(NOVA_BUILD_EXAMPLE true CACHE BOOL "Enable example build")
 set(NOVA_SANITIZE false CACHE BOOL "Enable address sanitizer on debug builds")
+set(CFLAGS "-g")
+set(LDFLAGS "-g")
 
 if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type specified, set to Debug")
@@ -15,6 +17,8 @@ endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+    # set(CFLAGS "${CFLAGS} -O0")
+    # set(LDFLAGS "${LDFLAGS} -O0")
 endif()
 
 # We don't wanna enable address sanitizer on release builds
@@ -40,11 +44,12 @@ set(OUTPUT
 )
 
 set(SOURCES
-    src/engine.c
-    src/vk.c
-    src/vkdriver.c
-    src/nvsm.c
-    src/fontc.c
+    src/engine.cpp
+    src/vk.cpp
+    src/vkdriver.cpp
+    src/nvsm.cpp
+    src/fontc.cpp
+    src/image.cpp
 )
 
 set(CLAY_INCLUDE_ALL_EXAMPLES OFF)
@@ -75,7 +80,7 @@ add_subdirectory(${NOVA_ROOT_DIR}/src/external/spirv_reflect)
 add_subdirectory(${NOVA_ROOT_DIR}/src/std)
 
 if(NOVA_BUILD_EXAMPLE)
-    add_executable(nova_example ${NOVA_ROOT_DIR}/src/main.c)
+    add_executable(nova_example ${NOVA_ROOT_DIR}/src/main.cpp)
 endif()
 
 add_library(Nova STATIC ${SOURCES})
@@ -107,7 +112,7 @@ target_link_options(Nova PRIVATE ${LFLAGS} -g)
 target_compile_options(Nova PRIVATE ${CFLAGS} -g)
 target_link_libraries(Nova ${LIBS})
 
-add_executable(fontc ${NOVA_ROOT_DIR}/src/fontc.c)
+add_executable(fontc ${NOVA_ROOT_DIR}/src/fontc.cpp ${NOVA_ROOT_DIR}/src/image.cpp)
 target_compile_definitions(fontc PRIVATE FONTC_EXECUTABLE=1)
 target_link_options(fontc PRIVATE ${CFLAGS} -fopenmp)
 target_compile_options(fontc PRIVATE ${LFLAGS} -fopenmp)

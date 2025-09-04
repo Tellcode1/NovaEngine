@@ -1,7 +1,8 @@
-#ifndef __NOVA_ENGINE_H__
-#define __NOVA_ENGINE_H__
+#ifndef NOVAENGINE_SRC_ENGINE_ENGINE_H
+#define NOVAENGINE_SRC_ENGINE_ENGINE_H
 
 #include "../std/stdafx.h"
+#include "../std/types.h"
 
 NOVA_HEADER_START
 
@@ -70,18 +71,14 @@ nv_get_time(const nv_ctx_t* ctx)
   return ctx->time;
 }
 
-// TODO: get better name
+// TODO(bird): get better name
 extern void nv_window_init(const char* window_title, int window_width, int window_height, nv_ctx_t* dst);
 extern void nv_window_shutdown(nv_ctx_t* ctx);
 
 static inline bool
 nv_ctx_is_valid(nv_ctx_t* ctx)
 {
-  if (NV_UNLIKELY(!ctx || !ctx->window))
-  {
-    return false;
-  }
-  return true;
+  return NV_UNLIKELY(!ctx || !ctx->window) == 0;
 }
 
 static const u32    NV_FIXED_FRAME_RATE = 60;
@@ -92,4 +89,4 @@ extern void nv_update(nv_ctx_t* ctx);
 
 NOVA_HEADER_END
 
-#endif // __C_ENGINE_H__
+#endif // NOVAENGINE_SRC_ENGINE_ENGINE_H

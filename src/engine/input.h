@@ -1,12 +1,17 @@
-#ifndef __NOVA_INPUT_H__
-#define __NOVA_INPUT_H__
+#ifndef NOVAENGINE_SRC_ENGINE_INPUT_H
+#define NOVAENGINE_SRC_ENGINE_INPUT_H
 
 // implementation: engine.c
 
+#include "../std/attributes.h"
 #include "../std/containers/bitset.h"
 #include "../std/containers/hashmap.h"
+#include "../std/errorcodes.h"
 #include "../std/math/vec2.h"
+#include "../std/stdafx.h"
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_scancode.h>
+#include <stdint.h>
 
 NOVA_HEADER_START
 
@@ -50,7 +55,7 @@ struct nv_input_action_t
   uint8_t                     mouse;
   nv_input_action_response_fn response;
   bool                        this_frame, last_frame;
-};
+} NOVA_ATTR_ALIGNED(32);
 
 struct nv_input_ctx_t
 {
@@ -62,7 +67,7 @@ struct nv_input_ctx_t
   unsigned    input_last_frame_mouse_state;
 
   nv_hashmap_t input_action_mapping;
-};
+} NOVA_ATTR_ALIGNED(128);
 
 extern nv_error nv_input_init(nv_input_ctx_t* ctx);
 extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx* globalctx);
@@ -93,12 +98,12 @@ extern bool nv_input_is_action_just_unsignalled(nv_input_ctx_t* ctx, const char*
 /// @return 0 on action signalled, -1 if it can't find the action specified.
 extern int nv_input_signal_action(nv_input_ctx_t* ctx, const char* action);
 
-extern nv_input_key_state nv_input_get_key_state(nv_input_ctx_t* ctx, const SDL_Scancode sc);
+extern nv_input_key_state nv_input_get_key_state(nv_input_ctx_t* ctx, SDL_Scancode sc);
 
-extern bool nv_input_is_key_signalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
-extern bool nv_input_is_key_unsignalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
-extern bool nv_input_is_key_just_signalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
-extern bool nv_input_is_key_just_unsignalled(nv_input_ctx_t* ctx, const SDL_Scancode sc);
+extern bool nv_input_is_key_signalled(nv_input_ctx_t* ctx, SDL_Scancode sc);
+extern bool nv_input_is_key_unsignalled(nv_input_ctx_t* ctx, SDL_Scancode sc);
+extern bool nv_input_is_key_just_signalled(nv_input_ctx_t* ctx, SDL_Scancode sc);
+extern bool nv_input_is_key_just_unsignalled(nv_input_ctx_t* ctx, SDL_Scancode sc);
 
 extern vec2 nv_input_get_mouse_position(nv_input_ctx_t* ctx);
 extern vec2 nv_input_get_last_frame_mouse_position(nv_input_ctx_t* ctx);
@@ -110,4 +115,4 @@ extern bool nv_input_is_mouse_just_signalled(nv_input_ctx_t* ctx, nv_input_mouse
 
 NOVA_HEADER_END
 
-#endif //__NOVA_INPUT_H__
+#endif // NOVAENGINE_SRC_ENGINE_INPUT_H

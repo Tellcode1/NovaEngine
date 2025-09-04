@@ -1,5 +1,5 @@
-#ifndef __NOVA_SCENE_H__
-#define __NOVA_SCENE_H__
+#ifndef NOVAENGINE_SRC_ENGINE_SCENE_H
+#define NOVAENGINE_SRC_ENGINE_SCENE_H
 
 #include "../std/stdafx.h"
 
@@ -27,4 +27,4 @@ extern void        nv_scene_change_to_scene(nv_scene_t* scene);
 
 NOVA_HEADER_END
 
-#endif //__NOVA_SCENE_H__
+#endif // NOVAENGINE_SRC_ENGINE_SCENE_H

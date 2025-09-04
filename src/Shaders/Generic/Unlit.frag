@@ -10,7 +10,7 @@ vec4 f_color;
 
 layout(set = 1, binding = 0) uniform sampler2D f_texture;
 
-layout (push_constant) uniform push_constants {
+layout (push_constant) uniform push_constant_block {
     mat4 model;
     vec4 color;
     vec2 tex_multiplier;

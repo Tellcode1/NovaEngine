@@ -1,10 +1,13 @@
-#ifndef __NOVA_COLLIDER_H__
-#define __NOVA_COLLIDER_H__
+#ifndef NOVAENGINE_SRC_ENGINE_COLLIDER_H
+#define NOVAENGINE_SRC_ENGINE_COLLIDER_H
 
 // implementation: engine.c
 
+#include "../std/attributes.h"
 #include "../std/math/vec2.h"
+#include "../std/stdafx.h"
 #include "scene.h"
+#include <stdint.h>
 
 NOVA_HEADER_START
 
@@ -30,7 +33,7 @@ typedef struct nv_collider_ray_hit
   nv_collider_t*       other;
   vec2                 point_of_contact;
   bool                 hit;
-} nv_collider_ray_hit;
+} NOVA_ATTR_ALIGNED(32) nv_collider_ray_hit;
 
 // mask defines the layers that the collider can collide with
 // both layer and mask must be bitmasks
@@ -44,10 +47,10 @@ extern void nv_collider_set_position(nv_collider_t* col, vec2 to);
 vec2 nv_collider_get_size(const nv_collider_t* col);
 void nv_collider_set_size(nv_collider_t* col, vec2 to);
 
-extern nv_collider_ray_hit nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask);
+extern struct nv_collider_ray_hit nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask);
 
 // You need to update the colliders through luneScene_Update();
 
 NOVA_HEADER_END
 
-#endif //__NOVA_COLLIDER_H__
+#endif // NOVAENGINE_SRC_ENGINE_COLLIDER_H

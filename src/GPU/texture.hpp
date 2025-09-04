@@ -1,0 +1,74 @@
+#ifndef __NOVA_TEXTURE_H__
+#define __NOVA_TEXTURE_H__
+
+// implementation: vk.c
+
+#include "../engine/format.hpp"
+#include "../engine/image.h"
+#include "memory.hpp"
+#include "types.hpp"
+
+struct nvvk_driver;
+
+/* TODO: redo, this is severely out of date and hacky */
+
+typedef struct nv_gpu_texture nv_gpu_texture;
+struct nv_renderer;
+
+typedef enum nv_gpu_texture_usage
+{
+  NOVA_GPU_TEXTURE_USAGE_SAMPLED_TEXTURE      = 0,
+  NOVA_GPU_TEXTURE_USAGE_COLOR_TEXTURE        = 1, // color render texture
+  NOVA_GPU_TEXTURE_USAGE_DEPTH_TEXTURE        = 2,
+  NOVA_GPU_TEXTURE_USAGE_STENCIL_TEXTURE      = 3,
+  NOVA_GPU_TEXTURE_USAGE_STORAGE_TEXTURE      = 4,
+  NOVA_GPU_TEXTURE_USAGE_INPUT_ATTACHMENT     = 5,
+  NOVA_GPU_TEXTURE_USAGE_RESOLVE_TEXTURE      = 6,
+  NOVA_GPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT = 7,
+  NOVA_GPU_TEXTURE_USAGE_PRESENTATION         = 8 // swapchain image
+} nv_gpu_texture_usage;
+
+typedef struct nv_gpu_texture_create_info
+{
+  nv_format            format;
+  nv_sample_count      samples;
+  uint32_t             type;
+  nv_gpu_texture_usage usage;
+  nv_extent3D          extent;
+  int                  arraylayers;
+  int                  miplevels;
+} nv_gpu_texture_create_info;
+
+struct nv_gpu_texture
+{
+  nv_gpu_memory_t* memory;
+  size_t           size, offset;
+
+  VkImageLayout      layout;
+  VkImageAspectFlags aspect;
+  VkImageType        type;
+  VkImageUsageFlags  usage;
+
+  VkImage         image;
+  VkImageView     view;
+  VkExtent3D      extent;
+  int             miplevels, arraylayers;
+  nv_format       format;
+  nv_sample_count samples;
+};
+
+extern void nv_gpu_get_texture_size(const nv_gpu_texture* tex, size_t* w, size_t* h);
+
+extern void nv_gpu_create_texture(nvvk_ctx_t* vkctx, const nv_gpu_texture_create_info* pInfo, nv_gpu_texture* dst);
+
+extern void nv_gpu_texture_attach_view(nv_gpu_texture* tex, VkImageView view);
+extern void nv_gpu_destroy_texture(nvvk_ctx_t* vkctx, nv_gpu_texture* tex);
+
+extern void nv_gpu_bind_texture_to_memory(nvvk_ctx_t* vkctx, nv_gpu_memory_t* mem, size_t offset, nv_gpu_texture* tex);
+
+extern void nv_gpu_write_to_texture(nvvk_driver* driver, nv_gpu_texture* tex, const nv_image* src);
+
+extern VkImage     nv_gpu_texture_get(const nv_gpu_texture* tex);
+extern VkImageView nv_gpu_texture_get_view(const nv_gpu_texture* tex);
+
+#endif //__NOVA_TEXTURE_H__

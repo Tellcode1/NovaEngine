@@ -8,5 +8,5 @@ layout(set = 0, binding = 0, std140) uniform camera_buffer {
   // camera_up = cross(right, front)
   vec3 clip_plane;
   uvec2 render_extent;
-  u32 image_index;
+  uint image_index;
 } cam_ub;

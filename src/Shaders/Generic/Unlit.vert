@@ -17,7 +17,7 @@ vec2 f_tex_coords;
 layout(location=1) out
 vec4 f_color;
 
-layout (push_constant) uniform push_constants {
+layout (push_constant) uniform push_constant_block {
     mat4 model;
     vec4 color;
     vec2 tex_multiplier;
