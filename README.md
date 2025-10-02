@@ -68,13 +68,3 @@ git submodule update --init --recursive
 ```plaintext
 git clone https://github.com/Tellcode1/NovaEngine.git
 ```
-
-### TODO
-
-*   Add support for a glyph table for unicode characters and fast indexing
-*   Add multithreading support for all standard containers
-    *   Also fix inconsistencies of deviating from size\_t
-*   Remove stupid things from the code like ctext labels, err.h, cvar.h or whatever
-*   Add the m\_ prefix to ALL member variables and adopt a good coding standard
-    *   (Possibly?) Add a clang-tidy that doesn't destroy the codebase
-*   Break core.c into two files: core.c and ext.c, the latter containing the common/ sources

@@ -1,21 +1,21 @@
-[submodule "src/external/volk"]
+[submodule "external/volk"]
 	path = src/external/volk
 	url = https://github.com/zeux/volk.git
-[submodule "src/external/box2d"]
+[submodule "external/box2d"]
 	path = src/external/box2d
 	url = https://github.com/erincatto/box2d.git
-[submodule "src/std"]
-	path = src/std
+[submodule "include/std"]
+	path = include/std
 	url = https://github.com/Tellcode1/nvstd.git
-[submodule "src/external/clay"]
+[submodule "external/clay"]
 	path = src/external/clay
 	url = https://github.com/nicbarker/clay
-[submodule "src/external/glslang"]
+[submodule "external/glslang"]
 	path = src/external/glslang
 	url = https://github.com/KhronosGroup/glslang.git
-[submodule "src/external/spirv_reflect"]
+[submodule "external/spirv_reflect"]
 	path = src/external/spirv_reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
-[submodule "src/external/cgltf"]
+[submodule "external/cgltf"]
 	path = src/external/cgltf
 	url = https://github.com/jkuhlmann/cgltf.git

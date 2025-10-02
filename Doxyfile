@@ -1,0 +1,23 @@
+PROJECT_NAME           = "NovaEngine"
+PROJECT_BRIEF          = "A Vulkan based game engine with text rendering"
+OUTPUT_DIRECTORY       = docs
+
+INPUT                  = src include
+FILE_PATTERNS          = *.h *.c *.cpp
+RECURSIVE              = YES
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_ANON_NSPACES   = YES
+
+JAVADOC_AUTOBRIEF      = YES
+MULTILINE_CPP_IS_BRIEF = YES
+
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+
+HAVE_DOT               = YES
+DOT_PATH               = /usr/bin/dot
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES

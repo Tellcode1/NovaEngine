@@ -1,16 +1,23 @@
-## \[TODO\]
-*   [ ] dude, the vulkan and non vulkan parts are interacting too much. fix!
-*   [ ] Add a render spec that contains all the data about rendering which the user can fetch at runtime.
-*   [x] Move the renderer struct to the stack.
-*   [ ] Add support for things like NOVA_GPU_BUFFER_USAGE_SINGLE_TIME, etc. Basically, make an abstraction over the vulkan type.
-*   [ ] Add more error checking to vulkan functions.
-*   [ ] Need to really change the renderer. It should be more akin to the ctext renderer.
-*   [ ] need to remove support for strings or redo them entirely!
-*   [ ] need to redo the allocator interface, very unclean
+## [Unreleased]
+
+### Added
+- 
+
+### Changed
+- moved most things to stack.
+- refactored allocator interface has been.
+- restructured entire project. very clean :3
+
+### Fixed
+- nv_tiimer bug returning negative values (only returned nanoseconds part before).
+- many vulkan initialization issues
+- camera uniform buffers have improperly aligned variables.
+
 
 # \[LEGACY\]
 ### Changes
-*   nv_gpu_buffer_type is now *_usage as it more reflects the purpose
+*   removed ssl. Too much of a hassle for me to care about anymore. Maybe some day.
+*   iris_buffer_type is now *_usage as it more reflects the purpose
 *   Renamed dynarray.h to list.h, much easier to type, more clear what the hell it is.
 *   We will now be using SDL_mutex instead of pthread for compatibility and because SDL is of superior intellect.
 *   Removed m_ prefix from all variables. It makes the project less readable.
@@ -31,6 +38,14 @@
 *   Heavily improved nvsm. Now onto fontc and the common containers. The containers should be defined enough so that they can be incorporated into the standard
 *   Moved containers into the standard library
 *   Moved common/ directly into the standard library
+*   Add support for a glyph table for unicode characters and fast indexing
+*   Add multithreading support for all standard containers
+*   Also fix inconsistencies of deviating from size\_t
+*   Remove stupid things from the code like ctext labels, err.h, cvar.h or whatever
+*   Add the m\_ prefix to ALL member variables and adopt a good coding standard
+*   removed m\_ prefix you moron
+*   (Possibly?) Add a clang-tidy that doesn't destroy the codebase
+*   Break core.c into two files: core.c and ext.c, the latter containing the common/ sources
 
 ### Fixed
 *   Fixed incorrect calculating of highest power of input in itoa.
