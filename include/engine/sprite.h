@@ -38,11 +38,11 @@ extern "C"
   extern nv_error nv_sprite_load_from_disk(struct iris_driver* driver, const char* path, nv_sprite_t* dst);
 
   // force destroy
-  extern void nv_sprite_destroy(nvvk_ctx_t* vkctx, nv_sprite_t* spr);
+  extern void nv_sprite_destroy(nv_sprite_t* spr);
 
   // references
   extern void nv_sprite_lock(nv_sprite_t* spr);
-  extern void nv_sprite_release(nvvk_ctx_t* vkctx, nv_sprite_t* spr);
+  extern void nv_sprite_release(nv_sprite_t* spr);
 
   extern void            nv_sprite_get_dimensions(const nv_sprite_t* spr, size_t* w, size_t* h);
   extern VkImage         nv_sprite_get_vk_image(const nv_sprite_t* spr);

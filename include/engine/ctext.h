@@ -81,7 +81,7 @@ extern "C"
   */
   extern int ctext_validate_font(const cfont_t* fnt);
 
-  extern void ctext_destroy_font(nvvk_ctx_t* vkctx, cfont_t* fnt);
+  extern void ctext_destroy_font(cfont_t* fnt);
 
   extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...) NOVA_ATTR_FORMAT(3, 4);
 
@@ -102,7 +102,7 @@ extern "C"
     vec4             color;
     vec3             position;
     double           scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
-    vec2f            bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
+    vec2             bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
     bool             scale_for_fit; // calculates the scale needed to fit the text into a box
   };
 
@@ -177,7 +177,7 @@ extern "C"
       .color         = v4one,
       .position      = v3zero,
       .scale         = 1.0f,
-      .bbox          = v2fzero,
+      .bbox          = v2zero,
       .scale_for_fit = false,
     };
   }

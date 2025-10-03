@@ -553,18 +553,18 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
         buffer->driver, memory_requirements.memoryTypeBits, buffer->memory.memory_flags, memory_requirements.size, memory_requirements.alignment, &new_block);
     vkBindBufferMemory(vkctx->device, new_buffer, iris_memory_get_backing(&new_block), new_block.offset);
 
-    VkCommandBuffer cmd = nv_vk_begin_command_buffer(buffer->driver);
-
-    size_t const copy_size   = NV_MIN(buffer->size, new_size);
-    size_t const read_offset = 0;
-
-    VkBufferCopy const copy = { .srcOffset = read_offset, .dstOffset = 0, .size = copy_size };
-
+    VkCommandBuffer cmd  = nv_vk_begin_command_buffer(buffer->driver);
+    VkBufferCopy    copy = {
+         .srcOffset = 0,
+         .dstOffset = 0,
+         .size      = NV_MIN(new_size, buffer->size),
+    };
+    vkCmdCopyBuffer(cmd, buffer->handle, new_buffer, 1, &copy);
     nv_vk_end_command_buffer(buffer->driver, cmd, vkctx->transfer_queue, true);
 
     vkDeviceWaitIdle(buffer->driver->vkctx->device);
-
     vkDestroyBuffer(vkctx->device, iris_buffer_get_backing(buffer), &vkctx->vkalloc);
+
     // free old memory AFTER copy
     iris_memory_free(&buffer->memory);
   }
@@ -587,9 +587,6 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
     }
     vkBindBufferMemory(vkctx->device, new_buffer, iris_memory_get_backing(&new_block), new_block.offset);
   }
-
-  const size_t old_size      = iris_buffer_size(buffer);
-  const size_t old_alignment = buffer->alignment;
 
   // update buffer struct
   buffer->handle = new_buffer;

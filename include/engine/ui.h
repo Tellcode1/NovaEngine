@@ -51,8 +51,8 @@ extern "C"
 
   nvui_slider* nvui_create_slider(nv_sprite_t* foreground, nv_sprite_t* background);
 
-  extern void nvui_destroy_button(nvvk_ctx_t* vkctx, nvui_button* obj);
-  extern void nvui_destroy_slider(nvvk_ctx_t* vkctx, nvui_slider* obj);
+  extern void nvui_destroy_button(nvui_button* obj);
+  extern void nvui_destroy_slider(nvui_slider* obj);
 
   extern void nvui_render(nv_renderer_t* rd);
 

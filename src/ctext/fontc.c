@@ -220,7 +220,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
   FT_Face*           faces                    = NULL;
   bool               freetype_library_is_open = false;
   fontc_glyph_t*     glyphs                   = NULL;
-  nv_texture_atlas_t atlas                    = {};
+  nv_texture_atlas_t atlas                    = nv_zero_init(nv_texture_atlas_t);
   size_t             glyph_alloc_size         = 0;
   size_t             glyph_count              = 0;
   size_t             image_size               = 0;
@@ -410,13 +410,12 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     }
   }
 
-#pragma unroll(4)
   for (size_t i = 0; i < num_threads; i++)
   {
     FT_Done_Face(faces[i]);
   }
 
-  nv_log_info("final atlas size w=%zu h=%zu (uncompressed %zb)\n", atlas.width, atlas.height, atlas.width * atlas.height * nv_format_get_bytes_per_pixel(atlas.format));
+  nv_log_info("final atlas size w=%zu h=%zu (uncompressed %b)\n", atlas.width, atlas.height, atlas.width * atlas.height * nv_format_get_bytes_per_pixel(atlas.format));
 
   nv_texture_atlas_finish(&atlas);
 

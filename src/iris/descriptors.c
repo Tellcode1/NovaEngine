@@ -56,7 +56,7 @@ nv_descriptor_pool_allocate(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
 {
   nv_assert_else_return(pool != NULL, NV_ERROR_INVALID_ARG);
 
-  VkDescriptorPoolSize allocations[11]     = {};
+  VkDescriptorPoolSize allocations[11]     = { 0 };
   size_t               descriptors_written = 0;
 
   for (size_t i = 0; i < 11; i++)

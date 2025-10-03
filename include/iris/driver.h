@@ -76,8 +76,6 @@ extern "C"
      */
     nv_list_t samplers;
 
-    /* Both buffers below are transient */
-
     /* constant size */
     iris_buffer_t small_transfer_buffer;
 

@@ -382,45 +382,52 @@ iris_memory_allocator_stack_destroy(iris_allocator_stack_t* stack)
 nv_error
 nvvk_allocator_init(nvvk_allocator_t* dst)
 {
+  (void)dst;
   return NV_SUCCESS;
 }
 
 void
 nvvk_allocator_destroy(nvvk_allocator_t* alloc)
 {
+  (void)alloc;
 }
 
 void*
 nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationScope scope)
 {
+  (void)scope;
+  (void)user_data;
   return nv_aligned_alloc(size, alignment);
 }
 
 void*
 nvvk_realloc(void* user_data, void* orig, size_t new_size, size_t alignment, VkSystemAllocationScope scope)
 {
+  (void)scope;
+  (void)user_data;
   return nv_aligned_realloc(orig, new_size, alignment);
 }
 
 void
-nvvk_free(void* pUserData, void* ptr)
+nvvk_free(void* user_data, void* ptr)
 {
+  (void)user_data;
   nv_aligned_free(ptr);
 }
 
 void
-nvvk_internal_allocation(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
+nvvk_internal_allocation(void* user_data, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
 {
-  (void)pUserData;
+  (void)user_data;
   (void)size;
   (void)allocationType;
   (void)allocationScope;
 }
 
 void
-nvvk_internal_free(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
+nvvk_internal_free(void* user_data, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
 {
-  (void)pUserData;
+  (void)user_data;
   (void)size;
   (void)allocationType;
   (void)allocationScope;

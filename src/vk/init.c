@@ -31,23 +31,23 @@ static SDL_UNUSED const char* ValidationLayers[] = {
 /* Configured by a config file maybe? */
 /* Add a library to load configs? Hm.. */
 
-static SDL_UNUSED const char* REQUIRED_INSTANCE_EXTENSIONS[]   = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_EXTENSION_NAME, NULL };
-static SDL_UNUSED const int   NUM_REQUIRED_INSTANCE_EXTENSIONS = nv_arrlen(REQUIRED_INSTANCE_EXTENSIONS) - 1;
+static SDL_UNUSED const char*  REQUIRED_INSTANCE_EXTENSIONS[]   = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_EXTENSION_NAME, NULL };
+static SDL_UNUSED const size_t NUM_REQUIRED_INSTANCE_EXTENSIONS = nv_arrlen(REQUIRED_INSTANCE_EXTENSIONS) - 1;
 
 static SDL_UNUSED const char* WANTED_INSTANCE_EXTENSIONS[] = {
   // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
   NULL
 };
-static SDL_UNUSED const int NUM_WANTED_INSTANCE_EXTENSIONS = nv_arrlen(WANTED_INSTANCE_EXTENSIONS) - 1;
+static SDL_UNUSED const size_t NUM_WANTED_INSTANCE_EXTENSIONS = nv_arrlen(WANTED_INSTANCE_EXTENSIONS) - 1;
 
 static SDL_UNUSED const char* WANTED_DEVICE_EXTENSIONS[] = {
   // VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
   NULL
 };
-static SDL_UNUSED const int NUM_WANTED_DEVICE_EXTENSIONS = nv_arrlen(WANTED_DEVICE_EXTENSIONS) - 1;
+static SDL_UNUSED const size_t NUM_WANTED_DEVICE_EXTENSIONS = nv_arrlen(WANTED_DEVICE_EXTENSIONS) - 1;
 
-static SDL_UNUSED const char* REQUIRED_DEVICE_EXTENSIONS[]   = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, NULL };
-static SDL_UNUSED const int   NUM_REQUIRED_DEVICE_EXTENSIONS = nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1;
+static SDL_UNUSED const char*  REQUIRED_DEVICE_EXTENSIONS[]   = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, NULL };
+static SDL_UNUSED const size_t NUM_REQUIRED_DEVICE_EXTENSIONS = nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1;
 
 // we'll just request them as needed
 
@@ -78,6 +78,31 @@ nvvk_debug_messenger(
   VK_DEBUG_LOG(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "%s\n", pCallbackData->pMessage);
 
   return VK_FALSE;
+}
+
+static inline VkResult
+nvvk_default_result_check_fn(const VkResult result, const char* file, const char* func, unsigned long line)
+{
+  if (result == VK_SUCCESS)
+  {
+    return result;
+  }
+
+  struct tm* time = nv_get_time();
+
+  const char* errstr = "vkerr";
+  if (result >= 0)
+  {
+    errstr = "vkwarn";
+  }
+
+  const char* result_string = nvvk_vk_result_to_string(result);
+
+  // Non fatal error codes are positive
+  // So we just log OK error codes as warnings instead of errors
+  nv_printf("[%d:%d:%d] [%s:%li] %s: %s returned %s\n", time->tm_hour, time->tm_min, time->tm_sec, file, line, errstr, func, result_string);
+
+  return result;
 }
 
 static inline nv_list_t
@@ -272,24 +297,16 @@ nvvk_setup_debug_messenger(nvvk_ctx_t* vkctx)
 static inline void
 nvvk_get_valid_extensions(nv_list_t* returned_valid_extensions)
 {
-  uchar buffer[1024];
-
-  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
-  stack.buffer            = buffer;
-  stack.buffer_size       = sizeof(buffer);
-
   uint32_t           SDLExtensionCount = 0;
   const char* const* sdl_extensions;
 
   sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&SDLExtensionCount);
   nv_assert_else_return(sdl_extensions != NULL, );
 
-  u32 extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
-  // VkExtensionProperties is too big to fit on the stack
-  nv_list_t vk_extensions;
-  nv_list_init(sizeof(VkExtensionProperties), extensionCount, nv_allocator_c, NULL, &vk_extensions);
-  vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, (VkExtensionProperties*)nv_list_data(&vk_extensions));
+  u32 ext_count = 0;
+  vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
+
+  VkExtensionProperties* vk_extensions = nv_calloc(sizeof(VkExtensionProperties) * ext_count);
 
   for (size_t i = 0; i < NUM_REQUIRED_INSTANCE_EXTENSIONS; i++)
   {
@@ -303,9 +320,9 @@ nvvk_get_valid_extensions(nv_list_t* returned_valid_extensions)
     nv_list_push_back(returned_valid_extensions, (const void*)&ext);
   }
 
-  for (u32 i = 0; i < extensionCount; i++)
+  for (u32 i = 0; i < ext_count; i++)
   {
-    const char* name = ((VkExtensionProperties*)nv_list_data(&vk_extensions))[i].extensionName;
+    const char* name = vk_extensions[i].extensionName;
     for (int j = 0; j < (int)NUM_WANTED_INSTANCE_EXTENSIONS; j++)
     {
       const char* want = WANTED_INSTANCE_EXTENSIONS[j];
@@ -317,7 +334,7 @@ nvvk_get_valid_extensions(nv_list_t* returned_valid_extensions)
     }
   }
 
-  nv_list_destroy(&vk_extensions);
+  nv_free(vk_extensions);
 }
 
 static inline VkInstance
@@ -372,12 +389,9 @@ nvvk_create_instance(nvvk_ctx_t* vkctx, const char* title)
     .ppEnabledExtensionNames = (const char**)nv_list_data(&enabled_extensions),
   };
 
-  bool validation_layers_available = false;
-
 #ifdef DEBUG
 
-  validation_layers_available = nvvk_validate_layers();
-  if (validation_layers_available)
+  if (nvvk_validate_layers()) // Layesrs validated
   {
     instance_create_info.enabledLayerCount   = nv_arrlen(ValidationLayers);
     instance_create_info.ppEnabledLayerNames = ValidationLayers;
@@ -833,7 +847,7 @@ nvvk_ctx_init(nv_ctx_t* nvctx, nvvk_ctx_t* dst)
   nv_assert_else_return(nv_ctx_is_valid(nvctx) != false, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
 
-  nv_bzero(dst, sizeof(nvvk_ctx_t*));
+  nv_bzero(dst, sizeof(nvvk_ctx_t));
 
   dst->vkalloc = (VkAllocationCallbacks){
     .pUserData             = dst,
@@ -938,5 +952,5 @@ nvvk_ctx_destroy(nvvk_ctx_t* ctx)
 
   nvvk_allocator_destroy(&ctx->allocator);
 
-  nv_bzero(ctx, sizeof(nvvk_ctx_t*));
+  nv_bzero(ctx, sizeof(nvvk_ctx_t));
 }

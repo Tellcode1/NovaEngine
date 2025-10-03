@@ -29,7 +29,7 @@
 /* I have no idea what any of this is */
 
 static inline void
-ctext_load_font_upload_glyph_atlas(nvvk_ctx_t* vkctx, nv_renderer_t* rd, const nv_texture_atlas_t* atlas, cfont_t* dst)
+ctext_load_font_upload_glyph_atlas(nv_renderer_t* rd, const nv_texture_atlas_t* atlas, cfont_t* dst)
 {
   iris_texture_create_info_t const image_info = {
     .extent        = (nv_extent3D){ .width = atlas->width, .height = atlas->height, .depth = 1 },
@@ -85,7 +85,7 @@ ctext_load_font_update_descriptors(nvvk_ctx_t* vkctx, nv_ctext_module* ctext, cf
     .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     .pImageInfo      = &ctext_bitmap_image_info,
   };
-  for (size_t i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
+  for (size_t i = 0; i < (size_t)CTEXT_MAX_FONT_COUNT; i++)
   {
     writeSet.dstArrayElement = i;
     nv_descriptor_set_submit_write(vkctx, ctext->desc_set, &writeSet);
@@ -149,7 +149,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
     nv_hashmap_insert(&dst->glyph_map, &codepoint, &glyph, NULL);
   }
 
-  ctext_load_font_upload_glyph_atlas(vkctx, rdr, &atlas, dst);
+  ctext_load_font_upload_glyph_atlas(rdr, &atlas, dst);
   ctext_load_font_update_descriptors(vkctx, rdr->ctext, dst);
 
   fontc_clean_font_file(&f_file);
@@ -196,7 +196,7 @@ ctext_validate_font(const cfont_t* fnt)
 }
 
 void
-ctext_destroy_font(nvvk_ctx_t* vkctx, cfont_t* fnt)
+ctext_destroy_font(cfont_t* fnt)
 {
   if (ctext_validate_font(fnt) != 0)
   {
@@ -261,7 +261,7 @@ ctext_init(struct nv_renderer* rd)
     .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     .pImageInfo      = &empty_img_info,
   };
-  for (size_t i = 0; i < CTEXT_MAX_FONT_COUNT; i++)
+  for (size_t i = 0; i < (size_t)CTEXT_MAX_FONT_COUNT; i++)
   {
     write_set.dstArrayElement = i;
     if (nv_descriptor_set_submit_write(rd->vkctx, ctext->desc_set, &write_set) != NV_ERROR_SUCCESS)

@@ -18,8 +18,10 @@
 #include "../include/std/include/print.h"
 #include "../include/std/include/props.h"
 #include "../include/std/include/stdafx.h"
+#include "../include/std/include/strconv.h"
 #include "../include/std/include/timer.h"
 
+#include <float.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,8 +32,8 @@ simple_camera_movement_controller(double dt, void* arg)
 {
   const nv_input_ctx_t* inputctxp = (nv_input_ctx_t*)arg;
 
-  vec3  camera_movement_aggregate = (vec3){};
-  float movespeed                 = 50.0;
+  vec3   camera_movement_aggregate = nv_zero_init(vec3);
+  double movespeed                 = 50.0;
 
   if (nv_input_is_key_signalled(inputctxp, SDL_SCANCODE_UP))
   {
@@ -155,10 +157,6 @@ main(int argc, char* argv[])
     return code;
   }
 
-  const double updateTime = 3.0; // seconds. 1.5f = 1.5 seconds
-  double       totalTime  = 0.0;
-  u32 const    numFrames  = 0;
-
   cfont_t amongus = nv_zero_init(cfont_t);
 
   nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
@@ -218,8 +216,8 @@ main(int argc, char* argv[])
     }
   }
 
-  nv_sprite_destroy(&vkctx, &angwy);
-  ctext_destroy_font(&vkctx, &amongus);
+  nv_sprite_destroy(&angwy);
+  ctext_destroy_font(&amongus);
 
   nv_input_shutdown(&inputctx);
   nvsm_shutdown(&vkctx, &nvsmctx);

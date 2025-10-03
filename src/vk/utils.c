@@ -426,7 +426,7 @@ iris_create_graphics_pipeline(nvvk_ctx_t* vkctx, const iris_pipeline_create_info
     const VkShaderStageFlagBits stage = (VkShaderStageFlagBits)nvsm_shader_stage_from_string(pCreateInfo->shaders[i]->stage);
     if ((int)stage == -1)
     {
-      nv_log_error("Error in parsing stage for shader %zu(%p): \"%s\"", i, pCreateInfo->shaders[i], pCreateInfo->shaders[i]->stage);
+      nv_log_error("Error in parsing stage for shader %zu(%p): \"%s\"", i, (void*)pCreateInfo->shaders[i], pCreateInfo->shaders[i]->stage);
       continue;
     }
 

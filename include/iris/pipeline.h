@@ -45,31 +45,6 @@ extern "C"
 
 #define nvvk_result_check(ctx, func) (ctx).result_fn((func), nv_basename(__FILE__), #func, __LINE__)
 
-  static VkResult
-  nvvk_default_result_check_fn(const VkResult result, const char* file, const char* func, unsigned long line)
-  {
-    if (result == VK_SUCCESS)
-    {
-      return result;
-    }
-
-    struct tm* time = nv_get_time();
-
-    const char* errstr = "vkerr";
-    if (result >= 0)
-    {
-      errstr = "vkwarn";
-    }
-
-    const char* result_string = nvvk_vk_result_to_string(result);
-
-    // Non fatal error codes are positive
-    // So we just log OK error codes as warnings instead of errors
-    nv_printf("[%d:%d:%d] [%s:%li] %s: %s returned %s\n", time->tm_hour, time->tm_min, time->tm_sec, file, line, errstr, func, result_string);
-
-    return result;
-  }
-
   extern u32 nv_GPU_vk_flag_register;
 
   /*

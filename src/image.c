@@ -66,19 +66,19 @@ nv_image_pad_channels(const nv_image* src, size_t dst_channels)
 }
 
 bool
-nv_image_overlay(nv_image* dst, const nv_image* src, int dst_x_offset, int dst_y_offset, int src_x_offset, int src_y_offset)
+nv_image_overlay(nv_image* dst, vec2i dst_offset, const nv_image* src, vec2i src_offset)
 {
-  nv_assert(dst != NULL);
-  nv_assert(src != NULL);
+  nv_assert_else_return(dst != NULL, 1);
+  nv_assert_else_return(src != NULL, 1);
 
   const int src_channels = nv_format_get_num_channels(src->format);
 
-  for (ssize_t y = src_y_offset; y < (ssize_t)src->height; y++)
+  for (ssize_t y = src_offset.y; y < (ssize_t)src->height; y++)
   {
-    for (ssize_t x = src_x_offset; x < (ssize_t)src->width; x++)
+    for (ssize_t x = src_offset.x; x < (ssize_t)src->width; x++)
     {
-      ssize_t const dst_x = dst_x_offset + (x - src_x_offset);
-      ssize_t const dst_y = dst_y_offset + (y - src_y_offset);
+      ssize_t const dst_x = dst_offset.x + (x - src_offset.x);
+      ssize_t const dst_y = dst_offset.y + (y - src_offset.y);
 
       if (dst_x >= 0 && dst_x < (ssize_t)dst->width && dst_y >= 0 && dst_y < (ssize_t)dst->height)
       {
@@ -128,20 +128,20 @@ nv_image_enlarge(nv_image* dst, const nv_image* src, size_t scale)
 }
 
 void
-nv_image_bilinear_filter(nv_image* dst, const nv_image* src, float scale)
+nv_image_bilinear_filter(nv_image* dst, const nv_image* src, double scale)
 {
   const int nchannels = nv_format_get_num_channels(src->format);
 
-  dst->width  = (size_t)((float)src->width / scale);
-  dst->height = (size_t)((float)src->width / scale);
+  dst->width  = (size_t)((double)src->width / scale);
+  dst->height = (size_t)((double)src->width / scale);
   dst->format = src->format;
   dst->data   = (uchar*)nv_calloc(dst->width * dst->height * nv_format_get_bytes_per_pixel(dst->format));
 
   // Calculate the ratios for x and y coordinates
-  float x_ratio, y_ratio;
+  double x_ratio, y_ratio;
   if (dst->width > 1)
   {
-    x_ratio = ((float)src->width - 1.0F) / ((float)dst->width - 1.0F);
+    x_ratio = ((double)src->width - 1.0F) / ((double)dst->width - 1.0F);
   }
   else
   {
@@ -150,7 +150,7 @@ nv_image_bilinear_filter(nv_image* dst, const nv_image* src, float scale)
 
   if (dst->height > 1)
   {
-    y_ratio = ((float)src->height - 1.0F) / ((float)dst->height - 1.0F);
+    y_ratio = ((double)src->height - 1.0F) / ((double)dst->height - 1.0F);
   }
   else
   {
@@ -159,21 +159,21 @@ nv_image_bilinear_filter(nv_image* dst, const nv_image* src, float scale)
 
   for (size_t y = 0; y < dst->height; y++)
   {
-    const float ratiod_y = y_ratio * (float)y;
-    float const y_l      = floorf(ratiod_y);
-    float const y_h      = ceilf(ratiod_y);
-    float const y_weight = (ratiod_y)-y_l;
+    const double ratiod_y = y_ratio * (double)y;
+    double const y_l      = floor(ratiod_y);
+    double const y_h      = ceil(ratiod_y);
+    double const y_weight = (ratiod_y)-y_l;
 
     const size_t y_l_offset = (size_t)y_l * src->width * nchannels;
     const size_t y_h_offset = (size_t)y_h * src->width * nchannels;
 
     for (size_t x = 0; x < dst->width; x++)
     {
-      const float ratiod_x = x_ratio * (float)x;
+      const double ratiod_x = x_ratio * (double)x;
 
-      float const x_l      = floorf(ratiod_x);
-      float const x_h      = ceilf(ratiod_x);
-      float const x_weight = (ratiod_x)-x_l;
+      double const x_l      = floor(ratiod_x);
+      double const x_h      = ceil(ratiod_x);
+      double const x_weight = (ratiod_x)-x_l;
 
       const size_t x_l_offset = (size_t)x_l * nchannels;
       const size_t x_h_offset = (size_t)x_h * nchannels;
@@ -184,8 +184,8 @@ nv_image_bilinear_filter(nv_image* dst, const nv_image* src, float scale)
       uchar* bottom_right_pixel = &src->data[y_h_offset + x_h_offset];
       for (int c = 0; c < nchannels; c++)
       {
-        float const pixel = (float)top_left_pixel[c] * (1.0F - x_weight) * (1.0F - y_weight) + (float)top_right_pixel[c] * x_weight * (1.0F - y_weight)
-            + (float)bottom_left_pixel[c] * y_weight * (1.0F - x_weight) + (float)bottom_right_pixel[c] * x_weight * y_weight;
+        double const pixel = (double)top_left_pixel[c] * (1.0F - x_weight) * (1.0F - y_weight) + (double)top_right_pixel[c] * x_weight * (1.0F - y_weight)
+            + (double)bottom_left_pixel[c] * y_weight * (1.0F - x_weight) + (double)bottom_right_pixel[c] * x_weight * y_weight;
 
         dst->data[(y * dst->width + x) * nchannels + c] = (unsigned char)NVM_CLAMP(pixel, 0.0f, 255.0f);
       }

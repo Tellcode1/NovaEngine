@@ -233,7 +233,7 @@ nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
     nv_assert_else_return(nv_strlen(ctx->cache_file_dir) < 256, NV_ERROR_INVALID_ARG);
   }
 
-  char cache_file_path[256] = {};
+  char cache_file_path[256] = { 0 };
   get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
   /* the canary that should be in the cache file, if it isn't, then the cache file is an impostor (sus) */
@@ -461,12 +461,6 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
   }
   nv_assert_else_return(stage != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(bin != NULL, NV_ERROR_INVALID_ARG);
-
-  uchar                   buffer[16384];
-  nv_alloc_estack_t const stack = (nv_alloc_estack_t){
-    .buffer      = buffer,
-    .buffer_size = sizeof(buffer),
-  };
 
   nv_error code = NV_SUCCESS;
 
@@ -710,7 +704,7 @@ generate_and_dump_cache_file(const char* cache_file_dir, const nvsm_list_file_t*
   nv_assert_else_return(list_file->num_entries != 0, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(list_file_last_modtime != 0, NV_ERROR_INVALID_ARG);
 
-  char cache_file_path[256] = {};
+  char cache_file_path[256] = { 0 };
   get_cache_file_path(cache_file_dir, cache_file_path);
 
   FILE* generated_cache_file = fopen(cache_file_path, "wb");
@@ -774,7 +768,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
   }
   else
   {
-    char cache_file_path[256];
+    char cache_file_path[256] = { 0 };
     get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
     /* we have the cache in this branch */
@@ -914,7 +908,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
 
   if (generate_cache)
   {
-    char cache_file_path[256];
+    char cache_file_path[256] = { 0 };
     get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
     FILE* generated_cache_file = fopen(cache_file_path, "wb");

@@ -92,7 +92,10 @@ iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* 
   nv_format fmt = info->format;
   if (info->flags & IRIS_TEXTURE_SAMPLED_BIT)
   {
-    fmt = nv_vk_get_supported_format_for_draw(nvvkctx, fmt);
+    nv_format new_fmt = nv_vk_get_supported_format_for_draw(nvvkctx, fmt);
+    if (new_fmt != fmt)
+      nv_log_warning("Format %s cannot be used for rendering. %s will be used", nv_format_to_string(fmt), nv_format_to_string(new_fmt));
+    fmt = new_fmt;
   }
 
   VkImageType image_type = VK_IMAGE_TYPE_1D;
@@ -149,14 +152,15 @@ iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* 
   VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_1D;
   switch (image_type)
   {
-    case VK_IMAGE_TYPE_1D: view_type = VK_IMAGE_VIEW_TYPE_1D;
-    case VK_IMAGE_TYPE_2D: view_type = VK_IMAGE_VIEW_TYPE_2D;
-    case VK_IMAGE_TYPE_3D: view_type = VK_IMAGE_VIEW_TYPE_3D;
+    case VK_IMAGE_TYPE_1D: view_type = VK_IMAGE_VIEW_TYPE_1D; break;
+    case VK_IMAGE_TYPE_2D: view_type = VK_IMAGE_VIEW_TYPE_2D; break;
+    case VK_IMAGE_TYPE_3D: view_type = VK_IMAGE_VIEW_TYPE_3D; break;
     default:
       if ((info->flags & IRIS_TEXTURE_CUBEMAP_BIT) != 0)
       {
         view_type = VK_IMAGE_VIEW_TYPE_CUBE;
       }
+      break;
   }
 
   VkImageViewCreateInfo imageViewCreateInfo           = nv_zero_init(VkImageViewCreateInfo);
@@ -239,8 +243,7 @@ iris_texture_write_data(iris_texture_t* tex, const iris_texture_region_t* dst_re
 
   void* mapping = NULL;
   iris_memory_map(&transfer_buf->memory, 0, data_size, &mapping);
-  memcpy(mapping, pixels, data_size);
-
+  nv_memcpy(mapping, pixels, data_size);
   iris_memory_flush(&transfer_buf->memory);
 
   VkCommandBuffer cmd = VK_NULL_HANDLE;

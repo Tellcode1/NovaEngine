@@ -53,10 +53,10 @@ extern "C"
     iris_sampler_wrap_mode    wrapu;
     iris_sampler_wrap_mode    wrapv;
     iris_sampler_wrap_mode    wrapw;
-    float                     anisotropy;
+    double                    anisotropy;
     iris_sampler_compare_mode compare_mode;
-    float                     min_lod;
-    float                     max_lod;
+    double                    min_lod;
+    double                    max_lod;
   } iris_sampler_create_info;
 
   struct iris_sampler_t
@@ -66,11 +66,11 @@ extern "C"
     iris_sampler_wrap_mode    wrapu;
     iris_sampler_wrap_mode    wrapv;
     iris_sampler_wrap_mode    wrapw;
-    float                     anisotropy;
+    double                    anisotropy;
     iris_sampler_compare_mode compare_mode;
 
-    float min_lod;
-    float max_lod;
+    double min_lod;
+    double max_lod;
 
     VkSampler handle;
 

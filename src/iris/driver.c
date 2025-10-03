@@ -64,7 +64,7 @@ iris_driver_init(nvvk_ctx_t* ctx, iris_driver_t* dst)
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   iris_memory_pool_create_info_t pool_ci = (iris_memory_pool_create_info_t){
-    .size              = 1000000,
+    .size              = 10000000,
     .minimum_alignment = 1,
     .memory_flags      = IRIS_MEMORY_FLAGS_MAPPABLE_BIT,
     .type              = IRIS_ALLOCATOR_FREELIST,
@@ -75,7 +75,7 @@ iris_driver_init(nvvk_ctx_t* ctx, iris_driver_t* dst)
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   pool_ci = (iris_memory_pool_create_info_t){
-    .size              = 1000000,
+    .size              = 10000000,
     .minimum_alignment = 1,
     .memory_flags      = 0,
     .type              = IRIS_ALLOCATOR_FREELIST,

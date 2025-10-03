@@ -88,24 +88,24 @@ nvui_create_slider(nv_sprite_t* foreground, nv_sprite_t* background)
 }
 
 void
-nvui_destroy_button(nvvk_ctx_t* vkctx, nvui_button* obj)
+nvui_destroy_button(nvui_button* obj)
 {
   if (obj == NULL)
   {
     return;
   }
-  nv_sprite_release(vkctx, obj->spr);
+  nv_sprite_release(obj->spr);
 }
 
 void
-nvui_destroy_slider(nvvk_ctx_t* vkctx, nvui_slider* obj)
+nvui_destroy_slider(nvui_slider* obj)
 {
   if (obj == NULL)
   {
     return;
   }
-  nv_sprite_release(vkctx, obj->slider_sprite);
-  nv_sprite_release(vkctx, obj->bg_sprite);
+  nv_sprite_release(obj->slider_sprite);
+  nv_sprite_release(obj->bg_sprite);
 }
 
 void

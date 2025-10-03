@@ -137,7 +137,7 @@ nv_sprite_load_from_disk(iris_driver_t* driver, const char* path, nv_sprite_t* d
 }
 
 void
-nv_sprite_destroy(nvvk_ctx_t* vkctx, nv_sprite_t* spr)
+nv_sprite_destroy(nv_sprite_t* spr)
 {
   if (spr == NULL)
   {
@@ -154,12 +154,12 @@ nv_sprite_lock(nv_sprite_t* spr)
 }
 
 void
-nv_sprite_release(nvvk_ctx_t* vkctx, nv_sprite_t* spr)
+nv_sprite_release(nv_sprite_t* spr)
 {
   spr->rcount--;
   if (spr->rcount <= 0)
   {
-    nv_sprite_destroy(vkctx, spr);
+    nv_sprite_destroy(spr);
   }
 }
 

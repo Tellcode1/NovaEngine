@@ -84,6 +84,7 @@ extern "C"
 
   typedef struct nvvk_allocator_s
   {
+    int stop_crying;
   } nvvk_allocator_t;
 
   /* did you notice that the vulkan context is entirely independant of the global context? */
@@ -108,9 +109,9 @@ extern "C"
     VkQueue compute_queue;
     VkQueue transfer_queue;
 
-    u32   max_samples;
-    bool  supports_multisampling;
-    float max_anisotropy;
+    u32    max_samples;
+    bool   supports_multisampling;
+    double max_anisotropy;
 
     VkCommandPool cmd_pool;
 

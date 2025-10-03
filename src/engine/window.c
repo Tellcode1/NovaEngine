@@ -96,7 +96,7 @@ nv_update(nv_ctx_t* ctx)
 
   while (ctx->accumulator >= ctx->fixed_time_step)
   {
-    for (int i = 0; i < nv_list_size(&ctx->fixed_update_fns); i++)
+    for (size_t i = 0; i < nv_list_size(&ctx->fixed_update_fns); i++)
     {
       nv_fixed_update_fn_stored* fn = nv_list_get(&ctx->fixed_update_fns, i);
       if (fn && fn->fn)

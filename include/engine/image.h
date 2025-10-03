@@ -27,6 +27,7 @@
 
 #include "../std/include/attributes.h"
 #include "../std/include/errorcodes.h"
+#include "../std/include/math/vec2.h"
 #include "../std/include/stdafx.h"
 #include "format.h"
 #include <stddef.h>
@@ -71,14 +72,14 @@ extern "C"
 
   // Copy an image on to another.
   // Does not modify the src image
-  extern bool nv_image_overlay(nv_image* dst, const nv_image* src, int dst_x_offset, int dst_y_offset, int src_x_offset, int src_y_offset);
-
+  // Returns 0 on success.
+  extern bool nv_image_overlay(nv_image* dst, vec2i dst_offset, const nv_image* src, vec2i src_offset);
   extern void nv_image_enlarge(nv_image* dst, const nv_image* src, size_t scale);
 
   // Does not allocate memory for the dst image, or modify anything except the data buffer of the dst image
   // however, dst->w and dst->h is also set by the function
   // You can allocate the image with size {.w = src->w / scale, .h = src->h / scale}
-  extern void nv_image_bilinear_filter(nv_image* dst, const nv_image* src, float scale);
+  extern void nv_image_bilinear_filter(nv_image* dst, const nv_image* src, double scale);
 
 #ifdef __cplusplus
 }

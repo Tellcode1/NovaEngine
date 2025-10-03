@@ -340,7 +340,7 @@ nv_renderer_destroy(nv_renderer_t* rd)
     vkDestroySemaphore(rd->vkctx->device, image_frame->render_finish_semaphore, &rd->vkctx->vkalloc);
   }
 
-  nv_sprite_destroy(rd->vkctx, &rd->sprite_empty);
+  nv_sprite_destroy(&rd->sprite_empty);
 
   nv_camera_destroy(&camera);
 
@@ -504,15 +504,6 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 
     data->swapchain_image_view = vioew;
 
-    iris_texture_t temporary_workaround = {
-      .extent.width  = rd->render_extent.width,
-      .extent.height = rd->render_extent.height,
-      .extent.depth  = 1,
-      .format        = rd->swapchain.image_format,
-      .handle        = data->swapchain_image,
-      .handle_view   = data->swapchain_image_view,
-    };
-
     nv_list_clear(&attachments);
     if ((rd->flags & NOVA_RENDERER_MULTISAMPLING_ENABLE) != 0u)
     {
@@ -617,8 +608,6 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   {
     return NV_ERROR_INVALID_RETVAL;
   }
-
-  const size_t frames_in_flight = nv_renderer_get_frames_in_flight(rd);
 
   VkCommandBuffer buffer[32];
 

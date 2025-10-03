@@ -50,13 +50,13 @@ extern "C"
     return iris_buffer_resize(&buffer->backing, total_size, new_alignment, copy_old_data);
   }
 
-  static void
+  static inline void
   iris_ring_buffer_next(iris_ring_buffer_t* rb)
   {
     rb->frame_index = (rb->frame_index + 1) % rb->frames_in_flight;
   }
 
-  static size_t
+  static inline size_t
   iris_ring_buffer_offset(const iris_ring_buffer_t* rb)
   {
     return rb->frame_index * rb->slice_size;

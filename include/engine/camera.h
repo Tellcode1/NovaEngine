@@ -5,10 +5,8 @@
 #include "../std/include/math/mat.h"
 #include "../std/include/math/vec2.h"
 #include "../std/include/math/vec3.h"
-#include "../std/include/stdafx.h"
 #include "../std/include/types.h"
 
-#include "../iris/buffer.h"
 #include "../iris/descriptors.h"
 #include "../iris/driver.h"
 #include "../iris/ringbuffer.h"
@@ -104,12 +102,12 @@ extern "C"
      * TODO: incorporate quaternions :>
      * I would rather die tbh
      */
-    float yaw_degrees;
-    float pitch_degrees;
+    double yaw_degrees;
+    double pitch_degrees;
 
-    float fov;
-    float near_clip;
-    float far_clip;
+    double fov;
+    double near_clip;
+    double far_clip;
 
     iris_ring_buffer_t   uniform_buffer;
     nv_descriptor_set_t* descriptor_sets;
