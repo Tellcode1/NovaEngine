@@ -198,25 +198,20 @@ iris_buffer_init(iris_driver_t* driver, iris_size_t size, size_t alignment, iris
   dst->flags     = flags;
   dst->driver    = driver;
 
-  nvvk_result_check(*driver->vkctx, vkBindBufferMemory(driver->vkctx->device, dst->handle, iris_memory_get_backing(&dst->memory), dst->memory.offset));
+  nvvk_result_check(*driver->vkctx, vkBindBufferMemory(driver->vkctx->device, dst->handle, iris_memory_get_backing(&dst->memory), dst->memory.pool_offset));
 
   return NV_SUCCESS;
 }
 
 void
-iris_buffer_destroy(iris_buffer_t* buffer)
+iris_buffer_destroy_immediate(iris_buffer_t* buffer)
 {
-  if (buffer == NULL)
-  {
-    return;
-  }
-
+  nv_assert_else_return(buffer != NULL, );
   nv_assert_else_return(iris_driver_is_valid(buffer->driver), );
-  nv_assert_else_return(nvvk_ctx_is_valid(buffer->driver->vkctx), );
 
   nvvk_ctx_t* ctx = buffer->driver->vkctx;
 
-  iris_memory_free(&buffer->memory);
+  iris_memory_free_immediate(&buffer->memory);
 
   vkDeviceWaitIdle(ctx->device);
   vkDestroyBuffer(ctx->device, buffer->handle, &ctx->vkalloc);
@@ -343,7 +338,7 @@ iris_memory_flush(iris_memory_t* memory)
   VkMappedMemoryRange const range = {
     .sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
     .memory = iris_memory_get_backing(memory),
-    .offset = memory->offset + memory->drv_mapped_offset,
+    .offset = memory->pool_offset + memory->drv_mapped_offset,
     .size   = memory->drv_mapped_size,
   };
   vkFlushMappedMemoryRanges(memory->driver->vkctx->device, 1, &range);
@@ -511,7 +506,7 @@ iris_memory_does_overlap(const iris_memory_t* mem_1, const iris_memory_t* mem_2)
     return false;
   }
 
-  const bool regions_overlap = ((mem_1->size + mem_1->offset) < mem_2->offset) || ((mem_2->size + mem_2->offset) < mem_1->offset);
+  const bool regions_overlap = ((mem_1->size + mem_1->pool_offset) < mem_2->pool_offset) || ((mem_2->size + mem_2->pool_offset) < mem_1->pool_offset);
   return (mem_1->pool == mem_2->pool) && regions_overlap;
 }
 
@@ -551,7 +546,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
   {
     iris_memory_allocate_dedicated(
         buffer->driver, memory_requirements.memoryTypeBits, buffer->memory.memory_flags, memory_requirements.size, memory_requirements.alignment, &new_block);
-    vkBindBufferMemory(vkctx->device, new_buffer, iris_memory_get_backing(&new_block), new_block.offset);
+    vkBindBufferMemory(vkctx->device, new_buffer, iris_memory_get_backing(&new_block), new_block.pool_offset);
 
     VkCommandBuffer cmd  = nv_vk_begin_command_buffer(buffer->driver);
     VkBufferCopy    copy = {
@@ -566,7 +561,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
     vkDestroyBuffer(vkctx->device, iris_buffer_get_backing(buffer), &vkctx->vkalloc);
 
     // free old memory AFTER copy
-    iris_memory_free(&buffer->memory);
+    iris_memory_free_immediate(&buffer->memory);
   }
   else
   {
@@ -575,7 +570,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
     // free old memory BEFORE copy
     iris_memory_flags old_flags = buffer->memory.memory_flags;
     vkDestroyBuffer(vkctx->device, iris_buffer_get_backing(buffer), &vkctx->vkalloc);
-    iris_memory_free(&buffer->memory);
+    iris_memory_free_immediate(&buffer->memory);
 
     if (pool != NULL)
     {
@@ -585,7 +580,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
     {
       iris_memory_allocate_dedicated(buffer->driver, memory_requirements.memoryTypeBits, old_flags, memory_requirements.size, memory_requirements.alignment, &new_block);
     }
-    vkBindBufferMemory(vkctx->device, new_buffer, iris_memory_get_backing(&new_block), new_block.offset);
+    vkBindBufferMemory(vkctx->device, new_buffer, iris_memory_get_backing(&new_block), new_block.pool_offset);
   }
 
   // update buffer struct

@@ -33,8 +33,9 @@ nv_descriptor_set_submit_write(nvvk_ctx_t* vkctx, nv_descriptor_set_t* set, cons
 }
 
 void
-nv_descriptor_set_destroy(nvvk_ctx_t* vkctx, nv_descriptor_set_t* set)
+nv_descriptor_set_destroy(nv_descriptor_set_t* set)
 {
+  nvvk_ctx_t* vkctx = set->driver->vkctx;
   vkDestroyDescriptorSetLayout(vkctx->device, set->layout, &vkctx->vkalloc);
   nv_free(set->writes);
   nv_free(set);
@@ -45,7 +46,7 @@ nv_descriptor_pool_destroy(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
 {
   for (size_t i = 0; i < pool->nsets; i++)
   {
-    nv_descriptor_set_destroy(vkctx, pool->sets[i]);
+    nv_descriptor_set_destroy(pool->sets[i]);
   }
   nv_free((void*)pool->sets);
   vkDestroyDescriptorPool(vkctx->device, pool->pool, &vkctx->vkalloc);
@@ -205,12 +206,14 @@ nv_descriptor_pool_init(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* dst)
 }
 
 int
-nv_allocate_descriptor_set(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst)
+nv_allocate_descriptor_set(iris_driver_t* driver, nv_descriptor_pool_t* pool, const VkDescriptorSetLayoutBinding* bindings, int nbindings, nv_descriptor_set_t** dst)
 {
   nv_assert_else_return(pool != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(bindings != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(dst != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nbindings > 0, NV_ERROR_INVALID_ARG);
+
+  nvvk_ctx_t* vkctx = driver->vkctx;
 
   bool need_realloc = false;
   for (size_t i = 0; i < 11; i++)
@@ -235,16 +238,18 @@ nv_allocate_descriptor_set(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool, const 
       nv_assert_else_return(pool->sets != NULL, NV_ERROR_MALLOC_FAILED);
     }
 
-    nv_descriptor_pool_allocate(vkctx, pool);
+    nv_descriptor_pool_allocate(driver->vkctx, pool);
   }
 
   nv_descriptor_set_t* set = (nv_descriptor_set_t*)nv_calloc(sizeof(nv_descriptor_set_t));
   nv_assert_else_return(set != NULL, NV_ERROR_MALLOC_FAILED);
 
+  set->driver             = driver;
   pool->sets[pool->nsets] = set;
   pool->nsets++;
 
-  (*dst) = set;
+  (*dst)         = set;
+  (*dst)->driver = driver;
 
   set->pool   = pool;
   set->writes = (VkWriteDescriptorSet*)nv_malloc(sizeof(VkWriteDescriptorSet));

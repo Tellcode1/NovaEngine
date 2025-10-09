@@ -926,23 +926,6 @@ nv_vk_begin_command_buffer_from(VkCommandBuffer src)
   return src;
 }
 
-static inline void
-update_command_buffers_status(nvvk_ctx_t* vkctx)
-{
-  for (size_t i = 0; i < IRIS_COMMAND_BUFFER_CACHE_COUNT; i++)
-  {
-    const VkResult result = vkGetFenceStatus(vkctx->device, vkctx->cmd_buffer_fences[i]);
-
-    if (result == VK_SUCCESS)
-    {
-      vkResetFences(vkctx->device, 1, &vkctx->cmd_buffer_fences[i]);
-    }
-
-    /* If the buffer is in use, then the fence will be waiting and so result will be VK_NOT_READY */
-    vkctx->cmd_buffers_in_use[i] = (result != VK_NOT_READY);
-  }
-}
-
 VkCommandBuffer
 nv_vk_begin_command_buffer(iris_driver_t* driver)
 {
@@ -973,16 +956,14 @@ nv_vk_begin_command_buffer(iris_driver_t* driver)
       nvvk_result_check(*vkctx, vkCreateFence(vkctx->device, &fence_create_info, &vkctx->vkalloc, &vkctx->cmd_buffer_fences[i]));
     }
   }
-
-  update_command_buffers_status(vkctx);
-
   VkCommandBuffer free_cmd_buffer = VK_NULL_HANDLE;
 
   for (size_t i = 0; i < IRIS_COMMAND_BUFFER_CACHE_COUNT; i++)
   {
     if (!vkctx->cmd_buffers_in_use[i])
     {
-      free_cmd_buffer = vkctx->cmd_buffers[i];
+      free_cmd_buffer              = vkctx->cmd_buffers[i];
+      vkctx->cmd_buffers_in_use[i] = true;
       break;
     }
   }
@@ -1041,7 +1022,7 @@ nv_vk_end_command_buffer(iris_driver_t* driver, VkCommandBuffer cmd, VkQueue que
     vkResetFences(driver->vkctx->device, 1, &fence);
   }
 
-  update_command_buffers_status(vkctx);
+  vkctx->cmd_buffers_in_use[cmd_index] = false;
 
   return VK_SUCCESS;
 }

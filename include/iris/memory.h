@@ -205,7 +205,7 @@ extern "C"
      * Offset in the pool.
      * For dedicated allocations, it must be equal to 0.
      */
-    iris_size_t offset;
+    iris_size_t pool_offset;
 
     /**
      * Alignment of the block. May be greater than the pools alignment but not lesser.
@@ -274,7 +274,7 @@ extern "C"
    * Also returns NV_ERROR_MALLOC_FAILED if a CPU side allocator returned NULL.
    */
   extern nv_error iris_memory_allocate(iris_memory_pool_t* pool, iris_size_t size, iris_size_t alignment, iris_memory_t* dst_block);
-  extern nv_error iris_memory_free(iris_memory_t* block);
+  extern nv_error iris_memory_free_immediate(iris_memory_t* block);
 
   /**
    * IRIS_MEMORY_FLAGS_DEDICATED_BIT is automatically set.

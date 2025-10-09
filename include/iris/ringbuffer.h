@@ -2,6 +2,7 @@
 #define IRIS_RING_BUFFER_HPP
 
 #include "buffer.h"
+#include "driver.h"
 #include "types.h"
 #include "vkstdafx.h"
 #include <stddef.h>

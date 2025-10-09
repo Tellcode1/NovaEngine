@@ -104,6 +104,7 @@ iris_memory_pool_destroy(iris_memory_pool_t* pool)
 
   if (pool->memory_handle != VK_NULL_HANDLE)
   {
+    nv_log_verbose("Had to freeze the device...\n");
     vkDeviceWaitIdle(device);
     vkFreeMemory(device, pool->memory_handle, &pool->driver->vkctx->vkalloc);
   }
@@ -166,7 +167,7 @@ iris_memory_map(iris_memory_t* memory, size_t offset, size_t size, void** mappin
     nv_assert_else_return(memory->pool != NULL, NV_ERROR_BROKEN_STATE);
     nv_assert_else_return(memory->pool->drv_mapped != NULL, NV_ERROR_EXTERNAL);
 
-    memory->drv_mapped        = (uchar*)memory->pool->drv_mapped + memory->offset;
+    memory->drv_mapped        = (uchar*)memory->pool->drv_mapped + memory->pool_offset;
     memory->drv_mapped_size   = memory->size; // whole block
     memory->drv_mapped_offset = 0;
 
@@ -242,7 +243,7 @@ iris_memory_allocate_dedicated(iris_driver_t* driver, u32 memory_type_bits, iris
   dst_block->size         = aligned_size;
   dst_block->alignment    = alignment;
   dst_block->memory_flags = flags | IRIS_MEMORY_FLAGS_DEDICATED_BIT;
-  dst_block->offset       = 0;
+  dst_block->pool_offset  = 0;
 
   return NV_SUCCESS;
 }
@@ -273,7 +274,7 @@ iris_memory_allocate(iris_memory_pool_t* pool, iris_size_t size, iris_size_t ali
       .pool         = pool,
       .memory_flags = pool->memory_flags,
       .size         = aligned_size,
-      .offset       = stack->bumper,
+      .pool_offset  = stack->bumper,
       .alignment    = preffered_alignment,
     };
 
@@ -299,7 +300,7 @@ iris_memory_allocate(iris_memory_pool_t* pool, iris_size_t size, iris_size_t ali
       .pool         = pool,
       .memory_flags = pool->memory_flags,
       .size         = aligned_size,
-      .offset       = offset,
+      .pool_offset  = offset,
       .alignment    = preffered_alignment,
     };
   }
@@ -316,7 +317,7 @@ iris_memory_allocate(iris_memory_pool_t* pool, iris_size_t size, iris_size_t ali
 }
 
 nv_error
-iris_memory_free(iris_memory_t* memory)
+iris_memory_free_immediate(iris_memory_t* memory)
 {
   nv_assert_else_return(memory != NULL, NV_ERROR_INVALID_ARG);
 
@@ -328,7 +329,10 @@ iris_memory_free(iris_memory_t* memory)
 
   iris_memory_pool_t* pool = memory->pool;
 
-  nv_assert_else_return(pool != NULL, NV_ERROR_INVALID_ARG);
+  if (!pool)
+  {
+    pool = pool;
+  }
   nv_assert_else_return(pool->canary == 0xDEADBEEF, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(pool->memory_handle != VK_NULL_HANDLE, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(pool->allocated_size > 0, NV_ERROR_INVALID_ARG);
@@ -337,7 +341,7 @@ iris_memory_free(iris_memory_t* memory)
   {
     iris_allocator_stack_t* stack = &pool->backing_allocator.stack;
 
-    if (memory->offset == stack->last_allocation_bumper)
+    if (memory->pool_offset == stack->last_allocation_bumper)
     {
       stack->bumper -= memory->size;
       stack->bumper = align_up_size(stack->bumper, pool->alignment);
@@ -346,7 +350,7 @@ iris_memory_free(iris_memory_t* memory)
   else if (pool->type == IRIS_ALLOCATOR_FREELIST)
   {
     iris_freelist_t* freelist = &pool->backing_allocator.flist;
-    iris_freelist_free(freelist, memory->size, memory->offset);
+    iris_freelist_free(freelist, memory->size, memory->pool_offset);
   }
   else
   {
@@ -593,7 +597,7 @@ iris_freelist_alloc(iris_freelist_t* flist, size_t size, size_t alignment, iris_
   nv_assert_else_return(flist->root != NULL, false);
   nv_assert_else_return(offset_out, false);
 
-  nv_error const code = iris_freelist_defrag(flist);
+  nv_error code = iris_freelist_defrag(flist);
   if (code != NV_SUCCESS)
   {
     return false;
@@ -641,7 +645,8 @@ iris_freelist_alloc(iris_freelist_t* flist, size_t size, size_t alignment, iris_
   else if (remaining > 0)
   {
     iris_freelist_block_t* suffix = NULL;
-    nv_error const         code   = iris_freelist_insert_node_last(flist, &suffix);
+
+    code = iris_freelist_insert_node_last(flist, &suffix);
     nv_assert_else_return(code == NV_SUCCESS, code);
 
     suffix->offset      = best_fit_node->offset + size;

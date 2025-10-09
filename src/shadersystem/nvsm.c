@@ -1,7 +1,7 @@
 #include "../../include/shadersystem/nvsm.h"
 #include "../../include/iris/pipeline.h"
-#include "../../include/iris/prep.h"
 #include "../../include/iris/types.h"
+#include "../../include/sets/sets.h"
 #include "../../include/shadersystem/shaderresource.h"
 
 #include "../../include/std/include/alloc.h"
@@ -416,7 +416,7 @@ nvsm_read_file_flattened(const char* file_path, char** dst, size_t* dst_size)
 
   *dst      = NULL;
   *dst_size = 0;
-  nv_prep_flatten_file_to_buffer(file_path, dst, dst_size);
+  sets_parse_includes_to_buffer(file_path, dst, dst_size);
 
   return NV_SUCCESS;
 }
@@ -608,7 +608,7 @@ compile_no_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file)
       continue;
     }
 
-    nv_hashmap_insert_or_replace(&ctx->shader_map, list_entry->name, &list_file->entries[list_i], NULL);
+    nv_hashmap_insert_or_replace(&ctx->shader_map, list_entry->name, &list_file->entries[list_i]);
   }
   return code;
 }
@@ -669,7 +669,7 @@ nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, nv
       }
     }
 
-    nv_hashmap_insert_or_replace(&ctx->shader_map, list_entry->name, &list_file->entries[list_i], NULL);
+    nv_hashmap_insert_or_replace(&ctx->shader_map, list_entry->name, &list_file->entries[list_i]);
 
     if (wasnt_modified)
     {
@@ -852,6 +852,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* vkctx, nvsm_ctx_t* ctx)
       .pCode    = entry->bin.words,
     };
     nvvk_result_check(*vkctx, vkCreateShaderModule(vkctx->device, &info, &vkctx->vkalloc, &entry->handle));
+    entry->ctx = ctx;
 
     entry->resources = nvsm_shader_resources_extract(entry->bin.words, entry->bin.byte_count, &entry->num_resources);
 
@@ -870,7 +871,7 @@ nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out)
   nv_assert_else_return(name != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(out != NULL, NV_ERROR_INVALID_ARG);
 
-  nvsm_shader_t* entry = (nvsm_shader_t*)nv_hashmap_find(&ctx->shader_map, name, NULL);
+  nvsm_shader_t* entry = (nvsm_shader_t*)nv_hashmap_find(&ctx->shader_map, name);
   if (entry == NULL)
   {
     return NV_ERROR_INVALID_RETVAL;
@@ -879,6 +880,32 @@ nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out)
   *out = (nvsm_shader_t*)entry;
 
   return NV_SUCCESS;
+}
+
+void
+nvsm_destroy_shader_named(struct nvvk_ctx* vkctx, nvsm_ctx_t* ctx, const char* name)
+{
+  nv_assert_else_return(ctx != NULL, );
+  nv_assert_else_return(name != NULL, );
+
+  nvsm_shader_t* found_shader = nv_hashmap_find(&ctx->shader_map, name);
+  vkDestroyShaderModule(vkctx->device, found_shader->handle, &vkctx->vkalloc);
+
+  nv_hashmap_delete(&ctx->shader_map, name);
+}
+
+void
+nvsm_destroy_shader(struct nvvk_ctx* vkctx, nvsm_shader_t* shader)
+{
+  nv_assert_else_return(shader != NULL, );
+  nv_assert_else_return(shader->ctx != NULL, );
+
+  nvsm_ctx_t* nvsmctx = shader->ctx;
+
+  nvsm_shader_t* found_shader = nv_hashmap_find(&nvsmctx->shader_map, shader->name);
+  vkDestroyShaderModule(vkctx->device, found_shader->handle, &vkctx->vkalloc);
+
+  nv_hashmap_delete(&nvsmctx->shader_map, shader->name);
 }
 
 nv_error

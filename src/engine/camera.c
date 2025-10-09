@@ -74,7 +74,7 @@ nv_camera_init(iris_driver_t* driver, nv_camera_t* cam)
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   VkDescriptorSetLayoutBinding bindings[] = { { 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT, NULL } };
-  if (nv_allocate_descriptor_set(vkctx, &g_pool, bindings, 1, &cam->descriptor_sets) != NV_ERROR_SUCCESS)
+  if (nv_allocate_descriptor_set(driver, &g_pool, bindings, 1, &cam->descriptor_sets) != NV_ERROR_SUCCESS)
   {
     return NV_ERROR_INVALID_RETVAL;
   }
@@ -175,6 +175,12 @@ nv_camera_set_position(nv_camera_t* cam, const vec3 pos)
 void
 nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
 {
+  // if (cam->uniform_buffer.frames_in_flight != nv_renderer_get_frames_in_flight(rd))
+  // {
+  //   iris_ring_buffer_resize(&cam->uniform_buffer, cam->uniform_buffer.slice_size, cam->uniform_buffer.backing.alignment, nv_renderer_get_frames_in_flight(rd), false);
+  // }
+  iris_ring_buffer_next(&camera.uniform_buffer);
+
   const float yaw_rads   = NVM_DEG2RAD(cam->yaw_degrees);
   const float pitch_rads = NVM_DEG2RAD(cam->pitch_degrees);
   const float cospitch   = SDL_cosf(pitch_rads);
@@ -196,9 +202,14 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
   const nv_extent2d render_extent = nv_renderer_get_render_extent(rd);
   const double      aspect        = (double)render_extent.width / (double)render_extent.height;
   cam->perspective                = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
-  cam->ortho                      = m4ortho(-ortho_w / 2, ortho_w / 2, -ortho_h / 2, ortho_h / 2, 0.1f, 100.0f);
+  cam->ortho                      = m4ortho(-ortho_w / 2, ortho_w / 2, -ortho_h / 2, ortho_h / 2, 0.1, 100.0);
+}
 
-  const vec3 right = nv_camera_get_right(cam);
+void
+nv_camera_upload_uniform_buffer(nv_camera_t* cam, struct nv_renderer* rd)
+{
+  const nv_extent2d render_extent = nv_renderer_get_render_extent(rd);
+  const vec3        right         = nv_camera_get_right(cam);
 
   nv_camera_uniform_buffer_t ub = nv_zero_init(nv_camera_uniform_buffer_t);
   NVM_MATRIX_COPY(ub.perspective, cam->perspective);
@@ -208,14 +219,21 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
   NVM_VEC_COPY(ub.camera_position, cam->position);
   NVM_VEC_COPY(ub.camera_front, cam->front);
   NVM_VEC_COPY(ub.camera_right, right);
-  ub.clip_plane    = (vec4f){ cam->fov, cam->near_clip, cam->far_clip, 0.0F };
+  ub.clip_plane    = (vec4f){ (float)cam->fov, (float)cam->near_clip, (float)cam->far_clip, 0.0F };
   ub.render_extent = (vec2u){ (u32)render_extent.width, (u32)render_extent.height };
-  ub.image_index   = nv_renderer_get_frame(rd);
+  ub.image_index   = rd->image_index;
 
-  void* mapping_write = (void*)((uchar*)cam->ub_mapped + nv_camera_get_write_offset(&camera));
+  void* mapping_write = (void*)((uchar*)cam->ub_mapped + nv_camera_get_write_offset(cam));
   nv_memcpy(mapping_write, &ub, sizeof(ub)); // Write uniform buffer data to the frame.
 
-  iris_ring_buffer_next(&cam->uniform_buffer);
+  vkFlushMappedMemoryRanges(
+      rd->vkctx->device,
+      1,
+      &(VkMappedMemoryRange){ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+                              NULL,
+                              iris_memory_get_backing(&cam->uniform_buffer.backing.memory),
+                              cam->uniform_buffer.backing.memory.pool_offset + nv_camera_get_write_offset(cam),
+                              sizeof(ub) });
 }
 
 vec2

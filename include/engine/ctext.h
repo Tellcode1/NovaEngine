@@ -148,8 +148,8 @@ extern "C"
 
     // nv_async_task_t load_task;
 
-    iris_texture_t  texture;
-    iris_sampler_t* sampler;
+    iris_texture_t texture;
+    iris_sampler_t sampler;
 
     iris_ring_buffer_t buffer;
     iris_buffer_t      staging_buffer;

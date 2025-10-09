@@ -72,7 +72,7 @@ static inline void
 ctext_load_font_update_descriptors(nvvk_ctx_t* vkctx, nv_ctext_module* ctext, cfont_t* dst)
 {
   const VkDescriptorImageInfo ctext_bitmap_image_info = {
-    .sampler     = iris_sampler_get(dst->sampler),
+    .sampler     = iris_sampler_get(&dst->sampler),
     .imageView   = iris_texture_get_image_view(&dst->texture),
     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
   };
@@ -121,7 +121,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
 
   dst->rd = rdr;
 
-  nv_hashmap_init(256, sizeof(u32), sizeof(ctext_glyph_t), nv_hash_murmur3, nv_allocator_c, NULL, &dst->glyph_map);
+  nv_hashmap_init(256, sizeof(u32), sizeof(ctext_glyph_t), nv_hash_fnv1a, nv_allocator_c, NULL, &dst->glyph_map);
   nv_list_init(sizeof(ctext_drawcall_t), 4, nv_allocator_c, NULL, &dst->drawcalls);
 
   nv_texture_atlas_t atlas;
@@ -146,7 +146,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
       .advance = f_file.glyphs[i].advance,
     };
     u32 codepoint = f_file.glyphs[i].codepoint;
-    nv_hashmap_insert(&dst->glyph_map, &codepoint, &glyph, NULL);
+    nv_hashmap_insert(&dst->glyph_map, &codepoint, &glyph);
   }
 
   ctext_load_font_upload_glyph_atlas(rdr, &atlas, dst);
@@ -241,7 +241,7 @@ ctext_init(struct nv_renderer* rd)
     { 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, CTEXT_MAX_FONT_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT, NULL },
   };
 
-  nv_allocate_descriptor_set(rd->vkctx, &g_pool, bindings, nv_arrlen(bindings), &ctext->desc_set);
+  nv_allocate_descriptor_set(rd->driver, &g_pool, bindings, nv_arrlen(bindings), &ctext->desc_set);
   nv_assert_else_return(ctext->desc_set != NULL, NV_ERROR_INVALID_RETVAL);
 
   nv_assert_else_return(nv_sprite_get_sampler(&rd->sprite_empty) != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);

@@ -213,7 +213,7 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, double* w, double* h)
         break;
       default:
       {
-        const ctext_glyph_t* glyph = (ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint, NULL);
+        const ctext_glyph_t* glyph = (ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
         if (glyph == NULL)
         {
           break;
@@ -256,7 +256,7 @@ gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32
     return;
   }
 
-  const ctext_glyph_t* glyph = (const ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint, NULL);
+  const ctext_glyph_t* glyph = (const ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
   if (glyph == NULL)
   {
     // nv_log_info("no glyph when rendering char [%i|ASCII:%c]\n", codepoint, (char)codepoint);

@@ -30,7 +30,7 @@ extern "C"
     size_t               rcount;
     nv_format            fmt;
     iris_texture_t       tex;
-    iris_sampler_t*      sampler;
+    iris_sampler_t       sampler;
     nv_descriptor_set_t* set;
   };
 

@@ -75,11 +75,11 @@ extern "C"
 
   /**
    * The contents of the buffer will NOT be initialized
-   * memory may not be NULL.
+   * @param extra_info may be NULL
    */
   extern nv_error
   iris_buffer_init(struct iris_driver* driver, iris_size_t size, size_t alignment, iris_buffer_extra_create_info_t* extra_info, iris_buffer_flags flags, iris_buffer_t* dst);
-  extern void iris_buffer_destroy(iris_buffer_t* buffer);
+  extern void iris_buffer_destroy_immediate(iris_buffer_t* buffer);
 
   extern size_t iris_buffer_size(const iris_buffer_t* buffer);
 

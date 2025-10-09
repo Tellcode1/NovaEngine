@@ -25,7 +25,7 @@
 int
 nv_input_signal_action(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return -1;
@@ -249,7 +249,7 @@ nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
 void
 nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return;
@@ -260,11 +260,11 @@ nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_inp
 void
 nv_input_bind_key_to_action(nv_input_ctx_t* ctx, SDL_Scancode key, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     nv_input_action_t w = { .key = key };
-    nv_hashmap_insert(&ctx->input_action_mapping, action, &w, NULL);
+    nv_hashmap_insert(&ctx->input_action_mapping, action, &w);
   }
   else
   {
@@ -284,13 +284,13 @@ nv_input_bind_mouse_to_action(nv_input_ctx_t* ctx, int bton, const char* action)
 {
   nv_input_action_t ia = nv_zero_init(nv_input_action_t);
   ia.mouse             = bton;
-  nv_hashmap_insert(&ctx->input_action_mapping, action, &ia, NULL);
+  nv_hashmap_insert(&ctx->input_action_mapping, action, &ia);
 }
 
 void
 nv_input_unbind_action(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return;
@@ -304,7 +304,7 @@ nv_input_unbind_action(nv_input_ctx_t* ctx, const char* action)
 bool
 nv_input_is_action_signalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return false;
@@ -315,7 +315,7 @@ nv_input_is_action_signalled(nv_input_ctx_t* ctx, const char* action)
 bool
 nv_input_is_action_just_signalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return false;
@@ -326,7 +326,7 @@ nv_input_is_action_just_signalled(nv_input_ctx_t* ctx, const char* action)
 bool
 nv_input_is_action_unsignalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return false;
@@ -337,7 +337,7 @@ nv_input_is_action_unsignalled(nv_input_ctx_t* ctx, const char* action)
 bool
 nv_input_is_action_just_unsignalled(nv_input_ctx_t* ctx, const char* action)
 {
-  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action, NULL);
+  nv_input_action_t* ia = (nv_input_action_t*)nv_hashmap_find(&ctx->input_action_mapping, action);
   if (ia == NULL)
   {
     return false;

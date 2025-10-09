@@ -132,7 +132,7 @@ extern "C"
    */
   extern nv_error iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* info, iris_texture_t* out_texture);
 
-  extern void iris_texture_destroy(iris_texture_t* tex);
+  extern void iris_texture_destroy_immediate(iris_texture_t* tex);
 
   /**
    * @brief Resize an image to new dimensions.

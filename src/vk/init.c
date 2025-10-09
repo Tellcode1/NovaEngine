@@ -1,6 +1,7 @@
 #include "../../include/iris/pipeline.h"
 
 #include "../../include/iris/types.h"
+#include "../../include/iris/utils.h"
 
 #include "../../include/engine/engine.h"
 #include "../../include/std/include/alloc.h"
@@ -31,23 +32,17 @@ static SDL_UNUSED const char* ValidationLayers[] = {
 /* Configured by a config file maybe? */
 /* Add a library to load configs? Hm.. */
 
-static SDL_UNUSED const char*  REQUIRED_INSTANCE_EXTENSIONS[]   = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_EXTENSION_NAME, NULL };
-static SDL_UNUSED const size_t NUM_REQUIRED_INSTANCE_EXTENSIONS = nv_arrlen(REQUIRED_INSTANCE_EXTENSIONS) - 1;
+const char* REQUIRED_INSTANCE_EXTENSIONS[]   = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_EXTENSION_NAME, NULL };
+size_t      NUM_REQUIRED_INSTANCE_EXTENSIONS = (nv_arrlen(REQUIRED_INSTANCE_EXTENSIONS) - 1);
 
-static SDL_UNUSED const char* WANTED_INSTANCE_EXTENSIONS[] = {
-  // VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
-  NULL
-};
-static SDL_UNUSED const size_t NUM_WANTED_INSTANCE_EXTENSIONS = nv_arrlen(WANTED_INSTANCE_EXTENSIONS) - 1;
+const char* WANTED_INSTANCE_EXTENSIONS[]   = { NULL };
+size_t      NUM_WANTED_INSTANCE_EXTENSIONS = nv_arrlen(WANTED_INSTANCE_EXTENSIONS) - 1;
 
-static SDL_UNUSED const char* WANTED_DEVICE_EXTENSIONS[] = {
-  // VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
-  NULL
-};
-static SDL_UNUSED const size_t NUM_WANTED_DEVICE_EXTENSIONS = nv_arrlen(WANTED_DEVICE_EXTENSIONS) - 1;
+const char* WANTED_DEVICE_EXTENSIONS[]   = { NULL };
+size_t      NUM_WANTED_DEVICE_EXTENSIONS = (nv_arrlen(WANTED_DEVICE_EXTENSIONS) - 1);
 
-static SDL_UNUSED const char*  REQUIRED_DEVICE_EXTENSIONS[]   = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, NULL };
-static SDL_UNUSED const size_t NUM_REQUIRED_DEVICE_EXTENSIONS = nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1;
+const char* REQUIRED_DEVICE_EXTENSIONS[]   = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, NULL };
+size_t      NUM_REQUIRED_DEVICE_EXTENSIONS = (nv_arrlen(REQUIRED_DEVICE_EXTENSIONS) - 1);
 
 // we'll just request them as needed
 
@@ -88,8 +83,6 @@ nvvk_default_result_check_fn(const VkResult result, const char* file, const char
     return result;
   }
 
-  struct tm* time = nv_get_time();
-
   const char* errstr = "vkerr";
   if (result >= 0)
   {
@@ -100,7 +93,7 @@ nvvk_default_result_check_fn(const VkResult result, const char* file, const char
 
   // Non fatal error codes are positive
   // So we just log OK error codes as warnings instead of errors
-  nv_printf("[%d:%d:%d] [%s:%li] %s: %s returned %s\n", time->tm_hour, time->tm_min, time->tm_sec, file, line, errstr, func, result_string);
+  nv_printf("[%s:%li] %s: %s returned %s\n", file, line, errstr, func, result_string);
 
   return result;
 }
@@ -507,14 +500,14 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
   nv_list_init(sizeof(VkPhysicalDevice), phys_device_count, nv_allocator_estack, &stack, &physical_devices);
   vkEnumeratePhysicalDevices(instance, &phys_device_count, (VkPhysicalDevice*)nv_list_data(&physical_devices));
 
-  for (u32 i = 0; i < phys_device_count; i++)
+  for (u32 devi = 0; devi < phys_device_count; devi++)
   {
-    if (nv_list_get(&physical_devices, i) == NULL)
+    if (nv_list_get(&physical_devices, devi) == NULL)
     {
       nv_log_error("NULL physical device? Do you have enough memory?\n");
       continue;
     }
-    VkPhysicalDevice device = *(VkPhysicalDevice*)nv_list_get(&physical_devices, i);
+    VkPhysicalDevice device = *(VkPhysicalDevice*)nv_list_get(&physical_devices, devi);
 
     uint32_t format_count = 0;
     nvvk_result_check(*vkctx, vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, NULL));
@@ -592,9 +585,9 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* vkctx, nv_list_t* available_extensi
   for (size_t i = 0; i < NUM_WANTED_DEVICE_EXTENSIONS; i++)
   {
     const char* wanted = WANTED_DEVICE_EXTENSIONS[i];
-    for (u32 i = 0; i < extension_count; i++)
+    for (u32 j = 0; j < extension_count; j++)
     {
-      VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[i];
+      VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[j];
       if (nv_strcmp(wanted, ext.extensionName) == 0)
       {
         const char* ext_name_copy = nv_strdup(nv_allocator_c, NULL, ext.extensionName);
@@ -607,9 +600,9 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* vkctx, nv_list_t* available_extensi
   {
     const char* required  = REQUIRED_DEVICE_EXTENSIONS[i];
     bool        validated = false;
-    for (u32 i = 0; i < extension_count; i++)
+    for (u32 j = 0; j < extension_count; j++)
     {
-      VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[i];
+      VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[j];
       if (nv_strcmp(required, ext.extensionName) == 0)
       {
         char* ext_name_copy = nv_strdup(nv_allocator_c, NULL, ext.extensionName);
@@ -646,7 +639,7 @@ nvvk_validate_queues(nvvk_ctx_t* vkctx, nv_list_t* queue_create_infos)
   bool found_graphics_family = false, found_present_family = false, found_compute_family = false, found_transfer_family = false;
 
   u32 i = 0;
-  for (int j = 0; j < (int)nv_list_size(&queue_families); j++)
+  for (size_t j = 0; j < nv_list_size(&queue_families); j++)
   {
     const VkQueueFamilyProperties queue_family    = ((VkQueueFamilyProperties*)nv_list_data(&queue_families))[j];
     VkBool32                      present_support = 0u;
@@ -691,7 +684,7 @@ nvvk_validate_queues(nvvk_ctx_t* vkctx, nv_list_t* queue_create_infos)
    */
   // const float queue_priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
-  for (size_t i = 0; i < nv_list_size(&unique_queue_families); i++)
+  for (i = 0; i < nv_list_size(&unique_queue_families); i++)
   {
     VkDeviceQueueCreateInfo queue_info = {
       .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -699,7 +692,7 @@ nvvk_validate_queues(nvvk_ctx_t* vkctx, nv_list_t* queue_create_infos)
       .flags            = 0,
       .queueFamilyIndex = ((u32*)nv_list_data(&unique_queue_families))[i],
       .queueCount       = 1,
-      .pQueuePriorities = NULL,
+      .pQueuePriorities = NULL, // we set it later to a variable initialized to 1.
     };
     nv_list_push_back(queue_create_infos, &queue_info);
   }

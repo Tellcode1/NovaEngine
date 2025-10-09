@@ -3,7 +3,6 @@
 #include "../camera.glsl"
 
 layout(location = 0) in vec3 v_vertices;
-
 layout(location = 1) in vec2 v_uv;
 
 layout(push_constant) uniform push_constant_block

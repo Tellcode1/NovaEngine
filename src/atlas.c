@@ -97,7 +97,7 @@ nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image* img, size_t* out
   *out_y = y + atlas->padding;
 
   nv_image dst = { .width = atlas->width, .height = atlas->height, .format = NOVA_FORMAT_R8, .data = atlas->data };
-  nv_image_overlay(&dst, img, (int)*out_x, (int)*out_y, 0, 0);
+  nv_image_overlay(&dst, (vec2i){ (int)*out_x, (int)*out_y }, img, v2izero);
 
   SDL_UnlockMutex(atlas->mutex);
   return 1;

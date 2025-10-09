@@ -29,6 +29,7 @@
 #include "../include/std/include/stdafx.h"
 #include "../include/std/include/string.h"
 #include "../include/std/include/types.h"
+#include <SDL3/SDL.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 #include <stddef.h>
@@ -141,15 +142,15 @@ nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_mult
     spr = &rd->sprite_empty;
   }
 
-  nv_draw_call_t drawcall = (nv_draw_call_t){ .type     = NOVA_DRAWCALL_QUAD,
-                                              .layer    = layer,
-                                              .drawcall = { .quad = {
-                                                                .spr            = spr,
-                                                                .siz            = size,
-                                                                .pos            = position,
-                                                                .tex_multiplier = tex_coord_multiplier,
-                                                                .color            = color,
-                                                            }, }, };
+  nv_draw_call_t drawcall = { .type     = NOVA_DRAWCALL_QUAD,
+                              .layer    = layer,
+                              .drawcall = { .quad = {
+                                                .spr            = spr,
+                                                .siz            = size,
+                                                .pos            = position,
+                                                .tex_multiplier = tex_coord_multiplier,
+                                                .color          = color,
+                                            } } };
   nv_list_push_back(&rd->drawcalls, &drawcall);
 }
 
@@ -333,12 +334,13 @@ nv_renderer_destroy(nv_renderer_t* rd)
     nv_rdr_per_frame_data_t* image_frame = (nv_rdr_per_frame_data_t*)nv_list_get(&rd->main_pass.per_frame_data, i);
     vkDestroyFence(rd->vkctx->device, image_frame->in_flight_fence, &rd->vkctx->vkalloc);
     vkDestroySemaphore(rd->vkctx->device, image_frame->image_available_semaphore, &rd->vkctx->vkalloc);
-  }
-  for (size_t i = 0; i < nv_list_size(&rd->main_pass.per_image_data); i++)
-  {
-    nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
     vkDestroySemaphore(rd->vkctx->device, image_frame->render_finish_semaphore, &rd->vkctx->vkalloc);
   }
+  // for (size_t i = 0; i < nv_list_size(&rd->main_pass.per_image_data); i++)
+  // {
+  //   nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
+  //   vkDestroySemaphore(rd->vkctx->device, image_frame->render_finish_semaphore, &rd->vkctx->vkalloc);
+  // }
 
   nv_sprite_destroy(&rd->sprite_empty);
 
@@ -554,7 +556,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   {
     switch (conf->buffer_mode)
     {
-      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED: present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR; break;
+      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED:
       case NOVA_BUFFER_MODE_SINGLE_BUFFERED:
       case NOVA_BUFFER_MODE_DOUBLE_BUFFERED:
       default: present_mode = VK_PRESENT_MODE_FIFO_KHR; break;
@@ -562,7 +564,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   }
   else
   {
-    present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+    present_mode = VK_PRESENT_MODE_FIFO_KHR;
   }
 
   nv_assert_else_return(rd->swapchain.image_format != NOVA_FORMAT_UNDEFINED, NV_ERROR_BROKEN_STATE);
@@ -730,18 +732,19 @@ nv_renderer_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver,
   nv_list_resize(&dst->main_pass.per_frame_data, nv_renderer_get_frames_in_flight(dst));
   nv_list_resize(&dst->main_pass.per_image_data, dst->swapchain.image_count);
 
-  for (size_t i = 0; i < dst->swapchain.image_count; i++)
-  {
-    nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&dst->main_pass.per_image_data, i);
-    nv_assert_else_return(image_frame != NULL, NV_ERROR_BROKEN_STATE);
+  // for (size_t i = 0; i < dst->swapchain.image_count; i++)
+  // {
+  //   nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&dst->main_pass.per_image_data, i);
+  //   nv_assert_else_return(image_frame != NULL, NV_ERROR_BROKEN_STATE);
 
-    nvvk_result_check(*dst->vkctx, vkCreateSemaphore(dst->vkctx->device, &semaphore_create_info, &driver->vkctx->vkalloc, &image_frame->render_finish_semaphore));
-  }
+  //   nvvk_result_check(*dst->vkctx, vkCreateSemaphore(dst->vkctx->device, &semaphore_create_info, &driver->vkctx->vkalloc, &image_frame->render_finish_semaphore));
+  // }
 
   for (size_t i = 0; i < nv_list_size(&dst->main_pass.per_frame_data); i++)
   {
     nv_rdr_per_frame_data_t* frame = (nv_rdr_per_frame_data_t*)nv_list_get(&dst->main_pass.per_frame_data, i);
 
+    nvvk_result_check(*dst->vkctx, vkCreateSemaphore(dst->vkctx->device, &semaphore_create_info, &driver->vkctx->vkalloc, &frame->render_finish_semaphore));
     nvvk_result_check(*dst->vkctx, vkCreateSemaphore(dst->vkctx->device, &semaphore_create_info, &driver->vkctx->vkalloc, &frame->image_available_semaphore));
     nvvk_result_check(*dst->vkctx, vkCreateFence(dst->vkctx->device, &fence_create_info, &driver->vkctx->vkalloc, &frame->in_flight_fence));
 
@@ -788,26 +791,27 @@ nv_renderer_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver,
 }
 
 static inline nv_error
-nvvk_renderer_resize(nv_renderer_t* rd)
+renderer_resize(nv_renderer_t* rd)
 {
   nv_assert_else_return(rd != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->vkctx) == true, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nv_ctx_is_valid(rd->ctx) == true, NV_ERROR_BROKEN_STATE);
   vkDeviceWaitIdle(rd->vkctx->device);
+  nv_log_verbose("Had to freeze the device...\n");
 
   rd->will_render_this_frame = false;
 
   // Clean up old synchronization objects
-  for (size_t i = 0; i < nv_list_size(&rd->main_pass.per_image_data); i++)
-  {
-    nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
-    if (image_frame == NULL)
-    {
-      continue;
-    }
-    vkDestroySemaphore(rd->vkctx->device, image_frame->render_finish_semaphore, &rd->vkctx->vkalloc);
-    image_frame->render_finish_semaphore = VK_NULL_HANDLE;
-  }
+  // for (size_t i = 0; i < nv_list_size(&rd->main_pass.per_image_data); i++)
+  // {
+  //   nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
+  //   if (image_frame == NULL)
+  //   {
+  //     continue;
+  //   }
+  //   vkDestroySemaphore(rd->vkctx->device, image_frame->render_finish_semaphore, &rd->vkctx->vkalloc);
+  //   image_frame->render_finish_semaphore = VK_NULL_HANDLE;
+  // }
 
   for (size_t i = 0; i < nv_list_size(&rd->main_pass.per_frame_data); i++)
   {
@@ -818,9 +822,11 @@ nvvk_renderer_resize(nv_renderer_t* rd)
     }
     vkDestroyFence(rd->vkctx->device, frame->in_flight_fence, &rd->vkctx->vkalloc);
     vkDestroySemaphore(rd->vkctx->device, frame->image_available_semaphore, &rd->vkctx->vkalloc);
+    vkDestroySemaphore(rd->vkctx->device, frame->render_finish_semaphore, &rd->vkctx->vkalloc);
 
     frame->in_flight_fence           = VK_NULL_HANDLE;
     frame->image_available_semaphore = VK_NULL_HANDLE;
+    frame->render_finish_semaphore   = VK_NULL_HANDLE;
   }
 
   // Clean up images and framebuffers
@@ -852,35 +858,40 @@ nvvk_renderer_resize(nv_renderer_t* rd)
 
   // Get new swapchain image count
   rd->swapchain.image_count = nv_vk_get_surface_image_count(rd->vkctx, rd->vkctx->phys_device, rd->vkctx->surface);
+  nv_log_info("rd->swapchain.image_count: %i\n", rd->swapchain.image_count);
+
   int w, h;
   SDL_GetWindowSizeInPixels(rd->ctx->window, &w, &h);
+
   VkSurfaceCapabilitiesKHR surface_capabilities;
   nvvk_result_check(*rd->vkctx, vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rd->vkctx->phys_device, rd->vkctx->surface, &surface_capabilities));
+
   const u32 min_width  = surface_capabilities.minImageExtent.width;
   const u32 min_height = surface_capabilities.minImageExtent.height;
   const u32 max_width  = surface_capabilities.maxImageExtent.width;
   const u32 max_height = surface_capabilities.maxImageExtent.height;
   w                    = NVM_CLAMP((u32)w, min_width, max_width);
   h                    = NVM_CLAMP((u32)h, min_height, max_height);
-  rd->render_extent    = (nv_extent2d){ (size_t)w, (size_t)h };
+
+  rd->render_extent = (nv_extent2d){ (size_t)w, (size_t)h };
   nv_assert_else_return(rd->render_extent.width != 0, NV_ERROR_INVALID_RETVAL);
   nv_assert_else_return(rd->render_extent.height != 0, NV_ERROR_INVALID_RETVAL);
 
   VkSwapchainKHR   old_swapchain = rd->swapchain.handle;
   VkPresentModeKHR present_mode  = VK_PRESENT_MODE_FIFO_KHR;
-  if ((rd->flags & NOVA_RENDERER_VSYNC_ENABLE) != 0)
+  if (rd->flags & NOVA_RENDERER_VSYNC_ENABLE)
+  {
+    present_mode = VK_PRESENT_MODE_FIFO_KHR;
+  }
+  else
   {
     switch (rd->buffer_mode)
     {
-      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED: present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR; break;
+      case NOVA_BUFFER_MODE_TRIPLE_BUFFERED: present_mode = VK_PRESENT_MODE_MAILBOX_KHR; break;
       case NOVA_BUFFER_MODE_SINGLE_BUFFERED:
       case NOVA_BUFFER_MODE_DOUBLE_BUFFERED:
       default: present_mode = VK_PRESENT_MODE_FIFO_KHR; break;
     };
-  }
-  else
-  {
-    present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
   }
 
   iris_swapchain_create_info swapchain_create_info = nv_zero_init(iris_swapchain_create_info);
@@ -910,13 +921,13 @@ nvvk_renderer_resize(nv_renderer_t* rd)
   const VkFenceCreateInfo     fenceCreateInfo     = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
 
   // Create per-image data (one per frame in flight)
-  for (size_t i = 0; i < rd->swapchain.image_count; i++)
-  {
-    nv_rdr_per_image_data_t* frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
-    nv_assert_else_return(frame != NULL, NV_ERROR_BROKEN_STATE);
+  // for (size_t i = 0; i < rd->swapchain.image_count; i++)
+  // {
+  //   nv_rdr_per_image_data_t* frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
+  //   nv_assert_else_return(frame != NULL, NV_ERROR_BROKEN_STATE);
 
-    vkCreateSemaphore(rd->vkctx->device, &semaphoreCreateInfo, &rd->vkctx->vkalloc, &frame->render_finish_semaphore);
-  }
+  //   vkCreateSemaphore(rd->vkctx->device, &semaphoreCreateInfo, &rd->vkctx->vkalloc, &frame->render_finish_semaphore);
+  // }
 
   size_t const frames_in_flight = nv_renderer_get_frames_in_flight(rd);
   for (size_t i = 0; i < frames_in_flight; i++)
@@ -925,6 +936,7 @@ nvvk_renderer_resize(nv_renderer_t* rd)
     nv_assert_else_return(frame != NULL, NV_ERROR_BROKEN_STATE);
 
     vkCreateSemaphore(rd->vkctx->device, &semaphoreCreateInfo, &rd->vkctx->vkalloc, &frame->image_available_semaphore);
+    vkCreateSemaphore(rd->vkctx->device, &semaphoreCreateInfo, &rd->vkctx->vkalloc, &frame->render_finish_semaphore);
     vkCreateFence(rd->vkctx->device, &fenceCreateInfo, &rd->vkctx->vkalloc, &frame->in_flight_fence);
   }
 
@@ -945,6 +957,7 @@ nvvk_renderer_resize(nv_renderer_t* rd)
   {
     nv_rdr_per_image_data_t* frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, i);
     frame->cmd                     = buffer[i];
+    frame->image_in_flight         = VK_NULL_HANDLE;
   }
 
   nv_error code = NV_ERROR_SUCCESS;
@@ -972,7 +985,8 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   nv_assert_else_return(nv_ctx_is_valid(rd->ctx) == true, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->vkctx) == true, NV_ERROR_BROKEN_STATE);
 
-  nv_camera_update(&camera, rd);
+  VkDevice       device    = rd->vkctx->device;
+  VkSwapchainKHR swapchain = rd->swapchain.handle;
 
   rd->will_render_this_frame = false;
 
@@ -980,46 +994,36 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   // nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, rd->frame);
   nv_rdr_per_frame_data_t* frame = (nv_rdr_per_frame_data_t*)nv_list_get(&rd->main_pass.per_frame_data, rd->frame_index);
 
-  // Check if we need to resize
-  bool const needs_resize = frame == NULL || frame->in_flight_fence == VK_NULL_HANDLE;
-  if (needs_resize)
+  // Sometimes, the index can go out of hand for some reason.
+  if (frame == NULL)
   {
-    nvvk_renderer_resize(rd);
+    renderer_resize(rd);
     return nv_renderer_begin(rd, clear_color);
   }
 
-  // Wait for the previous frame using this frame's fence to finish
-  VkResult const waitResult = vkWaitForFences(rd->vkctx->device, 1, &frame->in_flight_fence, VK_TRUE, UINT64_MAX);
-  if (waitResult != VK_SUCCESS)
+  vkWaitForFences(device, 1, &frame->in_flight_fence, VK_TRUE, UINT64_MAX);
+
+  VkResult res = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, frame->image_available_semaphore, VK_NULL_HANDLE, &rd->image_index);
+  if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR || nv_ctx_get_frame_buffer_resized(rd->ctx))
   {
-    nv_log_error("Failed to wait for fence: %d\n", waitResult);
+    renderer_resize(rd);
+    return false;
+  }
+  else if (res != VK_SUCCESS)
+  {
+    nv_log_error("Failed to acquire swapchain image: %d\n", res);
     return false;
   }
 
-  // Reset the fence for the current frame
-  vkResetFences(rd->vkctx->device, 1, &frame->in_flight_fence);
+  nv_rdr_per_image_data_t* image_frame = nv_list_get(&rd->main_pass.per_image_data, rd->image_index);
 
-  // Get next image index
-  VkResult const image_acquire_res =
-      vkAcquireNextImageKHR(rd->vkctx->device, rd->swapchain.handle, UINT64_MAX, frame->image_available_semaphore, VK_NULL_HANDLE, &rd->image_index);
-
-  if (image_acquire_res == VK_ERROR_OUT_OF_DATE_KHR || image_acquire_res == VK_SUBOPTIMAL_KHR || nv_ctx_get_frame_buffer_resized(rd->ctx))
+  // if image is already being used, wait for its fence
+  if (image_frame->image_in_flight != VK_NULL_HANDLE)
   {
-    nvvk_renderer_resize(rd);
-    return false;
+    vkWaitForFences(device, 1, &image_frame->image_in_flight, VK_TRUE, UINT64_MAX);
   }
-  else if (image_acquire_res != VK_SUCCESS)
-  {
-    nv_log_error("Failed to acquire image from swapchain: %d\n", image_acquire_res);
-    return false;
-  }
-
-  nv_rdr_per_image_data_t* image_frame = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, rd->image_index);
-  if (image_frame == NULL)
-  {
-    nvvk_renderer_resize(rd);
-    return nv_renderer_begin(rd, clear_color);
-  }
+  image_frame->image_in_flight = frame->in_flight_fence;
+  vkResetFences(device, 1, &frame->in_flight_fence);
 
   VkCommandBuffer cmd = image_frame->cmd;
   nv_assert_else_return(cmd != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
@@ -1035,8 +1039,7 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   nv_renderer_frame_render_info* image = (nv_renderer_frame_render_info*)nv_list_get(&rd->main_pass.render_data, rd->image_index);
   if (image == NULL)
   {
-    nvvk_renderer_resize(rd);
-    return nv_renderer_begin(rd, clear_color);
+    return false;
   }
 
   VkFramebuffer framebuffer = image->color_framebuffer.handle;
@@ -1062,7 +1065,6 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   VkResult const beginResult = vkBeginCommandBuffer(cmd, &beginInfo);
   if (beginResult != VK_SUCCESS)
   {
-    nv_log_error("Failed to begin command buffer: %d\n", beginResult);
     return false;
   }
 
@@ -1089,6 +1091,8 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   // We're prepared to render this frame
   rd->will_render_this_frame = true;
 
+  nv_camera_upload_uniform_buffer(&camera, rd);
+
   return true;
 }
 
@@ -1113,13 +1117,9 @@ nv_renderer_end(nv_renderer_t* rd)
 
   if (rd->will_render_this_frame)
   {
-    if (rd->ctext != NULL)
-    {
-      ctext_flush_renders(rd);
-    }
-
     // nvui internally checks whether it has been initialized or not
     nvui_render(rd);
+    ctext_flush_renders(rd);
   }
 
   nv_renderer_flush_renders(rd);
@@ -1133,17 +1133,16 @@ nv_renderer_end(nv_renderer_t* rd)
     return NV_ERROR_BROKEN_STATE;
   }
 
-  VkSemaphore       render_finish_semaphore = image_frame->render_finish_semaphore;
-  const VkSemaphore wait_semaphores[]       = { frame->image_available_semaphore };
-  const VkSemaphore signal_semaphores[]     = { render_finish_semaphore };
+  const VkSemaphore wait_semaphores[]   = { frame->image_available_semaphore };
+  const VkSemaphore signal_semaphores[] = { frame->render_finish_semaphore };
 
-  VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+  VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
   VkSubmitInfo const submit_info = {
     .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     .waitSemaphoreCount   = 1,
     .pWaitSemaphores      = wait_semaphores,
-    .pWaitDstStageMask    = waitStages,
+    .pWaitDstStageMask    = wait_stages,
     .commandBufferCount   = 1,
     .pCommandBuffers      = &cmd,
     .signalSemaphoreCount = 1,
@@ -1170,7 +1169,7 @@ nv_renderer_end(nv_renderer_t* rd)
   if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || nv_ctx_get_frame_buffer_resized(rd->ctx))
   {
     nv_error code = NV_ERROR_SUCCESS;
-    if ((code = nvvk_renderer_resize(rd)) != NV_ERROR_SUCCESS)
+    if ((code = renderer_resize(rd)) != NV_ERROR_SUCCESS)
     {
       return code;
     }

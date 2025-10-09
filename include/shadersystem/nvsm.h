@@ -80,13 +80,13 @@ extern "C"
   struct resources_t;
   struct nvvk_ctx;
 
-  typedef struct nvsm_ctx_t              nvsm_ctx_t;
-  typedef struct nvsm_list_file_entry_t  nvsm_list_file_entry_t;
-  typedef struct nvsm_cache_file_entry_t nvsm_cache_file_entry_t;
-  typedef struct nvsm_list_file_t        nvsm_list_file_t;
-  typedef struct nvsm_cache_file_t       nvsm_cache_file_t;
-  typedef struct nvsm_spirv_binary_t     nvsm_spirv_binary_t;
-  typedef struct nvsm_compile_options_t  nvsm_compile_options_t;
+  typedef struct nvsm_ctx              nvsm_ctx_t;
+  typedef struct nvsm_list_file_entry  nvsm_list_file_entry_t;
+  typedef struct nvsm_cache_file_entry nvsm_cache_file_entry_t;
+  typedef struct nvsm_list_file        nvsm_list_file_t;
+  typedef struct nvsm_cache_file       nvsm_cache_file_t;
+  typedef struct nvsm_spirv_binary     nvsm_spirv_binary_t;
+  typedef struct nvsm_compile_options  nvsm_compile_options_t;
 
 #define nvsm_shader_t nvsm_list_file_entry_t
 
@@ -116,6 +116,16 @@ extern "C"
    */
   extern nv_error nvsm_load_shader(nvsm_ctx_t* ctx, const char* name, nvsm_shader_t** out);
 
+  /**
+   * @brief Destroy a shader. All preexisting copies of this shader will be left in an undefined state.
+   */
+  extern void nvsm_destroy_shader_named(struct nvvk_ctx* vkctx, nvsm_ctx_t* ctx, const char* name);
+
+  /**
+   * Delete a shader. But use a pointer to the shader instead of a context.
+   */
+  extern void nvsm_destroy_shader(struct nvvk_ctx* vkctx, nvsm_shader_t* shader);
+
   /* Returns (VkShaderStageFlags)-1 on error/invalid stage */
   /**
    * @brief Convert from the glslangValidator's supported set of shader stages (which are used in the file extensions) into VkShaderStageFlags
@@ -129,7 +139,7 @@ extern "C"
    */
   extern VkShaderStageFlags nvsm_shader_stage_from_string(const char stage[4]);
 
-  struct nvsm_compile_options_t
+  struct nvsm_compile_options
   {
     /* If NVSM_SHADERS_ENABLE_DEBUGGING is defined, this is enabled */
     bool enable_debug_mode;
@@ -146,7 +156,7 @@ extern "C"
   };
   extern nvsm_compile_options_t nvsm_get_default_compile_options(void) NOVA_ATTR_CONST;
 
-  struct nvsm_ctx_t
+  struct nvsm_ctx
   {
     /**
      * Mapping from name to a nvsm_shader_t
@@ -189,19 +199,21 @@ extern "C"
     nvsm_compile_options_t custom_options;
   };
 
-  struct nvsm_spirv_binary_t
+  struct nvsm_spirv_binary
   {
     u32* words;
     /* 'size' is misleading as words is a uint32_t pointer, some people may expect it to be the number of words */
     size_t byte_count;
   };
 
-  struct nvsm_list_file_entry_t
+  struct nvsm_list_file_entry
   {
     /* we technically only need 4 bytes */
     char stage[8];
     // I think this can be replaced by a GL_uint to allow for OpenGL compatability
-    VkShaderModule      handle;
+    VkShaderModule handle;
+    nvsm_ctx_t*    ctx;
+
     nvsm_spirv_binary_t bin;
     char                shader_path[256];
     char                spirv_path[256];
@@ -214,20 +226,20 @@ extern "C"
   /**
    * @brief A structure holding a data of a shader, on the disk.
    */
-  struct nvsm_cache_file_entry_t
+  struct nvsm_cache_file_entry
   {
     size_t last_mod_time;
     size_t hash_name;
     size_t hash_shader_path;
   };
 
-  struct nvsm_list_file_t
+  struct nvsm_list_file
   {
     size_t                  num_entries;
     nvsm_list_file_entry_t* entries;
   };
 
-  struct nvsm_cache_file_t
+  struct nvsm_cache_file
   {
     size_t                   num_entries;
     nvsm_cache_file_entry_t* entries;

@@ -147,7 +147,7 @@ iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* 
   {
     iris_memory_allocate_dedicated(driver, memory_requirements.memoryTypeBits, memory_flags, memory_requirements.size, memory_requirements.alignment, &dst->memory);
   }
-  vkBindImageMemory(driver->vkctx->device, dst->handle, iris_memory_get_backing(&dst->memory), dst->memory.offset);
+  vkBindImageMemory(driver->vkctx->device, dst->handle, iris_memory_get_backing(&dst->memory), dst->memory.pool_offset);
 
   VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_1D;
   switch (image_type)
@@ -192,7 +192,7 @@ iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* 
 }
 
 void
-iris_texture_destroy(iris_texture_t* tex)
+iris_texture_destroy_immediate(iris_texture_t* tex)
 {
   if (!tex || !tex->driver || !tex->driver->vkctx)
   {
@@ -204,7 +204,7 @@ iris_texture_destroy(iris_texture_t* tex)
 
   vkDestroyImage(device, tex->handle, &vkctx->vkalloc);
   vkDestroyImageView(device, tex->handle_view, &vkctx->vkalloc);
-  iris_memory_free(&tex->memory);
+  iris_memory_free_immediate(&tex->memory);
 
   nv_bzero(tex, sizeof(iris_texture_t));
 }

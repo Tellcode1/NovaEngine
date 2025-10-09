@@ -7,8 +7,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(NOVA_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(NOVA_BUILD_EXAMPLE true CACHE BOOL "Enable example build")
 set(NOVA_SANITIZE false CACHE BOOL "Enable address sanitizer on debug builds")
-set(CFLAGS -g -Wall -Wextra -Wpedantic -ggdb3)
-set(LDFLAGS -g -Wall -Wextra -Wpedantic -ggdb3)
+set(CFLAGS -g -Wall -Wextra -Wpedantic)
+set(LDFLAGS -g -Wall -Wextra -Wpedantic)
 
 if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type specified, set to Debug")
@@ -62,6 +62,8 @@ set(SOURCES
     src/clayimpl.c
     src/format.c
     src/image.c
+
+    src/sets/sets.c
 )
 
 set(VK_SOURCES
@@ -147,6 +149,7 @@ target_link_libraries(fontc Nova nvstd freetype OpenMP::OpenMP_C m)
 
 file(COPY ${NOVA_ROOT_DIR}/Assets DESTINATION ${CMAKE_BINARY_DIR}/)
 file(COPY ${NOVA_ROOT_DIR}/src/shaders DESTINATION ${CMAKE_BINARY_DIR}/)
+file(COPY ${NOVA_ROOT_DIR}/cfg DESTINATION ${CMAKE_BINARY_DIR}/)
 
 target_link_options(nova_example PRIVATE ${LDFLAGS})
 target_compile_options(nova_example PRIVATE ${CFLAGS})

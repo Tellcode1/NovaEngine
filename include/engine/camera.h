@@ -134,6 +134,8 @@ extern "C"
   extern void nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd);
   extern vec2 nv_camera_get_global_mouse_position(struct nv_input_ctx_t* inputctx, const nv_camera_t* cam);
 
+  extern void nv_camera_upload_uniform_buffer(nv_camera_t* cam, struct nv_renderer* rd);
+
   extern size_t nv_camera_get_read_offset(const nv_camera_t* cam);
   extern size_t nv_camera_get_write_offset(const nv_camera_t* cam);
 

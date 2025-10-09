@@ -9,9 +9,10 @@
 #include <SDL3/SDL_video.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <vulkan/vulkan_core.h>
 
 void
-iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo, iris_sampler_t** dst)
+iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo, iris_sampler_t* dst)
 {
   nv_assert_else_return(driver != NULL, );
   nv_assert_else_return(pInfo != NULL, );
@@ -19,7 +20,7 @@ iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo
 
   for (size_t i = 0; i < nv_list_size(&driver->samplers); i++)
   {
-    iris_sampler_t* cache = ((iris_sampler_t*)nv_list_get(&driver->samplers, i));
+    iris_sampler_internal_t* cache = ((iris_sampler_internal_t*)nv_list_get(&driver->samplers, i));
     if (cache == NULL)
     {
       continue;
@@ -31,14 +32,14 @@ iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo
 
     if (cache != NULL && match && cache->handle != VK_NULL_HANDLE)
     {
-      *dst = cache;
+      dst->ptr = cache;
       return;
     }
   }
 
-  iris_sampler_t* new_sampler = (iris_sampler_t*)nv_list_push_empty(&driver->samplers);
+  iris_sampler_internal_t* new_sampler = (iris_sampler_internal_t*)nv_list_push_empty(&driver->samplers);
 
-  *new_sampler = (iris_sampler_t){
+  *new_sampler = (iris_sampler_internal_t){
     .min_filter   = pInfo->min_filter,
     .mag_filter   = pInfo->mag_filter,
     .wrapu        = pInfo->wrapu,
@@ -51,13 +52,12 @@ iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo
   /**
    * Store the pointer to the newly created sampler into dst.
    */
-  *dst = new_sampler;
 
   VkPhysicalDeviceProperties device_properties = nv_zero_init(VkPhysicalDeviceProperties);
   vkGetPhysicalDeviceProperties(driver->vkctx->phys_device, &device_properties);
 
   const VkPhysicalDeviceLimits* limits = &device_properties.limits;
-  nv_assert_else_return(nv_list_size(&driver->samplers) <= limits->maxSamplerAllocationCount, );
+  nv_assert_else_return(nv_list_size(&driver->samplers) < limits->maxSamplerAllocationCount, );
 
   VkSamplerCreateInfo samplerInfo = nv_zero_init(VkSamplerCreateInfo);
   samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -68,15 +68,21 @@ iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo
   samplerInfo.addressModeV        = (VkSamplerAddressMode)pInfo->wrapv;
   samplerInfo.addressModeW        = (VkSamplerAddressMode)pInfo->wrapw;
   samplerInfo.anisotropyEnable    = (VkBool32)(pInfo->anisotropy > 1.0F);
-  samplerInfo.maxLod              = pInfo->max_lod;
-  samplerInfo.minLod              = pInfo->min_lod;
-  nvvk_result_check(*driver->vkctx, vkCreateSampler(driver->vkctx->device, &samplerInfo, &driver->vkctx->vkalloc, &new_sampler->handle));
+  samplerInfo.maxLod              = (float)pInfo->max_lod;
+  samplerInfo.minLod              = (float)pInfo->min_lod;
+
+  VkSampler sampler;
+  nvvk_result_check(*driver->vkctx, vkCreateSampler(driver->vkctx->device, &samplerInfo, &driver->vkctx->vkalloc, &sampler));
+
+  new_sampler->handle = sampler;
+
+  dst->ptr = new_sampler;
 }
 
 VkSampler
 iris_sampler_get(const iris_sampler_t* sampler)
 {
-  return (sampler != NULL) ? sampler->handle : VK_NULL_HANDLE;
+  return (sampler != NULL && sampler->ptr != NULL) ? sampler->ptr->handle : VK_NULL_HANDLE;
 }
 
 VkCompareOp

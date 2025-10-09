@@ -1,21 +1,23 @@
 #include "../../include/iris/driver.h"
 #include "../../external/volk/volk.h"
 #include "../../include/iris/buffer.h"
+#include "../../include/iris/descriptors.h"
 #include "../../include/iris/memory.h"
-#include "../../include/iris/prep.h"
 #include "../../include/iris/sampler.h"
+#include "../../include/iris/texture.h"
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
+#include "../../include/shadersystem/nvsm.h"
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/list.h"
 #include "../../include/std/include/errorcodes.h"
-#include "../../include/std/include/print.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vulkan/vulkan_core.h>
 
 #ifndef IRIS_DISABLE_OPTIMIZATIONS
 #  define IRIS_DISABLE_OPTIMIZATIONS (true)
@@ -56,11 +58,7 @@ iris_driver_init(nvvk_ctx_t* ctx, iris_driver_t* dst)
 
   nv_error code = NV_SUCCESS;
 
-  /* NOTE: POINTERS. We're storing POINTERS */
-  code = nv_list_init(sizeof(iris_buffer_t*), 16, nv_allocator_c, NULL, &dst->buffers);
-  nv_assert_else_return(code == NV_SUCCESS, code);
-
-  code = nv_list_init(sizeof(iris_sampler_t), 16, nv_allocator_c, NULL, &dst->samplers);
+  code = nv_list_init(sizeof(iris_sampler_internal_t), 16, nv_allocator_c, NULL, &dst->samplers);
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   iris_memory_pool_create_info_t pool_ci = (iris_memory_pool_create_info_t){
@@ -113,14 +111,11 @@ iris_driver_destroy(iris_driver_t* driver)
     return;
   }
 
-  if (nv_list_size(&driver->buffers) != 0)
-  {
-    nv_log_error("Driver still held %zu buffers at time of destruction.\n", nv_list_size(&driver->buffers));
-  }
+  iris_queue_flush(driver);
 
   for (size_t i = 0; i < nv_list_size(&driver->samplers); i++)
   {
-    iris_sampler_t* sampler = (iris_sampler_t*)nv_list_get(&driver->samplers, i);
+    iris_sampler_internal_t* sampler = (iris_sampler_internal_t*)nv_list_get(&driver->samplers, i);
     if ((sampler != NULL) && (sampler->handle != NULL))
     {
       vkDestroySampler(driver->vkctx->device, sampler->handle, &driver->vkctx->vkalloc);
@@ -132,7 +127,6 @@ iris_driver_destroy(iris_driver_t* driver)
     vkDestroyFence(driver->vkctx->device, driver->vkctx->cmd_buffer_fences[i], &driver->vkctx->vkalloc);
   }
 
-  nv_list_destroy(&driver->buffers);
   nv_list_destroy(&driver->samplers);
 
   iris_buffer_destroy(&driver->small_transfer_buffer);
@@ -160,11 +154,6 @@ iris_driver_is_valid(const iris_driver_t* driver)
     return false;
   }
 
-  if (!nv_list_is_valid(&driver->samplers) || !nv_list_is_valid(&driver->buffers))
-  {
-    return false;
-  }
-
   if (driver->vkctx == NULL || !nvvk_ctx_is_valid(driver->vkctx))
   {
     return false;
@@ -177,346 +166,6 @@ iris_driver_is_valid(const iris_driver_t* driver)
   // }
 
   return true;
-}
-
-#define PATHMAX 4096
-
-static inline nv_error
-readfile(const char* fname, char** data, size_t* data_size)
-{
-  nv_assert_else_return(fname != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(data != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(data_size != NULL, NV_ERROR_INVALID_ARG);
-
-  FILE* f = fopen(fname, "rb");
-  if (f == NULL)
-  {
-    return NV_ERROR_IO_ERROR;
-  }
-
-  fseek(f, 0, SEEK_END);
-  long const size = ftell(f);
-  if (size < 0)
-  {
-    fclose(f);
-    return NV_ERROR_IO_ERROR;
-  }
-  if (fseek(f, 0, SEEK_SET) != 0)
-  {
-    fclose(f);
-    return NV_ERROR_IO_ERROR;
-  }
-
-  *data = (char*)nv_calloc(size + 1);
-  if (*data == NULL)
-  {
-    fclose(f);
-    return NV_ERROR_MALLOC_FAILED;
-  }
-
-  size_t const read_size = fread(*data, 1, size, f);
-  fclose(f);
-
-  if (read_size != (size_t)size)
-  {
-    nv_free(*data);
-    *data = NULL;
-    return NV_ERROR_IO_ERROR;
-  }
-
-  *data_size          = read_size;
-  (*data)[*data_size] = '\0';
-  return NV_SUCCESS;
-}
-
-nv_error
-nv_prep_flatten_file_to_file(const char* file, FILE* out)
-{
-  nv_assert_else_return(file != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(out != NULL, NV_ERROR_INVALID_ARG);
-
-  char*  contents      = NULL;
-  size_t contents_size = 0;
-
-  nv_error const code = readfile(file, &contents, &contents_size);
-  if (code != NV_SUCCESS)
-  {
-    return code;
-  }
-
-  char* ctx  = NULL;
-  char* line = nv_strtok(contents, "\n", &ctx);
-
-  while (line != NULL)
-  {
-    char* p = line;
-    while (*p == ' ' || *p == '\t')
-    {
-      p++;
-    }
-
-    if (*p != '#')
-    {
-      fputs(line, out);
-      fputc('\n', out);
-      line = nv_strtok(NULL, "\n", &ctx);
-      continue;
-    }
-
-    p++;
-
-    while (*p == ' ' || *p == '\t')
-    {
-      p++;
-    }
-
-    if (nv_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t' || p[7] == '\"'))
-    {
-      p += sizeof("include") - 1;
-
-      while (*p == ' ' || *p == '\t')
-      {
-        p++;
-      }
-
-      if (*p != '\"')
-      {
-        fputs(line, out);
-        fputc('\n', out);
-        line = nv_strtok(NULL, "\n", &ctx);
-        continue;
-      }
-
-      const char* start = p + 1;
-      const char* end   = nv_strchr(start, '\"');
-
-      if ((end == NULL) || end <= start)
-      {
-        fputs(line, out);
-        fputc('\n', out);
-        line = nv_strtok(NULL, "\n", &ctx);
-        continue;
-      }
-
-      size_t const name_len = end - start;
-
-      char tmp[1] = { 0 };
-
-      /* 1) figure out directory of `file` */
-      char*       base = NULL;
-      const char* s1   = nv_strrchr(file, '/');
-      const char* s2   = nv_strrchr(file, '\\');
-      const char* sep  = s1 > s2 ? s1 : s2;
-      if (sep != NULL)
-      {
-        size_t const dir_len = sep - file + 1; /* include the slash */
-        base                 = (char*)nv_calloc(dir_len + 1);
-        nv_memcpy(base, file, dir_len);
-        base[dir_len] = '\0';
-      }
-      else
-      {
-        /**
-         * Point base to a 0 byte.
-         * This effectively sets the string to 0 length
-         */
-        base = tmp;
-      }
-
-      size_t const full_len = nv_strlen(base) + name_len;
-
-      char* fullpath = (char*)nv_calloc(full_len + 1);
-      nv_snprintf(fullpath, full_len + 1, "%s%.*s", base, (int)name_len, start);
-      fullpath[full_len] = 0;
-
-      nv_error const sub = nv_prep_flatten_file_to_file(fullpath, out);
-      if (sub != NV_SUCCESS)
-      {
-        return sub;
-      }
-
-      fputc('\n', out);
-      line = nv_strtok(NULL, "\n", &ctx);
-
-      /**
-       * We may point base to a stack
-       * buffer. We dont' want to free that.
-       */
-      if (base != tmp)
-      {
-        nv_free(base);
-      }
-      nv_free(fullpath);
-      continue;
-    }
-
-    fputs(line, out);
-    fputc('\n', out);
-    line = nv_strtok(NULL, "\n", &ctx);
-  }
-
-  nv_free(contents);
-  return NV_SUCCESS;
-}
-
-static inline const char*
-skip_whitespace(const char* in)
-{
-  while (*in == ' ' || *in == '\t')
-  {
-    in++;
-  }
-  return in;
-}
-
-nv_error
-nv_prep_flatten_file_to_buffer(const char* file, char** buffer, size_t* buffer_size)
-{
-  nv_assert_else_return(file != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(buffer != NULL, NV_ERROR_INVALID_ARG);
-  nv_assert_else_return(buffer_size != NULL, NV_ERROR_INVALID_ARG);
-
-  char*  contents      = NULL;
-  size_t contents_size = 0;
-
-  nv_error const code = readfile(file, &contents, &contents_size);
-  if (code != NV_SUCCESS)
-  {
-    return code;
-  }
-
-  if ((*buffer == NULL) || *buffer_size == 0)
-  {
-    const size_t buffer_start_size = 4096;
-
-    *buffer      = (char*)nv_calloc(buffer_start_size);
-    *buffer_size = buffer_start_size;
-  }
-
-  const size_t buflen = nv_strlen(*buffer);
-  if ((*buffer_size - buflen) <= contents_size)
-  {
-    const size_t new_buffer_size = NV_MAX(*buffer_size * 2, buflen + contents_size);
-    *buffer                      = (char*)nv_realloc(*buffer, new_buffer_size);
-    *buffer_size                 = new_buffer_size;
-  }
-
-  char* ctx  = NULL;
-  char* line = nv_strtok(contents, "\n", &ctx);
-
-  while (line != NULL)
-  {
-    char* p = line;
-    while (*p == ' ' || *p == '\t')
-    {
-      p++;
-    }
-
-    if (*p != '#')
-    {
-      nv_strlcat(*buffer, line, *buffer_size);
-      nv_strlcat(*buffer, "\n", *buffer_size);
-      line = nv_strtok(NULL, "\n", &ctx);
-      continue;
-    }
-
-    p++;
-
-    while (*p == ' ' || *p == '\t')
-    {
-      p++;
-    }
-
-    if (nv_strncmp(p, "include", 7) == 0 && (p[7] == ' ' || p[7] == '\t' || p[7] == '\"'))
-    {
-      p += sizeof("include") - 1;
-
-      while (*p == ' ' || *p == '\t')
-      {
-        p++;
-      }
-
-      if (*p != '\"')
-      {
-        nv_strlcat(*buffer, line, *buffer_size);
-        nv_strlcat(*buffer, "\n", *buffer_size);
-        line = nv_strtok(NULL, "\n", &ctx);
-        continue;
-      }
-
-      const char* start = p + 1;
-      const char* end   = nv_strchr(start, '\"');
-
-      if ((end == NULL) || end <= start)
-      {
-        nv_strlcat(*buffer, line, *buffer_size);
-        nv_strlcat(*buffer, "\n", *buffer_size);
-        line = nv_strtok(NULL, "\n", &ctx);
-        continue;
-      }
-
-      size_t const name_len = end - start;
-
-      char tmp[1] = { 0 };
-
-      /* 1) figure out directory of `file` */
-      char*       base = NULL;
-      const char* s1   = nv_strrchr(file, '/');
-      const char* s2   = nv_strrchr(file, '\\');
-      const char* sep  = s1 > s2 ? s1 : s2;
-      if (sep != NULL)
-      {
-        size_t const dir_len = sep - file + 1; /* include the slash */
-        base                 = (char*)nv_calloc(dir_len + 1);
-        nv_memcpy(base, file, dir_len);
-        base[dir_len] = '\0';
-      }
-      else
-      {
-        /**
-         * Point base to a 0 byte.
-         * This effectively sets the string to 0 length
-         */
-        base = tmp;
-      }
-
-      size_t const full_len = nv_strlen(base) + name_len;
-
-      char* fullpath = (char*)nv_calloc(full_len + 1);
-      nv_snprintf(fullpath, full_len + 1, "%s%.*s", base, (int)name_len, start);
-      fullpath[full_len] = 0;
-
-      nv_strlcat(*buffer, "\n", *buffer_size);
-
-      nv_error const sub = nv_prep_flatten_file_to_buffer(fullpath, buffer, buffer_size);
-      if (sub != NV_SUCCESS)
-      {
-        return sub;
-      }
-
-      nv_strlcat(*buffer, "\n", *buffer_size);
-
-      line = nv_strtok(NULL, "\n", &ctx);
-
-      /**
-       * We may point base to a stack
-       * buffer. We dont' want to free that.
-       */
-      if (base != tmp)
-      {
-        nv_free(base);
-      }
-      nv_free(fullpath);
-      continue;
-    }
-
-    nv_strlcat(*buffer, line, *buffer_size);
-    nv_strlcat(*buffer, "\n", *buffer_size);
-    line = nv_strtok(NULL, "\n", &ctx);
-  }
-
-  nv_free(contents);
-  return NV_SUCCESS;
 }
 
 void
@@ -546,4 +195,60 @@ bool
 iris_is_upload_batch_active(const iris_driver_t* driver)
 {
   return driver->active_upload_cmd != VK_NULL_HANDLE;
+}
+
+void
+iris_queue_for_destruction(iris_driver_t* driver, iris_resource_t rsrc)
+{
+  iris_destruct_queue_t* queue = &driver->destruct_queue;
+
+  if (!queue->queue || (queue->queue_count + 1) >= queue->queue_capacity)
+  {
+    size_t           new_capacity = NV_MAX(queue->queue_capacity * 2, 1);
+    iris_resource_t* new_handle   = nv_calloc(new_capacity * sizeof(iris_resource_t));
+
+    if (queue->queue)
+    {
+      /**
+       * TODO: destroy entries to truncate, this will just leak them. But that's an edge case so you can ignore it i guess.
+       */
+      nv_memmove(new_handle, queue->queue, NV_MIN(queue->queue_count, new_capacity));
+
+      nv_free(queue->queue);
+    }
+
+    queue->queue_capacity = new_capacity;
+    queue->queue          = new_handle;
+  }
+
+  queue->queue[queue->queue_count++] = rsrc;
+}
+
+void
+iris_queue_flush(iris_driver_t* driver)
+{
+  iris_destruct_queue_t* queue = &driver->destruct_queue;
+
+  for (size_t i = 0; i < queue->queue_count; i++)
+  {
+    iris_queue_destroy_entry(driver, i);
+  }
+}
+
+void
+iris_queue_destroy_entry(iris_driver_t* driver, size_t i)
+{
+  iris_resource_t* resource = &driver->destruct_queue.queue[i];
+
+  VkDevice               device = driver->vkctx->device;
+  VkAllocationCallbacks* alloc  = &driver->vkctx->vkalloc;
+
+  vkDeviceWaitIdle(device);
+  switch (resource->type)
+  {
+    case IRIS_RESOURCE_MEMORY: vkFreeMemory(device, resource->handle.memory, alloc); break;
+    case IRIS_RESOURCE_BUFFER: vkDestroyBuffer(device, resource->handle.buffer, alloc); break;
+    case IRIS_RESOURCE_TEXTURE: vkDestroyImage(device, resource->handle.texture, alloc); break;
+    case IRIS_RESOURCE_SHADER: vkDestroyShaderModule(device, resource->handle.shader, alloc); break;
+  }
 }

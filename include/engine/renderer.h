@@ -43,7 +43,7 @@ extern "C"
   typedef struct nv_draw_call_t      nv_draw_call_t;
   typedef struct nv_renderer         nv_renderer_t;
 
-  struct nvsm_ctx_t;
+  struct nvsm_ctx;
   struct nv_ctx;
   struct iris_driver;
 
@@ -62,11 +62,12 @@ extern "C"
   typedef struct nv_rdr_per_image_data
   {
     VkCommandBuffer cmd;
-    VkSemaphore     render_finish_semaphore;
+    VkFence         image_in_flight; // Set to nv_rdr_per_frame_data::in_flight_fence to signify its in use.
   } nv_rdr_per_image_data_t;
 
   typedef struct nv_rdr_per_frame_data
   {
+    VkSemaphore render_finish_semaphore;
     VkSemaphore image_available_semaphore;
     VkFence     in_flight_fence;
   } nv_rdr_per_frame_data_t;
@@ -204,7 +205,7 @@ extern "C"
     void* mapped;
   } nv_renderer;
 
-  extern nv_error nv_renderer_init(struct nv_ctx* ctx, struct nvsm_ctx_t* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+  extern nv_error nv_renderer_init(struct nv_ctx* ctx, struct nvsm_ctx* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
   extern void     nv_renderer_destroy(nv_renderer_t* rd);
 
   extern bool     nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);

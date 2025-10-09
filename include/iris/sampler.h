@@ -11,7 +11,8 @@ extern "C"
 #endif
 
   struct iris_driver;
-  typedef struct iris_sampler_t iris_sampler_t;
+  typedef struct iris_sampler_internal iris_sampler_internal_t;
+  typedef struct iris_sampler          iris_sampler_t;
 
   typedef enum iris_filter
   {
@@ -59,7 +60,7 @@ extern "C"
     double                    max_lod;
   } iris_sampler_create_info;
 
-  struct iris_sampler_t
+  struct iris_sampler_internal
   {
     iris_filter               min_filter;
     iris_filter               mag_filter;
@@ -83,8 +84,13 @@ extern "C"
     size_t rcount;
   };
 
-  extern void iris_create_sampler(struct iris_driver* driver, const iris_sampler_create_info* pInfo, iris_sampler_t** dst);
-  extern void iris_destroy_sampler(struct iris_driver* driver, iris_sampler_t* sampler);
+  struct iris_sampler
+  {
+    iris_sampler_internal_t* ptr;
+  };
+
+  extern void iris_create_sampler(struct iris_driver* driver, const iris_sampler_create_info* pInfo, iris_sampler_t* dst);
+  extern void iris_destroy_sampler_immediate(struct iris_driver* driver, iris_sampler_t* sampler);
 
   extern VkSampler iris_sampler_get(const iris_sampler_t* sampler);
 

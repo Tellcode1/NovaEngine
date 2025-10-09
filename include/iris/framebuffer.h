@@ -2,9 +2,7 @@
 #define IRIS_FRAMEBUFFER_H
 
 #include "../../external/volk/volk.h"
-#include "texture.h"
 #include "types.h"
-#include "utils.h"
 
 #ifdef __cplusplus
 extern "C"

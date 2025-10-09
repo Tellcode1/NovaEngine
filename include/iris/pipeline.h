@@ -157,7 +157,7 @@ extern "C"
 #define iris_init_render_pass_create_info()                                                                                                                                   \
   (iris_render_pass_create_info) { .samples = VK_SAMPLE_COUNT_1_BIT }
 
-  extern nv_error nv_vk_bake_global_pipelines(struct nvsm_ctx_t* ctx, nv_renderer_t* rd);
+  extern nv_error nv_vk_bake_global_pipelines(struct nvsm_ctx* ctx, nv_renderer_t* rd);
   extern void     nv_vk_destroy_global_pipelines(nvvk_ctx_t* vkctx);
 
   extern void iris_create_graphics_pipeline(nvvk_ctx_t* vkctx, iris_pipeline_create_info const* pCreateInfo, VkPipeline* dstPipeline, u32 flags);

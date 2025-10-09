@@ -75,10 +75,10 @@ nv_sprite_load_from_memory(iris_driver_t* driver, const unsigned char* data, siz
     .descriptorCount = 1,
     .stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT,
   };
-  nv_allocate_descriptor_set(driver->vkctx, &g_pool, &binding, 1, &dst->set);
+  nv_allocate_descriptor_set(driver, &g_pool, &binding, 1, &dst->set);
 
   VkDescriptorImageInfo const desc_img = {
-    .sampler     = iris_sampler_get(dst->sampler),
+    .sampler     = iris_sampler_get(&dst->sampler),
     .imageView   = nv_sprite_get_vk_image_view(dst),
     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
@@ -197,7 +197,7 @@ nv_sprite_get_descriptor_set(const nv_sprite_t* spr)
 VkSampler
 nv_sprite_get_sampler(const nv_sprite_t* spr)
 {
-  return iris_sampler_get(spr->sampler);
+  return iris_sampler_get(&spr->sampler);
 }
 
 nv_format
