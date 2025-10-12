@@ -8,6 +8,7 @@
 #include "../std/include/stdafx.h"
 #include "../std/include/types.h"
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -51,22 +52,22 @@ extern "C"
     u32       img_compressed_sz, glyphs_compressed_sz;
     u32       numglyphs;
     u32       magic2;
-  } NOVA_ATTR_ALIGNED(64);
+  };
 
   struct fontc_glyph_t
   {
     u32   codepoint;
-    float advance;
+    u16   advance; // fixed point: x256
     float x0, x1, y0, y1;
-    float l, b, r, t;
-  } NOVA_ATTR_ALIGNED(64);
+    u16   l, b, r, t; // fixed point: x65535
+  };
 
   struct fontc_file_t
   {
     fontc_file_header_t header;
     fontc_glyph_t*      glyphs; // numglyphs is in header.
     unsigned char*      bitmap;
-  } NOVA_ATTR_ALIGNED(128);
+  };
 
   extern fontc_err_t fontc_read_font(const char* path, fontc_file_t* file);
   extern fontc_err_t fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_atlas_w, size_t init_atlas_h, size_t num_threads, fontc_file_t* out_file);

@@ -187,20 +187,32 @@ nv_input_shutdown(nv_input_ctx_t* ctx)
 }
 
 void
-nv_input_update(nv_input_ctx_t* ctx, nv_ctx_t* globalctx)
+nv_input_update(nv_input_ctx_t* ctx)
 {
+  double accum_scroll_x = 0.0;
+  double accum_scroll_y = 0.0;
+
   SDL_Event event;
   while (SDL_PollEvent(&event))
   {
     nv_consume_event(ctx->ctx, &event);
+
+    if (event.type == SDL_EVENT_MOUSE_WHEEL)
+    {
+      accum_scroll_x += event.wheel.x;
+      accum_scroll_y += event.wheel.y;
+    }
   }
+
+  ctx->scroll_x = accum_scroll_x;
+  ctx->scroll_y = accum_scroll_y;
 
   float mx, my;
   ctx->input_last_frame_mouse_state = ctx->input_mouse_state;
   ctx->input_mouse_state            = SDL_GetMouseState(&mx, &my);
 
-  const float width  = (float)nv_get_window_size(globalctx).width;
-  const float height = (float)nv_get_window_size(globalctx).height;
+  const float width  = (float)nv_get_window_size(ctx->ctx).width;
+  const float height = (float)nv_get_window_size(ctx->ctx).height;
 
   ctx->input_last_frame_mouse_position = ctx->input_mouse_position;
   ctx->input_mouse_position.x          = ((float)mx / width) * 2.0f - 1.0f;
@@ -343,4 +355,16 @@ nv_input_is_action_just_unsignalled(nv_input_ctx_t* ctx, const char* action)
     return false;
   }
   return !ia->this_frame && ia->last_frame;
+}
+
+double
+nv_input_get_mouse_scroll(const nv_input_ctx_t* ctx)
+{
+  return ctx->scroll_y;
+}
+
+double
+nv_input_get_mouse_scroll_x(const nv_input_ctx_t* ctx)
+{
+  return ctx->scroll_x;
 }

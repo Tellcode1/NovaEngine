@@ -222,15 +222,15 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
         vec2f tex_multiplier; // Multiplied with the tex coords
       } pc;
 
-      const mat4 scale     = m4scale(m4init(1.0f), v3muls(drawcall->drawcall.quad.siz, 2.0f));
-      const mat4 rotate    = m4init(1.0f);
-      const mat4 translate = m4translate(m4init(1.0f), drawcall->drawcall.quad.pos);
+      const mat4 scale     = m4scale(m4init(1.0), v3muls(drawcall->drawcall.quad.siz, 2.0f));
+      const mat4 rotate    = scale;
+      const mat4 translate = m4translate(rotate, drawcall->drawcall.quad.pos);
 
-      mat4 model = m4mul(translate, m4mul(rotate, scale));
+      const mat4 model = translate;
 
-      NVM_MATRIX_COPY(pc.model, model);
-      NVM_VEC_COPY(pc.color, drawcall->drawcall.quad.color);
-      NVM_VEC_COPY(pc.tex_multiplier, drawcall->drawcall.quad.tex_multiplier);
+      nvm_mat_copy(pc.model, model);
+      nvm_vec_copy(pc.color, drawcall->drawcall.quad.color);
+      nvm_vec_copy(pc.tex_multiplier, drawcall->drawcall.quad.tex_multiplier);
       vkCmdPushConstants(cmd, g_Pipelines.unlit.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct push_constants), &pc);
 
       VkDescriptorSet       sprite_set = nv_sprite_get_descriptor_set(drawcall->drawcall.quad.spr);
@@ -261,9 +261,9 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
       const vec3 begin = drawcall->drawcall.line.begin;
       const vec3 end   = drawcall->drawcall.line.end;
       pc.model         = m4finit(1.0f);
-      NVM_VEC_COPY(pc.color, drawcall->drawcall.line.color);
-      NVM_VEC_COPY(pc.line_begin, begin);
-      NVM_VEC_COPY(pc.line_end, end);
+      nvm_vec_copy(pc.color, drawcall->drawcall.line.color);
+      nvm_vec_copy(pc.line_begin, begin);
+      nvm_vec_copy(pc.line_end, end);
       vkCmdPushConstants(cmd, g_Pipelines.line.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct line_push_constants), &pc);
 
       vkCmdDraw(cmd, 2, 1, 0, 0);
@@ -797,7 +797,6 @@ renderer_resize(nv_renderer_t* rd)
   nv_assert_else_return(nvvk_ctx_is_valid(rd->vkctx) == true, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nv_ctx_is_valid(rd->ctx) == true, NV_ERROR_BROKEN_STATE);
   vkDeviceWaitIdle(rd->vkctx->device);
-  nv_log_verbose("Had to freeze the device...\n");
 
   rd->will_render_this_frame = false;
 
@@ -858,7 +857,6 @@ renderer_resize(nv_renderer_t* rd)
 
   // Get new swapchain image count
   rd->swapchain.image_count = nv_vk_get_surface_image_count(rd->vkctx, rd->vkctx->phys_device, rd->vkctx->surface);
-  nv_log_info("rd->swapchain.image_count: %i\n", rd->swapchain.image_count);
 
   int w, h;
   SDL_GetWindowSizeInPixels(rd->ctx->window, &w, &h);
@@ -866,6 +864,7 @@ renderer_resize(nv_renderer_t* rd)
   VkSurfaceCapabilitiesKHR surface_capabilities;
   nvvk_result_check(*rd->vkctx, vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rd->vkctx->phys_device, rd->vkctx->surface, &surface_capabilities));
 
+  // Vulkan magic to limit the size of the new render extent.
   const u32 min_width  = surface_capabilities.minImageExtent.width;
   const u32 min_height = surface_capabilities.minImageExtent.height;
   const u32 max_width  = surface_capabilities.maxImageExtent.width;

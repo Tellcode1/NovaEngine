@@ -49,11 +49,11 @@ get_buffer_for_transfer(iris_driver_t* driver, iris_size_t size)
   nv_assert_else_return(driver != NULL, NULL);
   nv_assert_else_return(size != 0, NULL);
 
-  if (size <= IRIS_SMALL_TRANSFER_BUFFER_SIZE && !driver->small_transfer_buffer.drv_in_use)
+  if (size <= IRIS_SMALL_TRANSFER_BUFFER_SIZE)
   {
     return &driver->small_transfer_buffer;
   }
-  else if (size <= driver->large_transfer_buffer.size && !driver->large_transfer_buffer.drv_in_use)
+  else if (size <= driver->large_transfer_buffer.size)
   {
     return &driver->large_transfer_buffer;
   }

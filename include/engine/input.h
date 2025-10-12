@@ -69,12 +69,14 @@ extern "C"
     nv_bitset_t    input_last_frame_kb_state;
     unsigned       input_mouse_state;
     unsigned       input_last_frame_mouse_state;
+    double         scroll_x;
+    double         scroll_y;
 
     nv_hashmap_t input_action_mapping;
   } NOVA_ATTR_ALIGNED(128);
 
   extern nv_error nv_input_init(struct nv_ctx* ctx, nv_input_ctx_t* inputctx);
-  extern void     nv_input_update(nv_input_ctx_t* ctx, struct nv_ctx* globalctx);
+  extern void     nv_input_update(nv_input_ctx_t* ctx);
   extern void     nv_input_shutdown(nv_input_ctx_t* ctx);
 
   void nv_input_bind_function_to_action(nv_input_ctx_t* ctx, const char* action, nv_input_action_response_fn response);
@@ -116,6 +118,17 @@ extern "C"
   // button is 1 for left mouse, 2 for middle, 3 for right
   extern bool nv_input_is_mouse_signalled(const nv_input_ctx_t* ctx, nv_input_mouse_button button);
   extern bool nv_input_is_mouse_just_signalled(const nv_input_ctx_t* ctx, nv_input_mouse_button button);
+
+  /**
+   * Returns 0 for no scroll, >0 for upward, <0 for downward scrolling
+   */
+  extern double nv_input_get_mouse_scroll(const nv_input_ctx_t* ctx);
+
+  /**
+   * Get the mouse scroll in the horizontal direction.
+   * =0 no scroll, >0 right scroll, <0 left scroll
+   */
+  extern double nv_input_get_mouse_scroll_x(const nv_input_ctx_t* ctx);
 
 #ifdef __cplusplus
 }

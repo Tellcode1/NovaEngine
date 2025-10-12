@@ -63,9 +63,9 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
   obj->name      = name;
   obj->scene     = scene;
 
-  obj->transform.position = position;
-  obj->transform.size     = size;
-  obj->transform.rotation = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
+  obj->transform.position  = position;
+  obj->transform.half_size = size;
+  obj->transform.rotation  = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
 
   obj->spr_renderer = nv_zero_init(nv_sprite_renderer);
   // TODO: remove things when they stop working? That's the best strategy!
@@ -137,13 +137,13 @@ nv_object_set_position(nv_object* obj, vec2 to)
 vec2
 nv_object_get_size(const nv_object* obj)
 {
-  return obj->transform.size;
+  return obj->transform.half_size;
 }
 
 void
 nv_object_set_size(nv_object* obj, vec2 to)
 {
-  obj->transform.size = to;
+  obj->transform.half_size = to;
   nv_collider_set_size(obj->col, to);
 }
 

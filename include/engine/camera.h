@@ -47,35 +47,29 @@ extern "C"
     mat4f ortho;       // 64 bytes
     mat4f view;        // 64 bytes
 
+    // camera_up = cross(right, front)
     vec4f camera_position; // vec3 + padding
     vec4f camera_front;    // vec3 + padding
     vec4f camera_right;    // vec3 + padding
-    // camera_up = cross(right, front)
 
     // <fov, near plane, far plane>
-    vec4f clip_plane; // vec3 + padding
+    vec4f clip_plane;
 
     /**
      * The render extent in pixels
      */
-    vec2u render_extent; // 8 bytes
+    vec2u render_extent;
 
     /**
      * The swapchain image index that we're rendering to
      */
-    u32 image_index; // 4 bytes
-    u32 _padding;    // padding to 16
+    u32 image_index;
+
+    u32 _padding;
   };
 
   struct nv_camera
   {
-    /**
-     * If you draw a quad with this width, it'll cover the whole screen
-     * oh, and this should technically be HALVED when you're rendering quads as they generally take HALF size
-     * that's just to say this is the FULL width along each direction.
-     */
-    vec2 ortho_size;
-
     /**
      * TODO: move to uniform buffer with data like current app time, delta time, etc.
      * To be honest i dont know what delta time is supposed to be doing on the GPU except for particle simulations but you ought to
@@ -84,6 +78,11 @@ extern "C"
     mat4 perspective;
     mat4 ortho;
     mat4 view;
+
+    /**
+     * The half size of the camera's orthographic view box, along each direction.
+     */
+    vec2 ortho_half_size;
 
     /**
      * This reduces "choppiness" created by moving the camera if the camera has moved after transferring to the uniform buffer (which is nearly always)
@@ -111,8 +110,7 @@ extern "C"
 
     iris_ring_buffer_t   uniform_buffer;
     nv_descriptor_set_t* descriptor_sets;
-    uchar*               ub_mapped; // Due to alignment requirements, we can't really just index into a buffer
-    // of the uniform buffer structures. Kinda annoying but meh.
+    uchar*               ub_mapped;
 
     // iris_texture_t *render_texture;
     // VkFramebuffer framebuffer;

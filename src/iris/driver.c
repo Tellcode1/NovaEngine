@@ -1,10 +1,8 @@
 #include "../../include/iris/driver.h"
 #include "../../external/volk/volk.h"
 #include "../../include/iris/buffer.h"
-#include "../../include/iris/descriptors.h"
 #include "../../include/iris/memory.h"
 #include "../../include/iris/sampler.h"
-#include "../../include/iris/texture.h"
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
 #include "../../include/shadersystem/nvsm.h"
@@ -17,7 +15,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <vulkan/vulkan_core.h>
 
 #ifndef IRIS_DISABLE_OPTIMIZATIONS
 #  define IRIS_DISABLE_OPTIMIZATIONS (true)
@@ -111,8 +108,6 @@ iris_driver_destroy(iris_driver_t* driver)
     return;
   }
 
-  iris_queue_flush(driver);
-
   for (size_t i = 0; i < nv_list_size(&driver->samplers); i++)
   {
     iris_sampler_internal_t* sampler = (iris_sampler_internal_t*)nv_list_get(&driver->samplers, i);
@@ -131,6 +126,8 @@ iris_driver_destroy(iris_driver_t* driver)
 
   iris_buffer_destroy(&driver->small_transfer_buffer);
   iris_buffer_destroy(&driver->large_transfer_buffer);
+
+  iris_queue_flush(driver);
 
   /**
    * Always destroy child resources (buffers) before parent resources (their pools)

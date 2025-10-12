@@ -1,7 +1,5 @@
 #include "../include/iris/types.h"
-#include "../include/std/include/containers/hashmap.h"
 #include "../include/std/include/math/vec4.h"
-#include "../include/std/include/types.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_filesystem.h>
 
@@ -17,14 +15,13 @@
 
 #include "../include/sets/runtime.h"
 #include "../include/sets/sets.h"
-#include "../include/std/include/chrclass.h"
 #include "../include/std/include/errorcodes.h"
 #include "../include/std/include/print.h"
 #include "../include/std/include/props.h"
 #include "../include/std/include/stdafx.h"
-#include "../include/std/include/strconv.h"
 #include "../include/std/include/timer.h"
 
+#include <SDL3/SDL_video.h>
 #include <float.h>
 #include <math.h>
 #include <stddef.h>
@@ -188,7 +185,7 @@ main(int argc, char* argv[])
   ctext_load_font(&vkctx, &rdr, "Assets/roboto.ttf", 64, &amongus);
 
   nv_sprite_t angwy = nv_zero_init(nv_sprite_t);
-  if ((code = nv_sprite_load_from_disk(&driver, "Assets/i want to die.png", &angwy)) != NV_SUCCESS)
+  if ((code = nv_sprite_load_from_disk(&driver, "/home/bird/dev/NovaEngine/Assets/i want to die.png", &angwy)) != NV_SUCCESS)
   {
     return code;
   }
@@ -197,11 +194,19 @@ main(int argc, char* argv[])
 
   // nv_ctx_register_fixed_update(&ctx, simple_camera_movement_controller, (void*)&inputctx);
 
-  const char* buff = "It's a red guitar.";
+  const char* buff  = "It's a red guitar.";
+  double      scale = 1.0;
 
   while (nv_ctx_running(&ctx))
   {
     iris_begin_upload_batch(&driver);
+
+    nv_update(&ctx);
+    nv_input_update(&inputctx);
+    simple_camera_movement_controller(ctx.delta_time, &inputctx);
+    nv_camera_update(&camera, &rdr);
+
+    scale += nv_input_get_mouse_scroll(&inputctx) / 10.0;
 
     const vec4 background = (vec4){ 0.1, 0.05, 0.1, 1.0F };
     if (nv_renderer_begin(&rdr, background)) // calls nv_camera_upload_uniform_buffer
@@ -210,21 +215,32 @@ main(int argc, char* argv[])
       ctext_text_render_info_t txt             = ctext_init_text_render_info();
       // i.bbox                     = (vec2){ camera.ortho_size.x, camera.ortho_size.y };
       // i.scale_for_fit            = true;
-      txt.position.x = camera_position.x;
-      txt.position.y = camera_position.y;
+      txt.vertical   = CTEXT_VERT_ALIGN_CENTER;
+      txt.scale      = scale;
+      txt.position.x = nv_camera_get_global_mouse_position(&inputctx, &camera).x;
+      txt.position.y = nv_camera_get_global_mouse_position(&inputctx, &camera).y;
+      txt.position.z = 0.0;
+
+      txt.rotation.x = 0.0;
+      txt.rotation.y = 0.0;
+      txt.rotation.z = fmod(ctx.time, 360.0);
+      // nv_printf("%f  %f\n", txt.color.x, txt.color.y);
       ctext_render(&amongus, &txt, "%s", buff);
 
-      nv_renderer_render_quad(&rdr, &angwy, v2init(1, 1), v3zero, v3init(100, 100, 1), v4init(1, 0, 0, 0), 0);
+      nv_renderer_render_quad(&rdr, &rdr.sprite_empty, v2init(1, 1), camera_position, v3init(100, 100, 1), v4init(1, 0, 0, 1), 0);
 
       const vec3 axes_begin = v3init(camera_position.x, camera_position.y, 0.0F);
       const vec3 x_axis_end = v3init(100, 0, 0);
       const vec3 y_axis_end = v3init(0, 100, 0);
-      nv_renderer_render_line(&rdr, axes_begin, v3add(y_axis_end, axes_begin), v4init(0, 1, 0, 1), 0); // Y axis: green
+      const vec3 z_axis_end = v3init(0, 0, 100);
+      nv_renderer_render_line(&rdr, axes_begin, v3add(y_axis_end, axes_begin), v4init(0, 0, 1, 1), 0); // Y axis: blue
       nv_renderer_render_line(&rdr, axes_begin, v3add(x_axis_end, axes_begin), v4init(1, 0, 0, 1), 0); // X axis: red
+      nv_renderer_render_line(&rdr, axes_begin, v3add(z_axis_end, axes_begin), v4init(0, 1, 0, 1), 0); // Z axis: green
 
       nv_renderer_render_quad(&rdr, &angwy, v2init(1, 1), v3zero, v3init(100, 100, 0), v4init(1, 1, 1, 1), 0);
-      txt.position.x = (2 * M_PI * 2.5) * sin(ctx.time);
-      txt.position.y = (2 * M_PI * 2.5) * cos(ctx.time);
+      txt.rotation.z *= NVM_DEG2RAD(fmod(ctx.time * 10.0 + 180.0, 360.0));
+      txt.position.x = 0.0;
+      txt.position.y = 0.0;
       txt.horizontal = CTEXT_HORI_ALIGN_LEFT;
       txt.vertical   = CTEXT_VERT_ALIGN_CENTER;
       txt.color      = v4one;
@@ -232,11 +248,6 @@ main(int argc, char* argv[])
 
       nv_renderer_end(&rdr);
     }
-
-    nv_update(&ctx);
-    nv_input_update(&inputctx, &ctx);
-    simple_camera_movement_controller(ctx.delta_time, &inputctx);
-    nv_camera_update(&camera, &rdr);
 
     iris_end_upload_batch(&driver);
   }

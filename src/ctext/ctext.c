@@ -135,15 +135,16 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
   for (size_t i = 0; i < f_file.header.numglyphs; i++)
   {
     ctext_glyph_t glyph = {
-      .x0      = f_file.glyphs[i].x0,
-      .x1      = f_file.glyphs[i].x1,
-      .y0      = f_file.glyphs[i].y0,
-      .y1      = f_file.glyphs[i].y1,
-      .l       = f_file.glyphs[i].l,
-      .r       = f_file.glyphs[i].r,
-      .b       = f_file.glyphs[i].b,
-      .t       = f_file.glyphs[i].t,
-      .advance = f_file.glyphs[i].advance,
+      .x0 = f_file.glyphs[i].x0,
+      .x1 = f_file.glyphs[i].x1,
+      .y0 = f_file.glyphs[i].y0,
+      .y1 = f_file.glyphs[i].y1,
+      .l  = (float)f_file.glyphs[i].l / (float)UINT16_MAX,
+      .r  = (float)f_file.glyphs[i].r / (float)UINT16_MAX,
+      .b  = (float)f_file.glyphs[i].b / (float)UINT16_MAX,
+      .t  = (float)f_file.glyphs[i].t / (float)UINT16_MAX,
+      // Undo fixed point scaling
+      .advance = (float)f_file.glyphs[i].advance / 256.0F,
     };
     u32 codepoint = f_file.glyphs[i].codepoint;
     nv_hashmap_insert(&dst->glyph_map, &codepoint, &glyph);
@@ -292,10 +293,10 @@ ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox)
     return 0.0F;
   }
 
-  double width, height;
-  ctext_get_text_size(fnt, str, &width, &height);
+  vec2 text_size = v2zero;
+  ctext_get_text_size(fnt, str, &text_size);
 
-  double scale_x = bbox.x / width;
-  double scale_y = bbox.y / height;
+  double scale_x = bbox.x / text_size.x;
+  double scale_y = bbox.y / text_size.y;
   return NV_MIN(scale_x, scale_y);
 }

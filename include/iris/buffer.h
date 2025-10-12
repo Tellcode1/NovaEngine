@@ -161,15 +161,15 @@ extern "C"
 
     /* Driver stored information. Do not modify! */
 
-    // whether the buffer has been detroyed or not
-    bool drv_destroyed;
+    // // whether the buffer has been detroyed or not
+    // bool drv_destroyed;
 
-    /**
-     * if the buffer is in use by anything.
-     * note that this isn't really accurate, its set even if the buffer is just in a recording
-     * that hasn't been submit. It's really leniant, to avoid using this buffer accidentally.
-     */
-    bool drv_in_use;
+    // /**
+    //  * if the buffer is in use by anything.
+    //  * note that this isn't really accurate, its set even if the buffer is just in a recording
+    //  * that hasn't been submit. It's really leniant, to avoid using this buffer accidentally.
+    //  */
+    // bool drv_in_use;
   };
 
 #ifdef __cplusplus

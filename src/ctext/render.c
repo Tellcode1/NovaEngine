@@ -101,11 +101,20 @@ ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   {
     ctext_drawcall_t* drawcall = (ctext_drawcall_t*)nv_list_get(&fnt->drawcalls, i);
 
-    NVM_MATRIX_COPY(pc.model, drawcall->model);
-    NVM_VEC_COPY(pc.color, drawcall->color);
+    const mat4 scale     = m4scale(m4init(1.0), v3init(drawcall->scale, drawcall->scale, 1.0));
+    const mat4 rotate    = m4rotatev(scale, drawcall->rotation);
+    const mat4 translate = m4translate(rotate, drawcall->position);
+
+    mat4 final_model = m4mul(drawcall->model, translate);
+
+    nvm_mat_copy(pc.model, final_model);
+    nvm_vec_copy(pc.color, drawcall->color);
     pc.scale = (float)drawcall->scale;
 
     vkCmdPushConstants(cmd, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct ctext_push_constants), &pc);
+
+    // vkCmdDrawIndexed(cmd, drawcall->index_count, 1, (uint32_t)offset, 0, 0);
+    // offset += drawcall->index_count;
 
     vkCmdDrawIndexed(cmd, drawcall->index_count, 1, 0, (int32_t)offset, 0);
     offset += drawcall->vertex_count;
@@ -172,13 +181,13 @@ split_string_by_lines(const char* str)
 
 // Get the unscaled size of the string
 void
-ctext_get_text_size(const cfont_t* fnt, const char* str, double* w, double* h)
+ctext_get_text_size(const cfont_t* fnt, const char* str, vec2* dst)
 {
   if (ctext_validate_font(fnt) != 0)
   {
     // nv_log_error("Broken font\n");
-    *w = 0.0;
-    *h = 0.0;
+    dst->x = 0.0;
+    dst->y = 0.0;
     return;
   }
 
@@ -231,28 +240,24 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, double* w, double* h)
     prev_width = NV_MAX(width, prev_width);
   }
 
-  if (w != NULL)
+  if (dst != NULL)
   {
-    *w = prev_width;
-  }
-
-  if (h != NULL)
-  {
-    *h = -height;
+    dst->x = prev_width;
+    dst->y = -height;
   }
 }
 
 static inline void
-gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32 codepoint, double scale, double zpos, double* x, double* y, size_t* chars_drawn)
+gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32 codepoint, vec2* offset, size_t* chars_drawn)
 {
   if (codepoint == (u32)' ')
   {
-    (*x) += fnt->space_width * scale;
+    offset->x += fnt->space_width;
     return;
   }
   else if (codepoint == (u32)'\t')
   {
-    (*x) += fnt->space_width * 4.0f * scale;
+    offset->x += fnt->space_width * 4.0f;
     return;
   }
 
@@ -264,19 +269,19 @@ gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32
   }
 
   // Since we are providing vertices to the GPU in floats, we have to convert here from doubles
-  const float glyph_x0 = (float)((glyph->x0 * scale) + *x);
-  const float glyph_x1 = (float)((glyph->x1 * scale) + *x);
-  const float glyph_y0 = (float)((glyph->y0 * scale) + *y);
-  const float glyph_y1 = (float)((glyph->y1 * scale) + *y);
+  const float glyph_x0 = (float)((glyph->x0) + offset->x);
+  const float glyph_x1 = (float)((glyph->x1) + offset->x);
+  const float glyph_y0 = (float)((glyph->y0) + offset->y);
+  const float glyph_y1 = (float)((glyph->y1) + offset->y);
 
   const size_t          index_offset = *chars_drawn * 4;
   ctext_glyph_vertex_t* v_out        = drawcall->vertices + (*chars_drawn * 4); // 4 characters per glyph
 
   // clang-format off
-    v_out[0] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y0, (float)zpos}, (vec2f){glyph->l, glyph->b} };
-    v_out[1] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y0, (float)zpos}, (vec2f){glyph->r, glyph->b} };
-    v_out[2] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y1, (float)zpos}, (vec2f){glyph->r, glyph->t} };
-    v_out[3] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y1, (float)zpos}, (vec2f){glyph->l, glyph->t} };
+    v_out[0] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y0, 0.0F}, (vec2f){glyph->l, glyph->b} };
+    v_out[1] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y0, 0.0F}, (vec2f){glyph->r, glyph->b} };
+    v_out[2] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y1, 0.0F}, (vec2f){glyph->r, glyph->t} };
+    v_out[3] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y1, 0.0F}, (vec2f){glyph->l, glyph->t} };
   // clang-format on
 
   u32* i_out = drawcall->indices + (*chars_drawn * 6);
@@ -287,7 +292,7 @@ gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32
   i_out[4]   = index_offset + 3;
   i_out[5]   = index_offset;
 
-  (*x) += glyph->advance * scale;
+  offset->x += glyph->advance;
   (*chars_drawn)++;
 }
 
@@ -324,11 +329,8 @@ ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_re
 
   nv_list_t lines;
 
-  double text_w = 0.0f;
-  double text_h = 0.0f;
-  double scale  = 0.0f;
-  double ypos   = 0.0f;
-  double xpos   = 0.0f;
+  vec2 text_size       = v2zero;
+  vec2 position_offset = v2zero;
 
   lines = split_string_by_lines(str);
   if (nv_list_size(&lines) == 0)
@@ -336,28 +338,23 @@ ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_re
     return 0;
   }
 
-  scale = pInfo->scale;
-  ctext_get_text_size(fnt, str, &text_w, NULL);
+  ctext_get_text_size(fnt, str, &text_size);
 
-  text_h = fnt->line_height * (double)(nv_list_size(&lines) - 1);
+  // text_h = fnt->line_height * (double)(nv_list_size(&lines) - 1);
 
   if (pInfo->scale_for_fit)
   {
-    double scale_x = (pInfo->bbox.x) / text_w;
-    double scale_y = (pInfo->bbox.y) / text_h;
+    double scale_x = (pInfo->bbox.x) / text_size.x;
+    double scale_y = (pInfo->bbox.y) / text_size.y;
     // multiply with normal scale to get new scale
-    scale *= NV_MIN(scale_x, scale_y);
+    drawcall->scale *= NV_MIN(scale_x, scale_y);
   }
-  drawcall->scale = scale;
 
-  text_w *= scale;
-  text_h *= scale;
-
-  ypos = pInfo->position.y;
+  position_offset.y = 0.0;
   switch (pInfo->vertical)
   {
-    case CTEXT_VERT_ALIGN_CENTER: ypos -= text_h / 2.0f; break;
-    case CTEXT_VERT_ALIGN_BOTTOM: ypos -= text_h; break;
+    case CTEXT_VERT_ALIGN_CENTER: position_offset.y -= text_size.y / 2.0; break;
+    case CTEXT_VERT_ALIGN_BOTTOM: position_offset.y -= text_size.y; break;
     case CTEXT_VERT_ALIGN_TOP: break; // already at top
   }
 
@@ -367,23 +364,22 @@ ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_re
   {
     const char* line = ((char**)nv_list_data(&lines))[i];
 
-    ctext_get_text_size(fnt, line, &text_w, &text_h);
-    text_w *= scale;
+    ctext_get_text_size(fnt, line, &text_size);
 
-    xpos = pInfo->position.x;
+    position_offset.x = 0.0;
     switch (pInfo->horizontal)
     {
-      case CTEXT_HORI_ALIGN_CENTER: xpos -= text_w / 2.0f; break;
-      case CTEXT_HORI_ALIGN_RIGHT: xpos -= text_w; break;
+      case CTEXT_HORI_ALIGN_CENTER: position_offset.x -= text_size.x / 2.0f; break;
+      case CTEXT_HORI_ALIGN_RIGHT: position_offset.x -= text_size.x; break;
       case CTEXT_HORI_ALIGN_LEFT: break;
     }
 
     for (const char* ch = line; *ch != 0; ch++)
     {
-      gen_vert_data_for_char(fnt, drawcall, (u32)*ch, scale, pInfo->position.z, &xpos, &ypos, &chars_drawn);
+      gen_vert_data_for_char(fnt, drawcall, (u32)*ch, &position_offset, &chars_drawn);
     }
 
-    ypos += fnt->line_height * scale;
+    position_offset.x += fnt->line_height;
   }
 
   for (size_t i = 0; i < nv_list_size(&lines); i++)
@@ -399,7 +395,7 @@ ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_re
 // TODO: Replace with a better system
 // that renders the characters all at once.
 static inline void
-ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* pInfo, char* buffer, size_t buffer_size)
+ctext_render_and_queue_drawcall(cfont_t* fnt, const ctext_text_render_info_t* pInfo, char* buffer, size_t buffer_size)
 {
   if (ctext_validate_font(fnt) != 0)
   {
@@ -424,9 +420,11 @@ ctext_render_and_submit_drawcall(cfont_t* fnt, const ctext_text_render_info_t* p
   drawcall.index_offset     = vertex_size;
   drawcall.indices          = (u32*)((uchar*)allocation + vertex_size);
 
-  NVM_VEC_COPY(drawcall.color, pInfo->color);
-  NVM_MATRIX_COPY(drawcall.model, pInfo->model);
-  drawcall.scale = pInfo->scale;
+  nvm_vec_copy(drawcall.color, pInfo->color);
+  nvm_mat_copy(drawcall.model, pInfo->model);
+  drawcall.scale    = pInfo->scale;
+  drawcall.position = pInfo->position;
+  drawcall.rotation = pInfo->rotation;
 
   drawcall.vertex_count = effective_length * 4;
   drawcall.index_count  = effective_length * 6;
@@ -477,7 +475,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
 
   va_end(args);
 
-  ctext_render_and_submit_drawcall(fnt, pInfo, buffer, buffer_size);
+  ctext_render_and_queue_drawcall(fnt, pInfo, buffer, buffer_size);
 
   nv_free(buffer);
 
@@ -485,7 +483,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
 }
 
 static inline void
-ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
+ctext_upload_vertices_and_render_drawcalls(cfont_t* fnt)
 {
   u32 vertices_size = 0;
   u32 index_count   = 0;
@@ -504,6 +502,8 @@ ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 
   const u32 indices_size = index_count * sizeof(u32);
   const u32 buffer_size  = indices_size + vertices_size;
+
+  nv_renderer_t* rd = fnt->rd;
 
   // TODO: We need atleast frames_in_flight sets of the buffer for maximum efficiency
   const bool fnt_buffer_resized = ctext_font_resize_buffer_if_needed(rd, fnt, buffer_size);
@@ -561,7 +561,7 @@ ctext_upload_vertices_and_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 }
 
 void
-_ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
+ctext_flush_font_renders(cfont_t* fnt)
 {
   if (!fnt->rendered_this_frame)
   {
@@ -572,7 +572,7 @@ _ctext_flush_font(nv_renderer_t* rd, cfont_t* fnt)
     fnt->rendered_this_frame = false;
   }
 
-  ctext_upload_vertices_and_render_drawcalls(rd, fnt);
+  ctext_upload_vertices_and_render_drawcalls(fnt);
 
   for (size_t i = 0; i < nv_list_size(&fnt->drawcalls); i++)
   {
@@ -591,6 +591,6 @@ ctext_flush_renders(nv_renderer_t* rd)
   for (size_t i = 0; i < nv_list_size(&rd->ctext->fonts); i++)
   {
     cfont_t* fnt = *(cfont_t**)nv_list_get(&rd->ctext->fonts, i);
-    _ctext_flush_font(rd, fnt);
+    ctext_flush_font_renders(fnt);
   }
 }

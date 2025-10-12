@@ -21,7 +21,7 @@ layout(location = 1) out vec4 f_col;
 void
 main()
 {
-  gl_Position = cam_ub.perspective * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
+  gl_Position = cam_ub.ortho * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
   f_col       = pc.color;
   f_uv = v_uv;
 }

@@ -17,7 +17,7 @@ extern "C"
 
   typedef struct nv_transform
   {
-    vec2 position, size;
+    vec2 position, half_size;
     vec4 rotation;
   } nv_transform;
 

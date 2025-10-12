@@ -104,7 +104,6 @@ iris_memory_pool_destroy(iris_memory_pool_t* pool)
 
   if (pool->memory_handle != VK_NULL_HANDLE)
   {
-    nv_log_verbose("Had to freeze the device...\n");
     vkDeviceWaitIdle(device);
     vkFreeMemory(device, pool->memory_handle, &pool->driver->vkctx->vkalloc);
   }

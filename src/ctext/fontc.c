@@ -1,7 +1,9 @@
 #include "../../include/std/include/errorcodes.h"
 #include "../../include/std/include/log.h"
+#include "../../include/std/include/math/vec4.h"
 #include "../../include/std/include/semver.h"
 #include "../../include/std/include/stdafx.h"
+#include "../../include/std/include/strconv.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
 
@@ -220,14 +222,15 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
   FT_Face*           faces                    = NULL;
   bool               freetype_library_is_open = false;
   fontc_glyph_t*     glyphs                   = NULL;
-  nv_texture_atlas_t atlas                    = nv_zero_init(nv_texture_atlas_t);
-  size_t             glyph_alloc_size         = 0;
-  size_t             glyph_count              = 0;
-  size_t             image_size               = 0;
-  size_t             glyphs_size              = 0;
-  float              atlas_w                  = 0.0F;
-  float              atlas_h                  = 0.0F;
-  float              units_per_em             = 0.0F;
+  vec4u*             atlas_extents; // <l,b,r,t> unscaled
+  nv_texture_atlas_t atlas             = nv_zero_init(nv_texture_atlas_t);
+  size_t             glyph_alloc_count = 0;
+  size_t             glyph_count       = 0;
+  size_t             image_size        = 0;
+  size_t             glyphs_size       = 0;
+  float              atlas_w           = 0.0F;
+  float              atlas_h           = 0.0F;
+  float              units_per_em      = 0.0F;
 
   unsigned char* atlas_image = NULL;
 
@@ -258,9 +261,10 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
 
   out_file->header.line_height = -(float)face->size->metrics.height / (float)face->height;
 
-  glyph_alloc_size = 256;
-  glyphs           = (fontc_glyph_t*)nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_size);
-  if (glyphs == NULL)
+  glyph_alloc_count = 256;
+  glyphs            = (fontc_glyph_t*)nv_malloc(sizeof(fontc_glyph_t) * glyph_alloc_count);
+  atlas_extents     = (vec4u*)nv_malloc(sizeof(vec4u) * glyph_alloc_count);
+  if (glyphs == NULL || atlas_extents == NULL)
   {
     nv_log_error("Failed to allocate memory for glyphs\n");
     retcode = FONTC_MALLOC_FAILED;
@@ -301,15 +305,17 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
 
     glyphs[0] = (fontc_glyph_t){
       .codepoint = 0,
-      .advance   = (float)face->glyph->metrics.horiAdvance,
+      .advance   = (u16)((float)face->glyph->metrics.horiAdvance * 256),
       .x0        = (float)box.xMin,
       .x1        = (float)box.xMax,
       .y0        = (float)box.yMin,
       .y1        = (float)box.yMax,
-      .l         = (float)x,
-      .b         = (float)y + (float)h,
-      .r         = (float)x + (float)w,
-      .t         = (float)y,
+    };
+    atlas_extents[0] = (vec4u){
+      x,
+      y + h,
+      x + w,
+      y,
     };
   }
 
@@ -323,6 +329,8 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     retcode = FONTC_MALLOC_FAILED;
     goto CLEANUP_AND_RETURN;
   }
+
+  units_per_em = (float)face->units_per_EM;
 
 #pragma omp parallel
   {
@@ -338,6 +346,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
 
     FT_Set_Pixel_Sizes(thread_face, 0, pixel_size);
     fontc_glyph_t local_glyphs[num_chars];
+    vec4u         local_extents[num_chars];
     u32           local_count = 0;
 
 #pragma omp for schedule(dynamic)
@@ -386,17 +395,20 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
       FT_Glyph_Get_CBox(gl, FT_GLYPH_BBOX_UNSCALED, &box);
       FT_Done_Glyph(gl);
 
-      local_glyphs[local_count++] = (fontc_glyph_t){
+      float advance             = (float)thread_face->glyph->metrics.horiAdvance / units_per_em;
+      local_glyphs[local_count] = (fontc_glyph_t){
         .codepoint = i,
-        .advance   = (float)thread_face->glyph->metrics.horiAdvance,
+        .advance   = (u16)(advance * 256),
         .x0        = (float)box.xMin,
         .x1        = (float)box.xMax,
         .y0        = (float)box.yMin,
         .y1        = (float)box.yMax,
-        .l         = (float)x,
-        .b         = (float)y + (float)h,
-        .r         = (float)x + (float)w,
-        .t         = (float)y,
+      };
+      local_extents[local_count++] = (vec4u){
+        x,
+        y + h,
+        x + w,
+        y,
       };
     }
 
@@ -405,6 +417,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
       if (local_count > 0)
       {
         nv_memcpy(&glyphs[glyph_count], local_glyphs, local_count * sizeof(fontc_glyph_t));
+        nv_memcpy(&atlas_extents[glyph_count], local_extents, local_count * sizeof(vec4u));
       }
       glyph_count += local_count;
     }
@@ -415,14 +428,16 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     FT_Done_Face(faces[i]);
   }
 
-  nv_log_info("final atlas size w=%zu h=%zu (uncompressed %b)\n", atlas.width, atlas.height, atlas.width * atlas.height * nv_format_get_bytes_per_pixel(atlas.format));
+  char buffer[256];
+  nv_btoa2(atlas.width * atlas.height * nv_format_get_bytes_per_pixel(atlas.format), true, buffer, sizeof(buffer));
+
+  nv_log_info("final atlas size w=%zu h=%zu (uncompressed %s)\n", atlas.width, atlas.height, buffer);
 
   nv_texture_atlas_finish(&atlas);
 
   atlas_w = (float)atlas.width;
   atlas_h = (float)atlas.height;
 
-  units_per_em = (float)face->units_per_EM;
   if (atlas_w == 0.0F || atlas_h == 0.0F)
   {
     retcode = FONTC_ATLAS_ERROR;
@@ -438,11 +453,13 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     glyph->x1 /= units_per_em;
     glyph->y0 /= units_per_em;
     glyph->y1 /= units_per_em;
-    glyph->l /= atlas_w;
-    glyph->r /= atlas_w;
-    glyph->b /= atlas_h;
-    glyph->t /= atlas_h;
-    glyph->advance /= units_per_em;
+
+    // We stored the atlas extents as <l,b,r,t> already, so just unpack them
+    // and convert them to fixed point
+    glyph->l = (u16)(((float)atlas_extents[i].x / atlas_w) * UINT16_MAX);
+    glyph->b = (u16)(((float)atlas_extents[i].y / atlas_h) * UINT16_MAX);
+    glyph->r = (u16)(((float)atlas_extents[i].z / atlas_w) * UINT16_MAX);
+    glyph->t = (u16)(((float)atlas_extents[i].w / atlas_h) * UINT16_MAX);
   }
   nv_log_info("%zu glyphs processed\n", glyph_count);
 

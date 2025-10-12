@@ -2,7 +2,6 @@
 #define C_TEXT_H
 
 #include "../iris/buffer.h"
-#include "../iris/memory.h"
 #include "../iris/ringbuffer.h"
 #include "../iris/sampler.h"
 #include "../iris/texture.h"
@@ -14,7 +13,6 @@
 #include "../std/include/math/vec2.h"
 #include "../std/include/math/vec3.h"
 #include "../std/include/math/vec4.h"
-#include "../std/include/stdafx.h"
 #include <stddef.h>
 
 // THE PLAN
@@ -32,14 +30,15 @@ extern "C"
 
   // DEPRECATE THIS YOU FOOL
   // IT WAS ONLY MEANT FOR SIMPLE TESTING
-  static const int             CTEXT_MAX_FONT_COUNT = 8;
-  typedef struct cfont_t       cfont_t;
-  typedef struct ctext_label_t ctext_label_t;
+  static const int           CTEXT_MAX_FONT_COUNT = 8;
+  typedef struct cfont       cfont_t;
+  typedef struct ctext_label ctext_label_t;
 
-  typedef struct ctext_glyph_t            ctext_glyph_t;
-  typedef struct ctext_drawcall_t         ctext_drawcall_t;
-  typedef struct ctext_text_render_info_t ctext_text_render_info_t;
+  typedef struct ctext_glyph            ctext_glyph_t;
+  typedef struct ctext_drawcall         ctext_drawcall_t;
+  typedef struct ctext_text_render_info ctext_text_render_info_t;
 
+  // TODO: Implement
   typedef enum ctext_text_style
   {
     CTEXT_TEXT_STYLE_NORMAL      = 0,
@@ -86,27 +85,31 @@ extern "C"
   extern void ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fmt, ...) NOVA_ATTR_FORMAT(3, 4);
 
   extern void ctext_flush_renders(struct nv_renderer* rd);
-  extern void _ctext_flush_font(struct nv_renderer* rd, cfont_t* fnt);
+  extern void ctext_flush_font_renders(cfont_t* fnt);
 
-  extern void ctext_get_text_size(const cfont_t* fnt, const char* str, double* w, double* h);
+  extern void ctext_get_text_size(const cfont_t* fnt, const char* str, vec2* dst);
 
   // Get the scale needed to fit the string in a box
   // The scale is calculated as if both the string and the box were at (0,0)
   extern double ctext_get_scale_for_fit(const cfont_t* fnt, const char* str, vec2 bbox);
 
-  struct ctext_text_render_info_t
+  struct ctext_text_render_info
   {
     mat4             model;
     ctext_hori_align horizontal;
     ctext_vert_align vertical;
-    vec4             color;
-    vec3             position;
-    double           scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
-    vec2             bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
-    bool             scale_for_fit; // calculates the scale needed to fit the text into a box
+
+    vec4 color;
+    vec3 position;
+    // Radians, as always.
+    vec3 rotation; // TODO: Quaternion :3
+
+    double scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
+    vec2   bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
+    bool   scale_for_fit; // calculates the scale needed to fit the text into a box
   };
 
-  struct ctext_glyph_t
+  struct ctext_glyph
   {
     // Stored in the disk as floats to save space
     float x0, x1, y0, y1;
@@ -122,26 +125,31 @@ extern "C"
     float scale;
   };
 
-  typedef struct ctext_glyph_vertex_t
+  typedef struct ctext_glyph_vertex
   {
     vec3f pos;
     vec2f uv;
   } ctext_glyph_vertex_t;
 
-  struct ctext_drawcall_t
+  struct ctext_drawcall
   {
-    mat4                  model;
-    size_t                vertex_count;
-    size_t                index_count;
-    size_t                index_offset;
-    vec4                  color;
-    double                scale;
+    mat4 model;
+
+    vec3   position;
+    vec3   rotation;
+    vec4   color;
+    double scale;
+
+    size_t vertex_count;
+    size_t index_count;
+    size_t index_offset;
+
     ctext_glyph_vertex_t* vertices;
     u32*                  indices;
   };
 
   /* Internal CFont struct. Do not modify yourselves! */
-  struct cfont_t
+  struct cfont
   {
     nv_hashmap_t glyph_map;
     nv_list_t    drawcalls;
@@ -176,6 +184,7 @@ extern "C"
       .vertical      = CTEXT_VERT_ALIGN_CENTER,
       .color         = v4one,
       .position      = v3zero,
+      .rotation      = v3zero,
       .scale         = 1.0f,
       .bbox          = v2zero,
       .scale_for_fit = false,

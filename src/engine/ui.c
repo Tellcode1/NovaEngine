@@ -55,11 +55,11 @@ nvui_create_button(nv_sprite_t* spr)
     nv_raise_error(NV_ERROR_BROKEN_STATE, "nvui not initialized\n");
     return NULL;
   }
-  nvui_button bton        = nv_zero_init(nvui_button);
-  bton.transform.position = v2zero;
-  bton.transform.size     = (vec2){ 0.5f, 0.5f };
-  bton.color              = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
-  bton.spr                = spr;
+  nvui_button bton         = nv_zero_init(nvui_button);
+  bton.transform.position  = v2zero;
+  bton.transform.half_size = (vec2){ 0.5f, 0.5f };
+  bton.color               = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
+  bton.spr                 = spr;
   nv_list_push_back(&nvui_ctx.btons, &bton);
   return &((nvui_button*)nv_list_data(&nvui_ctx.btons))[nv_list_size(&nvui_ctx.btons) - 1];
 }
@@ -72,17 +72,17 @@ nvui_create_slider(nv_sprite_t* foreground, nv_sprite_t* background)
     nv_log_error("nvui not initialized\n");
     return NULL;
   }
-  nvui_slider slider        = nv_zero_init(nvui_slider);
-  slider.transform.position = v2zero;
-  slider.transform.size     = (vec2){ 0.5f, 1.5f };
-  slider.min                = 0.0f;
-  slider.max                = 1.0f;
-  slider.value              = 0.0f;
-  slider.bg_color           = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
-  slider.slider_color       = (vec4){ 1.0f, 0.0f, 0.0f, 1.0f };
-  slider.bg_sprite          = foreground;
-  slider.slider_sprite      = background;
-  slider.interactable       = false;
+  nvui_slider slider         = nv_zero_init(nvui_slider);
+  slider.transform.position  = v2zero;
+  slider.transform.half_size = (vec2){ 0.5f, 1.5f };
+  slider.min                 = 0.0f;
+  slider.max                 = 1.0f;
+  slider.value               = 0.0f;
+  slider.bg_color            = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
+  slider.slider_color        = (vec4){ 1.0f, 0.0f, 0.0f, 1.0f };
+  slider.bg_sprite           = foreground;
+  slider.slider_sprite       = background;
+  slider.interactable        = false;
   nv_list_push_back(&nvui_ctx.sliders, &slider);
   return (nvui_slider*)nv_list_get(&nvui_ctx.sliders, nv_list_size(&nvui_ctx.sliders) - 1);
 }
@@ -121,7 +121,7 @@ nvui_render(nv_renderer_t* rd)
 
     const nv_transform* t = &bton->transform;
 
-    nv_renderer_render_quad(rd, bton->spr, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->size.x, t->size.y, 1.0f }, bton->color, 0);
+    nv_renderer_render_quad(rd, bton->spr, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->half_size.x, t->half_size.y, 1.0f }, bton->color, 0);
   }
 
   for (int i = 0; i < (int)nv_list_size(&nvui_ctx.sliders); i++)
@@ -137,7 +137,7 @@ nvui_render(nv_renderer_t* rd)
     const nv_transform* t = &slider->transform;
 
     nv_renderer_render_quad(
-        rd, slider->bg_sprite, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->size.x, t->size.y, 1.0f }, slider->bg_color, 0);
+        rd, slider->bg_sprite, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->half_size.x, t->half_size.y, 1.0f }, slider->bg_color, 0);
 
     double pcent = ((slider->value - slider->min) / (slider->max - slider->min));
     pcent        = NVM_CLAMP(pcent, 0.0f, 1.0f);
@@ -146,8 +146,8 @@ nvui_render(nv_renderer_t* rd)
         rd,
         slider->slider_sprite,
         (vec2){ 1.0f, 1.0f },
-        (vec3){ t->position.x + 0.5f * t->size.x * (pcent - 1.0f), t->position.y, 0.0f },
-        (vec3){ t->size.x * pcent, t->size.y, 1.0f },
+        (vec3){ t->position.x + 0.5f * t->half_size.x * (pcent - 1.0f), t->position.y, 0.0f },
+        (vec3){ t->half_size.x * pcent, t->half_size.y, 1.0f },
         slider->slider_color,
         1);
   }
@@ -164,7 +164,7 @@ nvui_update(nv_input_ctx_t* inputctx)
     nvui_button*        bton = (nvui_button*)nv_list_get(&nvui_ctx.btons, i);
     const nv_transform* t    = &bton->transform;
 
-    const nvm_rect2d bton_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
+    const nvm_rect2d bton_rect = (nvm_rect2d){ .position = t->position, .half_size = t->half_size };
     if (nvm_is_point_inside_rect(&mouse_position, &bton_rect))
     {
       bton->was_hovered = true;
@@ -191,14 +191,14 @@ nvui_update(nv_input_ctx_t* inputctx)
     nvui_slider*        slider = (nvui_slider*)nv_list_get(&nvui_ctx.sliders, i);
     const nv_transform* t      = &slider->transform;
 
-    const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .size = v2muls(t->size, 2.0f) };
+    const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .half_size = t->half_size };
     if (slider->interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
     {
       if (nv_input_is_mouse_signalled(inputctx, NOVA_MOUSE_BUTTON_LEFT))
       {
-        double rel_mx     = mouse_position.x - (t->position.x - t->size.x * 0.5);
-        double clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->size.x);
-        double percentage = clamped_mx / t->size.x;
+        double rel_mx     = mouse_position.x - (t->position.x - t->half_size.x * 0.5);
+        double clamped_mx = NVM_CLAMP(rel_mx, 0.0f, t->half_size.x);
+        double percentage = clamped_mx / t->half_size.x;
         slider->value     = slider->min + (percentage * (slider->max - slider->min));
         slider->moved     = true;
       }

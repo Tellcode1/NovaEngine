@@ -37,14 +37,14 @@ nv_camera_init(iris_driver_t* driver, nv_camera_t* cam)
 {
   nvvk_ctx_t* const vkctx = driver->vkctx;
 
-  const float ortho_w = 10.0F, ortho_h = 10.0F;
+  const float ortho_half_w = 5.0F, ortho_half_h = 5.0F;
   *cam = (nv_camera_t){
-    .ortho_size  = (vec2){ ortho_w, ortho_h },
-    .perspective = nv_zero_init(mat4),
-    .ortho       = m4ortho(-ortho_w, ortho_w, -ortho_h, ortho_h, 0.1f, 100.0f),
-    .position    = (vec3){ 0.0f, 0.0f, 10.0f },
-    .actual_pos  = (vec3){ 0.0f, 0.0f, 10.0f },
-    .front       = (vec3){ 0.0f, 0.0f, 1.0f },
+    .ortho_half_size = (vec2){ ortho_half_w, ortho_half_h },
+    .perspective     = nv_zero_init(mat4),
+    .ortho           = m4ortho(-ortho_half_w, ortho_half_w, -ortho_half_h, ortho_half_h, 0.1f, 100.0f),
+    .position        = (vec3){ 0.0f, 0.0f, 10.0f },
+    .actual_pos      = (vec3){ 0.0f, 0.0f, 10.0f },
+    .front           = (vec3){ 0.0f, 0.0f, 1.0f },
 
     // These angles should not be in radians because they're converted at update() time.
     .yaw_degrees   = -90.0F,
@@ -152,9 +152,9 @@ nv_camera_rotate(nv_camera_t* cam, float yaw_, float pitch_)
   cam->yaw_degrees += yaw_;
   cam->pitch_degrees -= pitch_;
 
-  cam->yaw_degrees = SDL_fmodf(cam->yaw_degrees, 360.0f);
+  cam->yaw_degrees = fmod(cam->yaw_degrees, 360.0);
 
-  const float bound  = 89.9f;
+  const double bound = 89.9;
   cam->pitch_degrees = NVM_CLAMP(cam->pitch_degrees, -bound, bound);
 }
 
@@ -181,28 +181,27 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
   // }
   iris_ring_buffer_next(&camera.uniform_buffer);
 
-  const float yaw_rads   = NVM_DEG2RAD(cam->yaw_degrees);
-  const float pitch_rads = NVM_DEG2RAD(cam->pitch_degrees);
-  const float cospitch   = SDL_cosf(pitch_rads);
-  vec3        new_front;
-  new_front.x = SDL_cosf(yaw_rads) * cospitch;
-  new_front.y = SDL_sinf(pitch_rads);
-  new_front.z = SDL_sinf(yaw_rads) * cospitch;
+  const double yaw_rads   = NVM_DEG2RAD(cam->yaw_degrees);
+  const double pitch_rads = NVM_DEG2RAD(cam->pitch_degrees);
+  const double cospitch   = cos(pitch_rads);
+
+  vec3 new_front;
+  new_front.x = cos(yaw_rads) * cospitch;
+  new_front.y = sin(pitch_rads);
+  new_front.z = sin(yaw_rads) * cospitch;
 
   cam->front = v3normalize(new_front);
 
   cam->view = m4lookat(cam->actual_pos, v3add(cam->actual_pos, nv_camera_get_front(cam)), nv_camera_get_up(cam));
 
-  // Rotate advertised position to the camera's updated position
-  cam->position = cam->actual_pos;
-
-  const double ortho_w = cam->ortho_size.x;
-  const double ortho_h = cam->ortho_size.y;
+  const double ortho_half_w = cam->ortho_half_size.x;
+  const double ortho_half_h = cam->ortho_half_size.y;
 
   const nv_extent2d render_extent = nv_renderer_get_render_extent(rd);
   const double      aspect        = (double)render_extent.width / (double)render_extent.height;
-  cam->perspective                = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
-  cam->ortho                      = m4ortho(-ortho_w / 2, ortho_w / 2, -ortho_h / 2, ortho_h / 2, 0.1, 100.0);
+
+  cam->perspective = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
+  cam->ortho       = m4ortho(-ortho_half_w, ortho_half_w, -ortho_half_h, ortho_half_h, 0.1, 100.0);
 }
 
 void
@@ -212,13 +211,15 @@ nv_camera_upload_uniform_buffer(nv_camera_t* cam, struct nv_renderer* rd)
   const vec3        right         = nv_camera_get_right(cam);
 
   nv_camera_uniform_buffer_t ub = nv_zero_init(nv_camera_uniform_buffer_t);
-  NVM_MATRIX_COPY(ub.perspective, cam->perspective);
-  NVM_MATRIX_COPY(ub.ortho, cam->ortho);
-  NVM_MATRIX_COPY(ub.view, cam->view);
 
-  NVM_VEC_COPY(ub.camera_position, cam->position);
-  NVM_VEC_COPY(ub.camera_front, cam->front);
-  NVM_VEC_COPY(ub.camera_right, right);
+  nvm_mat_copy(ub.perspective, cam->perspective);
+  nvm_mat_copy(ub.ortho, cam->ortho);
+  nvm_mat_copy(ub.view, cam->view);
+
+  nvm_vec_copy(ub.camera_position, cam->position);
+  nvm_vec_copy(ub.camera_front, cam->front);
+  nvm_vec_copy(ub.camera_right, right);
+
   ub.clip_plane    = (vec4f){ (float)cam->fov, (float)cam->near_clip, (float)cam->far_clip, 0.0F };
   ub.render_extent = (vec2u){ (u32)render_extent.width, (u32)render_extent.height };
   ub.image_index   = rd->image_index;
@@ -226,19 +227,16 @@ nv_camera_upload_uniform_buffer(nv_camera_t* cam, struct nv_renderer* rd)
   void* mapping_write = (void*)((uchar*)cam->ub_mapped + nv_camera_get_write_offset(cam));
   nv_memcpy(mapping_write, &ub, sizeof(ub)); // Write uniform buffer data to the frame.
 
-  vkFlushMappedMemoryRanges(
-      rd->vkctx->device,
-      1,
-      &(VkMappedMemoryRange){ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-                              NULL,
-                              iris_memory_get_backing(&cam->uniform_buffer.backing.memory),
-                              cam->uniform_buffer.backing.memory.pool_offset + nv_camera_get_write_offset(cam),
-                              sizeof(ub) });
+  iris_memory_flush(&cam->uniform_buffer.backing.memory);
+
+  // Rotate advertised position to the camera's updated position
+  cam->position = cam->actual_pos;
 }
 
 vec2
 nv_camera_get_global_mouse_position(nv_input_ctx_t* inputctx, const nv_camera_t* cam)
 {
-  vec2 const ortho_pos = v2mulv(nv_input_get_mouse_position(inputctx), cam->ortho_size);
-  return v2add(ortho_pos, (vec2){ cam->position.x, cam->position.y });
+  vec2 mouse_pos  = v2mulv(nv_input_get_mouse_position(inputctx), cam->ortho_half_size);
+  vec2 global_pos = v2add((vec2){ cam->position.x, cam->position.y }, mouse_pos);
+  return global_pos;
 }
