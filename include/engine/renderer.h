@@ -13,17 +13,16 @@
 #include "sprite.h"
 
 #include "../std/include/errorcodes.h"
+#include "../std/include/math/math.h"
 #include "../std/include/math/vec2.h"
 #include "../std/include/math/vec3.h"
 #include "../std/include/math/vec4.h"
-#include "../std/include/stdafx.h"
 #include "../std/include/types.h"
 
 #include "../iris/buffer.h"
 #include "../iris/descriptors.h"
 #include "../iris/driver.h"
 #include "../iris/framebuffer.h"
-#include "../iris/memory.h"
 #include "../iris/texture.h"
 #include "../iris/types.h"
 
@@ -83,7 +82,7 @@ extern "C"
   {
     nv_sample_count samples;
     nv_buffer_mode  buffer_mode;
-    nv_extent2d     initial_window_size;
+    nv_extent2      initial_window_size;
     int             exit_key;
     bool            multisampling_enable;
     bool            window_resizable;
@@ -187,7 +186,7 @@ extern "C"
     nv_sample_count samples;
 
     VkRenderPass render_pass;
-    nv_extent2d  render_extent;
+    nv_extent2   render_extent;
 
     VkCommandPool command_pool;
 
@@ -205,22 +204,23 @@ extern "C"
     void* mapped;
   } nv_renderer;
 
-  extern nv_error nv_renderer_init(struct nv_ctx* ctx, struct nvsm_ctx* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
-  extern void     nv_renderer_destroy(nv_renderer_t* rd);
+  extern nv_error nv_rdr_init(struct nv_ctx* ctx, struct nvsm_ctx* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+  extern void     nv_rdr_destroy(nv_renderer_t* rd);
 
-  extern bool     nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color);
-  extern nv_error nv_renderer_end(nv_renderer_t* rd);
+  /**
+   * Returns whether the frame is to be rendered or not.
+   */
+  extern bool     nv_rdr_begin_render(nv_renderer_t* rd, vec4 clear_color);
+  extern nv_error nv_rdr_end_render(nv_renderer_t* rd);
 
-  extern u32             nv_renderer_get_frame(const nv_renderer_t* rd);
-  extern u32             nv_renderer_get_frames_in_flight(const nv_renderer_t* rd);
-  extern VkCommandBuffer nv_renderer_get_draw_buffer(const nv_renderer_t* rd);
-  extern VkRenderPass    nv_renderer_get_render_pass(const nv_renderer_t* rd);
-  extern nv_extent2d     nv_renderer_get_render_extent(const nv_renderer_t* rd);
+  extern u32             nv_rdr_get_frame(const nv_renderer_t* rd);
+  extern u32             nv_rdr_get_frames_in_flight(const nv_renderer_t* rd);
+  extern VkCommandBuffer nv_rdr_get_draw_buffer(const nv_renderer_t* rd);
+  extern VkRenderPass    nv_rdr_get_render_pass(const nv_renderer_t* rd);
+  extern nv_extent2      nv_rdr_get_render_extent(const nv_renderer_t* rd);
 
-  extern void nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer);
-  extern void nv_renderer_render_line(nv_renderer_t* rd, vec3 start, vec3 end, vec4 color, int layer);
-
-  extern nv_extent2d nv_get_window_size(nv_ctx_t* ctx);
+  extern void nv_rdr_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer);
+  extern void nv_rdr_render_line(nv_renderer_t* rd, vec3 start, vec3 end, vec4 color, int layer);
 
 #ifdef __cplusplus
 }

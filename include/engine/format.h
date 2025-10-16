@@ -67,14 +67,14 @@ typedef enum nv_format
 extern VkFormat_   nv_format_to_vk_format(nv_format format) NOVA_ATTR_CONST;
 extern SDL_Format_ nv_format_to_sdl_format(nv_format format) NOVA_ATTR_CONST;
 
-extern nv_format nv_vk_format_to_nv_format(VkFormat_ format) NOVA_ATTR_CONST;
-extern nv_format nv_sdl_format_to_nv_format(SDL_Format_ format) NOVA_ATTR_CONST;
+extern nv_format nv_format_from_vk_format(VkFormat_ format) NOVA_ATTR_CONST;
+extern nv_format nv_format_from_sdl_format(SDL_Format_ format) NOVA_ATTR_CONST;
 
-// dst is a pointer to a const char *
-// like:
-// const char *str; nv_FormatToString(NOVA_FORMAT_R8, &str);
 /**
- * This function must never return NULL
+ * dst is a pointer to a const char *
+ * like:
+ * const char *str; nv_format_to_string(NOVA_FORMAT_R8, &str);
+ * This function will never return NULL
  */
 extern const char* nv_format_to_string(nv_format format) NOVA_ATTR_CONST;
 

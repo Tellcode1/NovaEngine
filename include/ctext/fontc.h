@@ -3,9 +3,7 @@
 
 // implementation: vk.c
 
-#include "../std/include/attributes.h"
 #include "../std/include/semver.h"
-#include "../std/include/stdafx.h"
 #include "../std/include/types.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -57,7 +55,7 @@ extern "C"
   struct fontc_glyph_t
   {
     u32   codepoint;
-    u16   advance; // fixed point: x256
+    u16   advance_x256; // fixed point: x256
     float x0, x1, y0, y1;
     u16   l, b, r, t; // fixed point: x65535
   };

@@ -65,7 +65,7 @@ nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image* img, size_t* out
   {
     return 0;
   }
-  nv_assert(NOVA_CONT_IS_VALID(atlas));
+  nv_assert_else_return(NOVA_CONT_IS_VALID(atlas), -1);
 
   if (atlas_resize_mutex == NULL)
   {
@@ -106,7 +106,7 @@ nv_texture_atlas_add(nv_texture_atlas_t* atlas, const nv_image* img, size_t* out
 void
 nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
 {
-  nv_assert(NOVA_CONT_IS_VALID(atlas));
+  nv_assert_else_return(NOVA_CONT_IS_VALID(atlas), );
   SDL_LockMutex(atlas->mutex);
 
   if (atlas->width == 0 || atlas->height == 0)
@@ -123,7 +123,7 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
   size_t const channels = nv_format_get_bytes_per_pixel(atlas->format);
 
   unsigned char* new_data = (uchar*)nv_calloc(new_w * new_h * channels);
-  nv_assert(new_data != NULL);
+  nv_assert_else_return(new_data != NULL, );
 
   if (atlas->data != NULL)
   {
@@ -149,7 +149,7 @@ nv_texture_atlas_resize(nv_texture_atlas_t* atlas, int scale)
 int
 nv_texture_atlas_finish(nv_texture_atlas_t* atlas)
 {
-  nv_assert(NOVA_CONT_IS_VALID(atlas));
+  nv_assert_else_return(NOVA_CONT_IS_VALID(atlas), -1);
 
   SDL_LockMutex(atlas->mutex);
 
@@ -209,7 +209,7 @@ nv_texture_atlas_destroy(nv_texture_atlas_t* atlas)
   {
     return;
   }
-  nv_assert(NOVA_CONT_IS_VALID(atlas));
+  nv_assert_else_return(NOVA_CONT_IS_VALID(atlas), );
 
   SDL_LockMutex(atlas->mutex);
   if (atlas->data != NULL)

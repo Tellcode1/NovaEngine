@@ -13,11 +13,9 @@
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <vulkan/vulkan_core.h>
 
 static inline VkImageAspectFlags
 get_aspect_flags_for_format(nv_format fmt)
@@ -47,7 +45,7 @@ create_image(
     VkImageType        image_type,
     VkImageLayout      initial_layout,
     VkSampleCountFlags samples,
-    nv_extent3D        extent,
+    nv_extent3         extent,
     u32                array_layers,
     nv_format          format,
     bool               linear_tiling,
@@ -192,7 +190,7 @@ iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* 
 }
 
 void
-iris_texture_destroy_immediate(iris_texture_t* tex)
+iris_texture_destroy(iris_texture_t* tex)
 {
   if (!tex || !tex->driver || !tex->driver->vkctx)
   {
@@ -204,7 +202,7 @@ iris_texture_destroy_immediate(iris_texture_t* tex)
 
   vkDestroyImage(device, tex->handle, &vkctx->vkalloc);
   vkDestroyImageView(device, tex->handle_view, &vkctx->vkalloc);
-  iris_memory_free_immediate(&tex->memory);
+  iris_memory_free(&tex->memory);
 
   nv_bzero(tex, sizeof(iris_texture_t));
 }
@@ -401,7 +399,7 @@ nv_format_to_vk_format(nv_format format)
 }
 
 nv_format
-nv_vk_format_to_nv_format(VkFormat_ format)
+nv_format_from_vk_format(VkFormat_ format)
 {
   switch (format)
   {

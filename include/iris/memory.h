@@ -177,6 +177,11 @@ extern "C"
 
   struct iris_memory
   {
+    /**
+     * This individual memory block's flag. May not always be the same as the pool it was allocated from.
+     */
+    iris_memory_flags memory_flags;
+
     struct iris_driver* driver;
     u64                 user_data;
 
@@ -192,12 +197,7 @@ extern "C"
     VkDeviceMemory dedicated_allocation;
 
     /**
-     * This individual memory block's flag. May not always be the same as the pool it was allocated from.
-     */
-    iris_memory_flags memory_flags;
-
-    /**
-     * Allocated size
+     * Allocated size (from the pool or dedicated)
      */
     iris_size_t size;
 
@@ -264,6 +264,10 @@ extern "C"
     iris_memory_pool_create_flags flags;
   };
 
+  /**
+   * @brief Get the backing vulkan handle of the memory.
+   * Do not forget to offset that by memory.pool_offset wherever it's used!
+   */
   extern VkDeviceMemory iris_memory_get_backing(const iris_memory_t* block);
 
   extern nv_error iris_memory_pool_init(struct iris_driver* driver, const iris_memory_pool_create_info_t* info, iris_memory_pool_t* dst);
@@ -274,7 +278,7 @@ extern "C"
    * Also returns NV_ERROR_MALLOC_FAILED if a CPU side allocator returned NULL.
    */
   extern nv_error iris_memory_allocate(iris_memory_pool_t* pool, iris_size_t size, iris_size_t alignment, iris_memory_t* dst_block);
-  extern nv_error iris_memory_free_immediate(iris_memory_t* block);
+  extern nv_error iris_memory_free(iris_memory_t* block);
 
   /**
    * IRIS_MEMORY_FLAGS_DEDICATED_BIT is automatically set.

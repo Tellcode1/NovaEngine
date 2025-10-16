@@ -1,7 +1,7 @@
 #include "../include/engine/renderer.h"
 #include "../external/volk/volk.h"
+#include "../include/ctext/ctext.h"
 #include "../include/engine/camera.h"
-#include "../include/engine/ctext.h"
 #include "../include/engine/engine.h"
 #include "../include/engine/format.h"
 #include "../include/engine/input.h"
@@ -35,8 +35,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <vulkan/vk_platform.h>
-#include <vulkan/vulkan_core.h>
 
 /**
  * Remove these global variables
@@ -45,12 +43,12 @@ nv_baked_pipelines   g_Pipelines;
 nv_descriptor_pool_t g_pool;
 nv_camera_t          camera;
 
-nv_extent2d
+nv_extent2
 nv_get_window_size(nv_ctx_t* ctx)
 {
   int ww, wh;
   SDL_GetWindowSize(ctx->window, &ww, &wh);
-  return (nv_extent2d){ (size_t)ww, (size_t)wh };
+  return (nv_extent2){ (size_t)ww, (size_t)wh };
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL nvvk_debug_messenger(
@@ -68,7 +66,12 @@ struct nv_quad_vertex_t
   vec4f color;
 };
 
-static nv_quad_vertex_t quad_vertices[4];
+static const nv_quad_vertex_t quad_vertices[4] = {
+  { .position = { +0.5f, +0.5f, 0.0f }, .tex_coords = { 1.0f, 0.0f }, .color = { 1.0F, 1.0F, 1.0F, 1.0F } },
+  { .position = { -0.5f, +0.5f, 0.0f }, .tex_coords = { 0.0f, 0.0f }, .color = { 1.0F, 1.0F, 1.0F, 1.0F } },
+  { .position = { -0.5f, -0.5f, 0.0f }, .tex_coords = { 0.0f, 1.0f }, .color = { 1.0F, 1.0F, 1.0F, 1.0F } },
+  { .position = { +0.5f, -0.5f, 0.0f }, .tex_coords = { 1.0f, 1.0f }, .color = { 1.0F, 1.0F, 1.0F, 1.0F } },
+};
 
 static const uint32_t quad_indices[] = { 0, 1, 2, 0, 2, 3 };
 
@@ -85,13 +88,13 @@ nv_camera_get_write_offset(const nv_camera_t* cam)
 }
 
 u32
-nv_renderer_get_frame(const nv_renderer_t* rd)
+nv_rdr_get_frame(const nv_renderer_t* rd)
 {
   return rd->frame_index;
 }
 
 VkCommandBuffer
-nv_renderer_get_draw_buffer(const nv_renderer_t* rd)
+nv_rdr_get_draw_buffer(const nv_renderer_t* rd)
 {
   nv_rdr_per_image_data_t* access = (nv_rdr_per_image_data_t*)nv_list_get(&rd->main_pass.per_image_data, rd->image_index);
   if (NV_LIKELY(access))
@@ -102,19 +105,19 @@ nv_renderer_get_draw_buffer(const nv_renderer_t* rd)
 }
 
 VkRenderPass
-nv_renderer_get_render_pass(const nv_renderer_t* rd)
+nv_rdr_get_render_pass(const nv_renderer_t* rd)
 {
   return rd->render_pass;
 }
 
-nv_extent2d
-nv_renderer_get_render_extent(const nv_renderer_t* rd)
+nv_extent2
+nv_rdr_get_render_extent(const nv_renderer_t* rd)
 {
   return rd->render_extent;
 }
 
 u32
-nv_renderer_get_frames_in_flight(const nv_renderer_t* rd)
+nv_rdr_get_frames_in_flight(const nv_renderer_t* rd)
 {
   return 1U + (u32)rd->buffer_mode;
 }
@@ -135,7 +138,7 @@ nv_renderer_get_frames_in_flight(const nv_renderer_t* rd)
 // }
 
 void
-nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer)
+nv_rdr_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer)
 {
   if (spr == NULL)
   {
@@ -150,12 +153,12 @@ nv_renderer_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_mult
                                                 .pos            = position,
                                                 .tex_multiplier = tex_coord_multiplier,
                                                 .color          = color,
-                                            } } };
+                                            }, }, };
   nv_list_push_back(&rd->drawcalls, &drawcall);
 }
 
 void
-nv_renderer_render_line(nv_renderer_t* rd, vec3 start, vec3 end, vec4 color, int layer)
+nv_rdr_render_line(nv_renderer_t* rd, vec3 start, vec3 end, vec4 color, int layer)
 {
   nv_draw_call_t drawcall = (nv_draw_call_t){ .type = NOVA_DRAWCALL_LINE, .layer = layer, .drawcall = { .line = { .begin = start, .end = end, .color = color, }, }, };
   nv_list_push_back(&rd->drawcalls, &drawcall);
@@ -175,7 +178,7 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
 {
   const uint32_t camera_ub_offset = nv_camera_get_read_offset(&camera);
 
-  VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
+  VkCommandBuffer cmd = nv_rdr_get_draw_buffer(rd);
   nv_assert_else_return(cmd != VK_NULL_HANDLE, );
 
   VkDescriptorSet camera_set = camera.descriptor_sets->set;
@@ -185,7 +188,9 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
 
   nv_list_sort(&rd->drawcalls, drawcall_compar);
 
-  nv_draw_call_type state = NOVA_DRAWCALL_INVALID;
+  VkDeviceSize offsets = 0;
+  vkCmdBindVertexBuffers(cmd, 0, 1, &rd->quad_vb.handle, &offsets);
+  vkCmdBindIndexBuffer(cmd, rd->quad_vb.handle, sizeof(quad_vertices), VK_INDEX_TYPE_UINT32);
 
   for (size_t i = 0; i < nv_list_size(&rd->drawcalls); i++)
   {
@@ -199,19 +204,10 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
       //     continue;
       // }
 
-      if (state != NOVA_DRAWCALL_QUAD)
+      if (!bound_quad_state)
       {
-        VkDeviceSize const offsets = 0;
-
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.unlit.pipeline);
 
-        if (!bound_quad_state)
-        {
-          vkCmdBindVertexBuffers(cmd, 0, 1, &rd->quad_vb.handle, &offsets);
-          vkCmdBindIndexBuffer(cmd, rd->quad_vb.handle, sizeof(quad_vertices), VK_INDEX_TYPE_UINT32);
-        }
-
-        state            = NOVA_DRAWCALL_QUAD;
         bound_quad_state = true;
       }
 
@@ -222,34 +218,32 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
         vec2f tex_multiplier; // Multiplied with the tex coords
       } pc;
 
-      const mat4 scale     = m4scale(m4init(1.0), v3muls(drawcall->drawcall.quad.siz, 2.0f));
+      const mat4 scale     = m4scale(m4init(1.0), drawcall->drawcall.quad.siz);
       const mat4 rotate    = scale;
       const mat4 translate = m4translate(rotate, drawcall->drawcall.quad.pos);
 
       const mat4 model = translate;
+
+      VkDescriptorSet       sprite_set = nv_sprite_get_descriptor_set(drawcall->drawcall.quad.spr);
+      const VkDescriptorSet sets[]     = { camera_set, sprite_set };
+
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.unlit.pipeline_layout, 0, 2, sets, 1, &camera_ub_offset);
 
       nvm_mat_copy(pc.model, model);
       nvm_vec_copy(pc.color, drawcall->drawcall.quad.color);
       nvm_vec_copy(pc.tex_multiplier, drawcall->drawcall.quad.tex_multiplier);
       vkCmdPushConstants(cmd, g_Pipelines.unlit.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct push_constants), &pc);
 
-      VkDescriptorSet       sprite_set = nv_sprite_get_descriptor_set(drawcall->drawcall.quad.spr);
-      const VkDescriptorSet sets[]     = { camera_set, sprite_set };
-
-      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.unlit.pipeline_layout, 0, 2, sets, 1, &camera_ub_offset);
       vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
     }
     else if (drawcall->type == NOVA_DRAWCALL_LINE)
     {
-      if (state != NOVA_DRAWCALL_LINE)
+      if (bound_quad_state)
       {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.line.pipeline);
 
-        state = NOVA_DRAWCALL_LINE;
+        bound_quad_state = false;
       }
-
-      const VkDescriptorSet sets[] = { camera_set };
-      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.line.pipeline_layout, 0, 1, sets, 1, &camera_ub_offset);
 
       struct line_push_constants
       {
@@ -266,6 +260,9 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
       nvm_vec_copy(pc.line_end, end);
       vkCmdPushConstants(cmd, g_Pipelines.line.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct line_push_constants), &pc);
 
+      const VkDescriptorSet sets[] = { camera_set };
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_Pipelines.line.pipeline_layout, 0, 1, sets, 1, &camera_ub_offset);
+
       vkCmdDraw(cmd, 2, 1, 0, 0);
     }
   }
@@ -274,38 +271,27 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
 }
 
 static inline nv_error
-nv_renderer_prepare_quad_renderer(nv_renderer_t* rd)
+prepare_quad_renderer(nv_renderer_t* rd)
 {
   nv_assert_else_return(rd != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->vkctx) == true, NV_ERROR_INVALID_ARG);
-
-  nv_memcpy(
-      quad_vertices,
-      (const nv_quad_vertex_t[4]){
-          (const nv_quad_vertex_t){ .position = (vec3f){ +0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 0.0f }, .color = (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F } },
-          (const nv_quad_vertex_t){ .position = (vec3f){ -0.5f, +0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 0.0f }, .color = (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F } },
-          (const nv_quad_vertex_t){ .position = (vec3f){ -0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 0.0f, 1.0f }, .color = (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F } },
-          (const nv_quad_vertex_t){ .position = (vec3f){ +0.5f, -0.5f, 0.0f }, .tex_coords = (vec2f){ 1.0f, 1.0f }, .color = (vec4f){ 1.0F, 1.0F, 1.0F, 1.0F } } },
-      sizeof(quad_vertices));
 
   nv_error code = iris_buffer_init(
       rd->driver, sizeof(quad_vertices) + sizeof(quad_indices), 1, NULL, IRIS_BUFFER_FLAGS_VERTEX_BUFFER_BIT | IRIS_BUFFER_FLAGS_INDEX_BUFFER_BIT, &rd->quad_vb);
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   uchar data[sizeof(quad_vertices) + sizeof(quad_indices)];
-  nv_assert_else_return(data != NULL, NV_ERROR_MALLOC_FAILED);
-
   nv_memcpy(data, quad_vertices, sizeof(quad_vertices));
   nv_memcpy((char*)data + sizeof(quad_vertices), quad_indices, sizeof(quad_indices));
 
-  nv_assert_else_return(rd->quad_vb.handle != VK_NULL_HANDLE, NV_ERROR_BROKEN_STATE);
-  iris_buffer_write_data(&rd->quad_vb, data, sizeof(quad_vertices) + sizeof(quad_indices), 0);
+  code = iris_buffer_write_data(&rd->quad_vb, data, sizeof(data), 0);
+  nv_assert_else_return(code == NV_SUCCESS, code);
 
-  return NV_ERROR_SUCCESS;
+  return NV_SUCCESS;
 }
 
 void
-nv_renderer_destroy(nv_renderer_t* rd)
+nv_rdr_destroy(nv_renderer_t* rd)
 {
   if (rd == NULL)
   {
@@ -417,7 +403,7 @@ create_optional_images(nv_renderer_t* rd)
     iris_texture_extra_create_info_t extra = { .custom_memory_flags = IRIS_MEMORY_FLAGS_LAZILY_ALLOCATED_BIT | IRIS_MEMORY_FLAGS_DEDICATED_BIT };
 
     iris_texture_create_info_t const color_image_desc = {
-      .extent        = (nv_extent3D){ rd->render_extent.width, rd->render_extent.height, 1 },
+      .extent        = (nv_extent3){ rd->render_extent.width, rd->render_extent.height, 1 },
       .alignment     = 1,
       .array_layers  = 1,
       .format        = rd->swapchain.image_format,
@@ -441,7 +427,7 @@ create_optional_images(nv_renderer_t* rd)
     nv_assert_else_return(swapchainImages[i] != VK_NULL_HANDLE, NV_ERROR_INVALID_RETVAL);
 
     const iris_texture_create_info_t image_info = {
-      .extent        = (nv_extent3D){ rd->render_extent.width, rd->render_extent.height, 1 },
+      .extent        = (nv_extent3){ rd->render_extent.width, rd->render_extent.height, 1 },
       .alignment     = 1,
       .array_layers  = 1,
       .format        = NOVA_FORMAT_D32,
@@ -637,7 +623,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   iris_render_pass_create_info rpi = nv_zero_init(iris_render_pass_create_info);
 
   rpi.format              = rd->swapchain.image_format;
-  rpi.depth_buffer_format = nv_vk_format_to_nv_format(rd->main_pass.depth_buffer_format);
+  rpi.depth_buffer_format = nv_format_from_vk_format(rd->main_pass.depth_buffer_format);
   nv_assert_else_return(rpi.format != NOVA_FORMAT_UNDEFINED, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(rpi.depth_buffer_format != NOVA_FORMAT_UNDEFINED, NV_ERROR_BROKEN_STATE);
 
@@ -659,7 +645,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 }
 
 nv_error
-nv_renderer_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst)
+nv_rdr_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst)
 {
   nv_assert_else_return(conf != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(conf->initial_window_size.width != 0, NV_ERROR_INVALID_ARG);
@@ -716,7 +702,7 @@ nv_renderer_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver,
   code = nv_list_init(sizeof(nv_renderer_frame_render_info), dst->swapchain.image_count, nv_allocator_c, NULL, &dst->main_pass.render_data);
   nv_assert_else_return(code == NV_ERROR_SUCCESS, code);
 
-  code = nv_list_init(sizeof(nv_rdr_per_frame_data_t), nv_renderer_get_frames_in_flight(dst), nv_allocator_c, NULL, &dst->main_pass.per_frame_data);
+  code = nv_list_init(sizeof(nv_rdr_per_frame_data_t), nv_rdr_get_frames_in_flight(dst), nv_allocator_c, NULL, &dst->main_pass.per_frame_data);
   nv_assert_else_return(code == NV_ERROR_SUCCESS, code);
 
   code = nv_list_init(sizeof(nv_rdr_per_image_data_t), dst->swapchain.image_count, nv_allocator_c, NULL, &dst->main_pass.per_image_data);
@@ -729,7 +715,7 @@ nv_renderer_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver,
   const VkSemaphoreCreateInfo semaphore_create_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
   const VkFenceCreateInfo     fence_create_info     = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, NULL, VK_FENCE_CREATE_SIGNALED_BIT };
 
-  nv_list_resize(&dst->main_pass.per_frame_data, nv_renderer_get_frames_in_flight(dst));
+  nv_list_resize(&dst->main_pass.per_frame_data, nv_rdr_get_frames_in_flight(dst));
   nv_list_resize(&dst->main_pass.per_image_data, dst->swapchain.image_count);
 
   // for (size_t i = 0; i < dst->swapchain.image_count; i++)
@@ -782,7 +768,7 @@ nv_renderer_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver,
     return code;
   }
 
-  if ((code = nv_renderer_prepare_quad_renderer(dst)) != NV_ERROR_SUCCESS)
+  if ((code = prepare_quad_renderer(dst)) != NV_ERROR_SUCCESS)
   {
     return code;
   }
@@ -872,7 +858,7 @@ renderer_resize(nv_renderer_t* rd)
   w                    = NVM_CLAMP((u32)w, min_width, max_width);
   h                    = NVM_CLAMP((u32)h, min_height, max_height);
 
-  rd->render_extent = (nv_extent2d){ (size_t)w, (size_t)h };
+  rd->render_extent = (nv_extent2){ (size_t)w, (size_t)h };
   nv_assert_else_return(rd->render_extent.width != 0, NV_ERROR_INVALID_RETVAL);
   nv_assert_else_return(rd->render_extent.height != 0, NV_ERROR_INVALID_RETVAL);
 
@@ -913,7 +899,7 @@ renderer_resize(nv_renderer_t* rd)
   nv_list_clear(&rd->main_pass.per_frame_data);
   nv_list_clear(&rd->main_pass.per_image_data);
 
-  nv_list_resize(&rd->main_pass.per_frame_data, nv_renderer_get_frames_in_flight(rd));
+  nv_list_resize(&rd->main_pass.per_frame_data, nv_rdr_get_frames_in_flight(rd));
   nv_list_resize(&rd->main_pass.per_image_data, rd->swapchain.image_count);
 
   const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, NULL, 0 };
@@ -928,7 +914,7 @@ renderer_resize(nv_renderer_t* rd)
   //   vkCreateSemaphore(rd->vkctx->device, &semaphoreCreateInfo, &rd->vkctx->vkalloc, &frame->render_finish_semaphore);
   // }
 
-  size_t const frames_in_flight = nv_renderer_get_frames_in_flight(rd);
+  size_t const frames_in_flight = nv_rdr_get_frames_in_flight(rd);
   for (size_t i = 0; i < frames_in_flight; i++)
   {
     nv_rdr_per_frame_data_t* frame = (nv_rdr_per_frame_data_t*)nv_list_get(&rd->main_pass.per_frame_data, i);
@@ -977,7 +963,7 @@ renderer_resize(nv_renderer_t* rd)
 }
 
 bool
-nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
+nv_rdr_begin_render(nv_renderer_t* rd, vec4 clear_color)
 {
   nv_assert_else_return(rd != NULL, NV_ERROR_INVALID_RETVAL);
   nv_assert_else_return(nv_list_is_valid(&rd->main_pass.render_data), NV_ERROR_INVALID_RETVAL);
@@ -997,7 +983,7 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
   if (frame == NULL)
   {
     renderer_resize(rd);
-    return nv_renderer_begin(rd, clear_color);
+    return nv_rdr_begin_render(rd, clear_color);
   }
 
   vkWaitForFences(device, 1, &frame->in_flight_fence, VK_TRUE, UINT64_MAX);
@@ -1096,7 +1082,7 @@ nv_renderer_begin(nv_renderer_t* rd, vec4 clear_color)
 }
 
 nv_error
-nv_renderer_end(nv_renderer_t* rd)
+nv_rdr_end_render(nv_renderer_t* rd)
 {
   nv_assert_else_return(rd != NULL, NV_ERROR_INVALID_RETVAL);
   nv_assert_else_return(nv_list_is_valid(&rd->main_pass.render_data), NV_ERROR_INVALID_RETVAL);
@@ -1179,7 +1165,7 @@ nv_renderer_end(nv_renderer_t* rd)
     return NV_ERROR_BROKEN_STATE;
   }
 
-  rd->frame_index = (rd->frame_index + 1) % nv_renderer_get_frames_in_flight(rd);
+  rd->frame_index = (rd->frame_index + 1) % nv_rdr_get_frames_in_flight(rd);
 
   // For safety's sake, set will_render_this_frame to 0
   rd->will_render_this_frame = false;

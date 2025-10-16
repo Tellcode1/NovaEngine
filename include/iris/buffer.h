@@ -51,6 +51,9 @@ extern "C"
      */
     IRIS_BUFFER_FLAGS_VERTEX_BUFFER_BIT = 1 << 4,
 
+    /**
+     * Index buffer capable.
+     */
     IRIS_BUFFER_FLAGS_INDEX_BUFFER_BIT = 1 << 5,
 
     /**
@@ -79,8 +82,11 @@ extern "C"
    */
   extern nv_error
   iris_buffer_init(struct iris_driver* driver, iris_size_t size, size_t alignment, iris_buffer_extra_create_info_t* extra_info, iris_buffer_flags flags, iris_buffer_t* dst);
-  extern void iris_buffer_destroy_immediate(iris_buffer_t* buffer);
+  extern void iris_buffer_destroy(iris_buffer_t* buffer);
 
+  /**
+   * @brief Get the size of the buffer.
+   */
   extern size_t iris_buffer_size(const iris_buffer_t* buffer);
 
   /**
@@ -88,8 +94,8 @@ extern "C"
    * Note that writes to the buffer aren't visible immediately.
    * This is more so a limitation of every graphics API.
    * Note that this may map the memory and you will need to flush the writes
-   * TODO: write only when needed.
-   * @see iris_memory_flush
+   * @note Writes are not flushed
+   * @see iris_memory_flush()
    */
   extern nv_error iris_buffer_write_data(iris_buffer_t* buffer, const void* data, iris_size_t data_size, iris_size_t offset);
 
@@ -100,9 +106,7 @@ extern "C"
    * It is legal to read back a non readback optimized buffer. It'll just be slow.
    * And no, the driver won't notice you're reading back a non optimized buffer and replace it.
    * This function will wait for the readback to finish.
-   * An asynchronous function is yet to be implemented.
    * It is illegal to read back a transient buffer.
-   * Writes are automatically flushed when unmapping.
    */
   extern nv_error iris_buffer_readback(iris_buffer_t* buffer, iris_size_t size, iris_size_t offset, void* dst);
 
@@ -111,6 +115,8 @@ extern "C"
    * If this function fails, the affected data in dst will be undefined.
    * By affected data we mean the data in the range of the write.
    * @note The two copy regions must not overlap.
+   * @note Writes are not flushed
+   * @see iris_memory_flush()
    * @param dst Buffer to write to
    * @param src Buffer to read from
    */
@@ -135,15 +141,11 @@ extern "C"
    */
   extern VkBuffer iris_buffer_get_backing(const iris_buffer_t* buffer);
 
-  extern void _iris_buffer_insert_read_barrier(const iris_buffer_t* buffer, VkCommandBuffer cmd);
-
   struct iris_buffer
   {
     struct iris_driver* driver;
 
     u64 user_data; // read/write
-
-    iris_buffer_flags flags;
 
     /* The total (aligned) size of this buffer */
     iris_size_t size;
@@ -153,11 +155,9 @@ extern "C"
     /* The VkBuffer handle */
     VkBuffer handle;
 
-    /**
-     * The memory block owned and created by the buffer
-     * for itself.
-     */
-    iris_memory_t memory;
+    iris_buffer_flags flags; /**< The flags provided while creating the buffer. */
+
+    iris_memory_t memory; /**<The memory block owned and created by the buffer for itself. */
 
     /* Driver stored information. Do not modify! */
 

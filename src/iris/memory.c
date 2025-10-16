@@ -316,7 +316,7 @@ iris_memory_allocate(iris_memory_pool_t* pool, iris_size_t size, iris_size_t ali
 }
 
 nv_error
-iris_memory_free_immediate(iris_memory_t* memory)
+iris_memory_free(iris_memory_t* memory)
 {
   nv_assert_else_return(memory != NULL, NV_ERROR_INVALID_ARG);
 

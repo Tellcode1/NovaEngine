@@ -9,7 +9,6 @@
 #include <SDL3/SDL_video.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <vulkan/vulkan_core.h>
 
 void
 iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo, iris_sampler_t* dst)

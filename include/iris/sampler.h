@@ -90,7 +90,7 @@ extern "C"
   };
 
   extern void iris_create_sampler(struct iris_driver* driver, const iris_sampler_create_info* pInfo, iris_sampler_t* dst);
-  extern void iris_destroy_sampler_immediate(struct iris_driver* driver, iris_sampler_t* sampler);
+  extern void iris_sampler_destroy(struct iris_driver* driver, iris_sampler_t* sampler);
 
   extern VkSampler iris_sampler_get(const iris_sampler_t* sampler);
 

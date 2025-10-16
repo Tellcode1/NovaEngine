@@ -66,16 +66,6 @@ extern "C"
   } nv_sample_count_bits;
   typedef unsigned nv_sample_count;
 
-  typedef struct nv_extent2d_s
-  {
-    size_t width, height;
-  } nv_extent2d;
-
-  typedef struct nv_extent3D_s
-  {
-    size_t width, height, depth;
-  } nv_extent3D;
-
   typedef struct nvvk_allocator_block_s
   {
     iris_size_t size;

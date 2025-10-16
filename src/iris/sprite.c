@@ -36,7 +36,7 @@ nv_sprite_load_from_memory(iris_driver_t* driver, const unsigned char* data, siz
   dst->fmt = fmt;
 
   iris_texture_create_info_t const tex_info = {
-    .extent        = (nv_extent3D){ .width = w, .height = h, .depth = 1 },
+    .extent        = (nv_extent3){ .width = w, .height = h, .depth = 1 },
     .alignment     = 1,
     .array_layers  = 1,
     .format        = fmt,
@@ -51,21 +51,22 @@ nv_sprite_load_from_memory(iris_driver_t* driver, const unsigned char* data, siz
 
   iris_texture_region_t region = {
     .offset      = (vec3i){ 0, 0, 0 },
-    .extent      = (nv_extent3D){ w, h, 1 },
+    .extent      = (nv_extent3){ w, h, 1 },
     .mip_level   = 0,
     .array_level = 0,
   };
   nv_return_error_if_fail(iris_texture_write_data(&dst->tex, &region, data, image_size));
 
   iris_sampler_create_info const sampler_info = {
-    .min_filter = NV_FILTER_NEAREST,
-    .mag_filter = NV_FILTER_NEAREST,
-    .wrapu      = IRIS_SAMPLER_WRAP_MODE_REPEAT,
-    .wrapv      = IRIS_SAMPLER_WRAP_MODE_REPEAT,
-    .wrapw      = IRIS_SAMPLER_WRAP_MODE_REPEAT,
-    .anisotropy = 1.0f,
-    .min_lod    = 0.0f,
-    .max_lod    = VK_LOD_CLAMP_NONE,
+    .min_filter   = NV_FILTER_NEAREST,
+    .mag_filter   = NV_FILTER_NEAREST,
+    .wrapu        = IRIS_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapv        = IRIS_SAMPLER_WRAP_MODE_REPEAT,
+    .wrapw        = IRIS_SAMPLER_WRAP_MODE_REPEAT,
+    .anisotropy   = 1.0f,
+    .min_lod      = 0.0f,
+    .max_lod      = VK_LOD_CLAMP_NONE,
+    .compare_mode = IRIS_SAMPLER_COMPARE_MODE_ALWAYS,
   };
   iris_create_sampler(driver, &sampler_info, &dst->sampler);
 

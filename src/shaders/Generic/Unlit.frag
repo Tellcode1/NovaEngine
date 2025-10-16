@@ -17,5 +17,7 @@ layout (push_constant) uniform push_constant_block {
 } pc;
 
 void main() {
-    o_color = texture(f_texture, f_tex_coords * pc.tex_multiplier) * pc.color * f_color;
+    vec4 sampling = texture(f_texture, f_tex_coords * pc.tex_multiplier);
+    if (sampling.a < 0.01) discard;
+    o_color =  sampling * pc.color * f_color;
 }

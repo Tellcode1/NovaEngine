@@ -1,7 +1,7 @@
-#include "../../include/engine/ctext.h"
+#include "../../include/ctext/ctext.h"
 #include "../../external/volk/volk.h"
+#include "../../include/ctext/fontc.h"
 #include "../../include/engine/atlas.h"
-#include "../../include/engine/fontc.h"
 #include "../../include/engine/format.h"
 #include "../../include/engine/renderer.h"
 #include "../../include/engine/sprite.h"
@@ -32,7 +32,7 @@ static inline void
 ctext_load_font_upload_glyph_atlas(nv_renderer_t* rd, const nv_texture_atlas_t* atlas, cfont_t* dst)
 {
   iris_texture_create_info_t const image_info = {
-    .extent        = (nv_extent3D){ .width = atlas->width, .height = atlas->height, .depth = 1 },
+    .extent        = (nv_extent3){ .width = atlas->width, .height = atlas->height, .depth = 1 },
     .alignment     = 1,
     .array_layers  = 1,
     .format        = NOVA_FORMAT_R8,
@@ -50,7 +50,7 @@ ctext_load_font_upload_glyph_atlas(nv_renderer_t* rd, const nv_texture_atlas_t* 
 
   iris_texture_region_t region = {
     .offset      = (vec3i){ 0, 0, 0 },
-    .extent      = (nv_extent3D){ atlas_w, atlas_h, 1 },
+    .extent      = (nv_extent3){ atlas_w, atlas_h, 1 },
     .mip_level   = 0,
     .array_level = 0,
   };
@@ -121,7 +121,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
 
   dst->rd = rdr;
 
-  nv_hashmap_init(256, sizeof(u32), sizeof(ctext_glyph_t), nv_hash_fnv1a, nv_allocator_c, NULL, &dst->glyph_map);
+  nv_hashmap_init(256, sizeof(u32), sizeof(fontc_glyph_t), nv_hash_fnv1a, nv_allocator_c, NULL, &dst->glyph_map);
   nv_list_init(sizeof(ctext_drawcall_t), 4, nv_allocator_c, NULL, &dst->drawcalls);
 
   nv_texture_atlas_t atlas;
@@ -134,20 +134,9 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
 
   for (size_t i = 0; i < f_file.header.numglyphs; i++)
   {
-    ctext_glyph_t glyph = {
-      .x0 = f_file.glyphs[i].x0,
-      .x1 = f_file.glyphs[i].x1,
-      .y0 = f_file.glyphs[i].y0,
-      .y1 = f_file.glyphs[i].y1,
-      .l  = (float)f_file.glyphs[i].l / (float)UINT16_MAX,
-      .r  = (float)f_file.glyphs[i].r / (float)UINT16_MAX,
-      .b  = (float)f_file.glyphs[i].b / (float)UINT16_MAX,
-      .t  = (float)f_file.glyphs[i].t / (float)UINT16_MAX,
-      // Undo fixed point scaling
-      .advance = (float)f_file.glyphs[i].advance / 256.0F,
-    };
-    u32 codepoint = f_file.glyphs[i].codepoint;
-    nv_hashmap_insert(&dst->glyph_map, &codepoint, &glyph);
+    const fontc_glyph_t* glyph     = &f_file.glyphs[i];
+    u32                  codepoint = glyph->codepoint;
+    nv_hashmap_insert(&dst->glyph_map, &codepoint, glyph);
   }
 
   ctext_load_font_upload_glyph_atlas(rdr, &atlas, dst);
@@ -159,7 +148,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
 
   iris_buffer_extra_create_info_t extra_info = nv_zero_init(iris_buffer_extra_create_info_t);
   extra_info.multibuffering_enable           = true;
-  extra_info.multibuffering_frames           = nv_renderer_get_frames_in_flight(rdr);
+  extra_info.multibuffering_frames           = nv_rdr_get_frames_in_flight(rdr);
   extra_info.custom_memory_flags             = IRIS_MEMORY_FLAGS_DEFAULT_BIT;
 
   nv_error code =

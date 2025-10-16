@@ -2,6 +2,7 @@
 #define IRIS_FRAMEBUFFER_H
 
 #include "../../external/volk/volk.h"
+#include "../std/include/math/math.h"
 #include "types.h"
 
 #ifdef __cplusplus
@@ -17,7 +18,7 @@ extern "C"
     VkImageView*  attachments;
     size_t        num_attachments;
     VkRenderPass  pass;
-    nv_extent2d   extent;
+    nv_extent2    extent;
     size_t        num_layers;
     VkFramebuffer handle;
   };
@@ -30,7 +31,7 @@ extern "C"
     VkImageView* attachments;
     size_t       num_attachments;
     VkRenderPass pass;
-    nv_extent2d  extent;
+    nv_extent2   extent;
     size_t       num_layers;
   };
 

@@ -216,7 +216,7 @@ nv_format_get_num_channels(nv_format fmt)
 }
 
 nv_format
-nv_sdl_format_to_nv_format(SDL_Format_ format)
+nv_format_from_sdl_format(SDL_Format_ format)
 {
   switch (format)
   {

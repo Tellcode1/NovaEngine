@@ -5,7 +5,6 @@
 #include "../../include/iris/sampler.h"
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
-#include "../../include/shadersystem/nvsm.h"
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/list.h"
 #include "../../include/std/include/errorcodes.h"
@@ -127,8 +126,6 @@ iris_driver_destroy(iris_driver_t* driver)
   iris_buffer_destroy(&driver->small_transfer_buffer);
   iris_buffer_destroy(&driver->large_transfer_buffer);
 
-  iris_queue_flush(driver);
-
   /**
    * Always destroy child resources (buffers) before parent resources (their pools)
    */
@@ -170,7 +167,6 @@ iris_begin_upload_batch(iris_driver_t* driver)
 {
   if (driver->active_upload_cmd)
   {
-    nv_log_error("An upload batch is already active.\n");
     return;
   }
   driver->active_upload_cmd = nv_vk_begin_command_buffer(driver);
@@ -192,60 +188,4 @@ bool
 iris_is_upload_batch_active(const iris_driver_t* driver)
 {
   return driver->active_upload_cmd != VK_NULL_HANDLE;
-}
-
-void
-iris_queue_for_destruction(iris_driver_t* driver, iris_resource_t rsrc)
-{
-  iris_destruct_queue_t* queue = &driver->destruct_queue;
-
-  if (!queue->queue || (queue->queue_count + 1) >= queue->queue_capacity)
-  {
-    size_t           new_capacity = NV_MAX(queue->queue_capacity * 2, 1);
-    iris_resource_t* new_handle   = nv_calloc(new_capacity * sizeof(iris_resource_t));
-
-    if (queue->queue)
-    {
-      /**
-       * TODO: destroy entries to truncate, this will just leak them. But that's an edge case so you can ignore it i guess.
-       */
-      nv_memmove(new_handle, queue->queue, NV_MIN(queue->queue_count, new_capacity));
-
-      nv_free(queue->queue);
-    }
-
-    queue->queue_capacity = new_capacity;
-    queue->queue          = new_handle;
-  }
-
-  queue->queue[queue->queue_count++] = rsrc;
-}
-
-void
-iris_queue_flush(iris_driver_t* driver)
-{
-  iris_destruct_queue_t* queue = &driver->destruct_queue;
-
-  for (size_t i = 0; i < queue->queue_count; i++)
-  {
-    iris_queue_destroy_entry(driver, i);
-  }
-}
-
-void
-iris_queue_destroy_entry(iris_driver_t* driver, size_t i)
-{
-  iris_resource_t* resource = &driver->destruct_queue.queue[i];
-
-  VkDevice               device = driver->vkctx->device;
-  VkAllocationCallbacks* alloc  = &driver->vkctx->vkalloc;
-
-  vkDeviceWaitIdle(device);
-  switch (resource->type)
-  {
-    case IRIS_RESOURCE_MEMORY: vkFreeMemory(device, resource->handle.memory, alloc); break;
-    case IRIS_RESOURCE_BUFFER: vkDestroyBuffer(device, resource->handle.buffer, alloc); break;
-    case IRIS_RESOURCE_TEXTURE: vkDestroyImage(device, resource->handle.texture, alloc); break;
-    case IRIS_RESOURCE_SHADER: vkDestroyShaderModule(device, resource->handle.shader, alloc); break;
-  }
 }

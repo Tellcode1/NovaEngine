@@ -15,34 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static inline void
-iris_buffer_insert_read_barrier(const iris_buffer_t* buffer, VkCommandBuffer cmd)
-{
-  VkBufferMemoryBarrier const barrier = {
-    .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-    .pNext               = NULL,
-    .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-    .dstAccessMask       = VK_ACCESS_MEMORY_READ_BIT,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .buffer              = buffer->handle,
-    .offset              = 0,
-    .size                = VK_WHOLE_SIZE, // or specific size
-  };
-
-  vkCmdPipelineBarrier(
-      cmd,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,     // what stage just ran
-      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // what stage is coming next
-      0,
-      0,
-      NULL,
-      1,
-      &barrier,
-      0,
-      NULL);
-}
-
 static inline iris_buffer_t*
 get_buffer_for_transfer(iris_driver_t* driver, iris_size_t size)
 {
@@ -204,14 +176,14 @@ iris_buffer_init(iris_driver_t* driver, iris_size_t size, size_t alignment, iris
 }
 
 void
-iris_buffer_destroy_immediate(iris_buffer_t* buffer)
+iris_buffer_destroy(iris_buffer_t* buffer)
 {
   nv_assert_else_return(buffer != NULL, );
   nv_assert_else_return(iris_driver_is_valid(buffer->driver), );
 
   nvvk_ctx_t* ctx = buffer->driver->vkctx;
 
-  iris_memory_free_immediate(&buffer->memory);
+  iris_memory_free(&buffer->memory);
 
   vkDeviceWaitIdle(ctx->device);
   vkDestroyBuffer(ctx->device, buffer->handle, &ctx->vkalloc);
@@ -263,15 +235,15 @@ nv_stage_transfer_to_buffer(iris_buffer_t* buffer, const void* data, iris_size_t
   {
     void* mapping = NULL;
     code          = iris_memory_map(&driver->small_transfer_buffer.memory, 0, data_size, &mapping);
-    if (code == 0)
+    if (code != NV_SUCCESS)
     {
       return code;
     }
 
     nv_memmove(mapping, data, data_size);
 
-    code = iris_buffer_copy(&driver->small_transfer_buffer, buffer, data_size, offset, 0);
-    if (code == 0)
+    code = iris_buffer_copy(buffer, &driver->small_transfer_buffer, data_size, offset, 0);
+    if (code != NV_SUCCESS)
     {
       return code;
     }
@@ -282,15 +254,15 @@ nv_stage_transfer_to_buffer(iris_buffer_t* buffer, const void* data, iris_size_t
   {
     void* mapping = NULL;
     code          = iris_memory_map(&driver->large_transfer_buffer.memory, 0, data_size, &mapping);
-    if (code == 0)
+    if (code != NV_SUCCESS)
     {
       return code;
     }
 
     nv_memmove(mapping, data, data_size);
 
-    code = iris_buffer_copy(&driver->large_transfer_buffer, buffer, data_size, offset, 0);
-    if (code == 0)
+    code = iris_buffer_copy(buffer, &driver->large_transfer_buffer, data_size, offset, 0);
+    if (code != NV_SUCCESS)
     {
       return code;
     }
@@ -441,6 +413,9 @@ iris_buffer_copy(iris_buffer_t* dst, iris_buffer_t* src, iris_size_t num_bytes, 
     nv_assert_else_return((num_bytes + read_offset) <= write_offset || (num_bytes + write_offset) <= read_offset, NV_ERROR_INVALID_ARG);
   }
 
+  // Flush writes from src so we can safely copy the data
+  iris_memory_flush(&src->memory);
+
   iris_driver_t* driver = dst->driver;
 
   VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -460,6 +435,7 @@ iris_buffer_copy(iris_buffer_t* dst, iris_buffer_t* src, iris_size_t num_bytes, 
   };
   vkCmdCopyBuffer(cmd, src->handle, dst->handle, 1, &copy);
 
+  // If we weren't in an upload batch, immediately end and submit the transfer
   if (!iris_is_upload_batch_active(driver))
   {
     nv_vk_end_command_buffer(dst->driver, cmd, dst->driver->vkctx->transfer_queue, true);
@@ -561,7 +537,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
     vkDestroyBuffer(vkctx->device, iris_buffer_get_backing(buffer), &vkctx->vkalloc);
 
     // free old memory AFTER copy
-    iris_memory_free_immediate(&buffer->memory);
+    iris_memory_free(&buffer->memory);
   }
   else
   {
@@ -570,7 +546,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
     // free old memory BEFORE copy
     iris_memory_flags old_flags = buffer->memory.memory_flags;
     vkDestroyBuffer(vkctx->device, iris_buffer_get_backing(buffer), &vkctx->vkalloc);
-    iris_memory_free_immediate(&buffer->memory);
+    iris_memory_free(&buffer->memory);
 
     if (pool != NULL)
     {

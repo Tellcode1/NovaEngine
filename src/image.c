@@ -33,7 +33,7 @@ unsigned char*
 nv_image_pad_channels(const nv_image* src, size_t dst_channels)
 {
   const size_t src_channels = nv_format_get_num_channels(src->format);
-  nv_assert(src_channels < dst_channels);
+  nv_assert_else_return(src_channels < dst_channels, NULL);
 
   uint8_t* dst = (uint8_t*)nv_calloc(src->width * src->height * dst_channels * sizeof(uchar));
 
@@ -51,7 +51,7 @@ nv_image_pad_channels(const nv_image* src, size_t dst_channels)
         {
           if (c == 3)
           { // alpha channel
-            dst[(((y * src->width) + x) * dst_channels) + c] = __UINT8_MAX__;
+            dst[(((y * src->width) + x) * dst_channels) + c] = 255;
           }
           else
           {
@@ -101,7 +101,7 @@ nv_image_enlarge(nv_image* dst, const nv_image* src, size_t scale)
 {
   size_t const new_w = src->width * scale;
 
-  nv_assert(dst->data != NULL);
+  nv_assert_else_return(dst->data != NULL, );
 
   uchar*       write = dst->data;
   const uchar* read  = src->data;
@@ -222,7 +222,7 @@ _nv_sdl_surface_to_image(SDL_Surface* surface)
   nv_assert_else_return(image.width != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image));
   nv_assert_else_return(image.height != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image));
 
-  image.format = nv_sdl_format_to_nv_format((SDL_Format_)surface->format);
+  image.format = nv_format_from_sdl_format((SDL_Format_)surface->format);
   nv_assert_else_return(image.format != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image));
 
   image.data = (uchar*)nv_calloc(surface_size_bytes);

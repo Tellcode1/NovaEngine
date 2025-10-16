@@ -34,7 +34,6 @@ extern "C"
   typedef struct cfont       cfont_t;
   typedef struct ctext_label ctext_label_t;
 
-  typedef struct ctext_glyph            ctext_glyph_t;
   typedef struct ctext_drawcall         ctext_drawcall_t;
   typedef struct ctext_text_render_info ctext_text_render_info_t;
 
@@ -107,14 +106,12 @@ extern "C"
     double scale;         // if scale_for_fit is 1, this is multiplied by the calculated scale.
     vec2   bbox;          // The bounding box that the scale will be determined for. Only when scale_for_fit is 1
     bool   scale_for_fit; // calculates the scale needed to fit the text into a box
-  };
 
-  struct ctext_glyph
-  {
-    // Stored in the disk as floats to save space
-    float x0, x1, y0, y1;
-    float l, r, b, t;
-    float advance;
+    /**
+     * If set to true, the camera's perspective matrix is used,
+     * Otherwise, the orthographic projection matrix is used.
+     */
+    bool perspective_projection;
   };
 
   struct ctext_push_constants
@@ -123,6 +120,8 @@ extern "C"
     vec4f color;
     vec4f outline_color;
     float scale;
+    // If false, perspective projection matrix is used, else orthographic.
+    int is_orthographic_proj;
   };
 
   typedef struct ctext_glyph_vertex
@@ -139,6 +138,7 @@ extern "C"
     vec3   rotation;
     vec4   color;
     double scale;
+    bool   perspective_projection;
 
     size_t vertex_count;
     size_t index_count;

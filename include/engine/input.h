@@ -3,12 +3,9 @@
 
 // implementation: engine.c
 
-#include "../std/include/attributes.h"
-#include "../std/include/containers/bitset.h"
 #include "../std/include/containers/hashmap.h"
 #include "../std/include/errorcodes.h"
 #include "../std/include/math/vec2.h"
-#include "../std/include/stdafx.h"
 #include <SDL3/SDL_scancode.h>
 #include <stdint.h>
 
@@ -58,22 +55,22 @@ extern "C"
     uint8_t                     mouse;
     nv_input_action_response_fn response;
     bool                        this_frame, last_frame;
-  } NOVA_ATTR_ALIGNED(32);
+  };
 
   struct nv_input_ctx_t
   {
+    nv_hashmap_t action_mapping;
+    u8           kb_state[(SDL_SCANCODE_COUNT + 7) / 8];
+    u8           last_frame_kb_state[(SDL_SCANCODE_COUNT + 7) / 8];
+
     struct nv_ctx* ctx;
-    vec2           input_mouse_position;
-    vec2           input_last_frame_mouse_position;
-    nv_bitset_t    input_kb_state;
-    nv_bitset_t    input_last_frame_kb_state;
-    unsigned       input_mouse_state;
-    unsigned       input_last_frame_mouse_state;
+    vec2           mouse_position;
+    vec2           last_frame_mouse_position;
+    u32            mouse_state;
+    u32            input_last_frame_mouse_state;
     double         scroll_x;
     double         scroll_y;
-
-    nv_hashmap_t input_action_mapping;
-  } NOVA_ATTR_ALIGNED(128);
+  };
 
   extern nv_error nv_input_init(struct nv_ctx* ctx, nv_input_ctx_t* inputctx);
   extern void     nv_input_update(nv_input_ctx_t* ctx);

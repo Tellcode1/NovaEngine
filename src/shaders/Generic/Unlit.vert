@@ -26,5 +26,5 @@ layout (push_constant) uniform push_constant_block {
 void main() {
     f_tex_coords = v_tex_coords;
     f_color = v_color;
-    gl_Position = cam_ub.ortho * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
+    gl_Position = cam_ub.perspective * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
 }

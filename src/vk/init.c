@@ -20,7 +20,6 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <vulkan/vk_platform.h>
 
 #include "../../external/volk/volk.h"
 
@@ -70,7 +69,7 @@ nvvk_debug_messenger(
   (void)messageType;
   (void)pUserData;
 
-  VK_DEBUG_LOG(messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "%s\n", pCallbackData->pMessage);
+  VK_DEBUG_LOG(true, "%s\n", pCallbackData->pMessage);
 
   return VK_FALSE;
 }

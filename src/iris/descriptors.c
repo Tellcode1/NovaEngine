@@ -129,7 +129,7 @@ nv_descriptor_pool_allocate(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
   VkCopyDescriptorSet* copies = (VkCopyDescriptorSet*)nv_malloc(sizeof(VkCopyDescriptorSet) * NV_MAX(ncopies, 1));
   nv_assert_else_return(copies != NULL, NV_ERROR_MALLOC_FAILED);
 
-  nv_assert(pool->sets != NULL);
+  nv_assert_else_return(pool->sets != NULL, -1);
 
   ncopies = 0;
   for (size_t i = 0; i < pool->nsets; i++)

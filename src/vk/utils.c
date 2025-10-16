@@ -1,22 +1,14 @@
 #include "../../include/iris/utils.h"
 #include "../../external/volk/volk.h"
+#include "../../include/ctext/ctext.h"
 #include "../../include/engine/camera.h"
-#include "../../include/engine/ctext.h"
-#include "../../include/engine/engine.h"
 #include "../../include/engine/format.h"
 #include "../../include/engine/image.h"
-#include "../../include/engine/input.h"
 #include "../../include/engine/renderer.h"
-#include "../../include/engine/sprite.h"
-#include "../../include/engine/ui.h"
-#include "../../include/iris/buffer.h"
 #include "../../include/iris/descriptors.h"
 #include "../../include/iris/driver.h"
 #include "../../include/iris/framebuffer.h"
-#include "../../include/iris/memory.h"
 #include "../../include/iris/pipeline.h"
-#include "../../include/iris/ringbuffer.h"
-#include "../../include/iris/texture.h"
 #include "../../include/iris/types.h"
 #include "../../include/shadersystem/nvsm.h"
 #include "../../include/std/include/alloc.h"
@@ -30,13 +22,10 @@
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <vulkan/vk_platform.h>
-#include <vulkan/vulkan_core.h>
 
 #define HAS_FLAG(flag) ((vkctx->flag_register & (flag)) || (flags & (flag)))
 #define STR(s) #s
@@ -65,7 +54,7 @@ bake_unlit_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   const nvsm_shader_t*        shaders[] = { vertex, fragment };
   const VkDescriptorSetLayout layouts[] = { camera.descriptor_sets->layout, g_Pipelines.unlit.descriptor_layout };
 
-  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
+  const nv_extent2 RenderExtent = nv_rdr_get_render_extent(rd);
 
   const VkVertexInputAttributeDescription attributeDescriptions[] = {
     // location; binding; format; offset;
@@ -90,7 +79,7 @@ bake_unlit_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   iris_pipeline_create_info pc = iris_init_pipeline_create_info();
   pc.format                    = rd->swapchain.image_format;
   pc.subpass                   = 0;
-  pc.render_pass               = nv_renderer_get_render_pass(rd);
+  pc.render_pass               = nv_rdr_get_render_pass(rd);
 
   pc.n_attribute_descriptions = nv_arrlen(attributeDescriptions);
   pc.attribute_descriptions   = attributeDescriptions;
@@ -148,7 +137,7 @@ bake_ctext_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   iris_pipeline_create_info pc = iris_init_pipeline_create_info();
   pc.format                    = rd->swapchain.image_format;
   pc.subpass                   = 0;
-  pc.render_pass               = nv_renderer_get_render_pass(rd);
+  pc.render_pass               = nv_rdr_get_render_pass(rd);
 
   pc.n_attribute_descriptions = nv_arrlen(attributeDescriptions);
   pc.attribute_descriptions   = attributeDescriptions;
@@ -165,11 +154,11 @@ bake_ctext_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   pc.n_descriptor_layouts = nv_arrlen(layouts);
   pc.descriptor_layouts   = layouts;
 
-  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
-  pc.extent.width                = RenderExtent.width;
-  pc.extent.height               = RenderExtent.height;
-  pc.blend_state                 = &blend;
-  pc.samples                     = (VkSampleCountFlagBits)rd->samples;
+  const nv_extent2 RenderExtent = nv_rdr_get_render_extent(rd);
+  pc.extent.width               = RenderExtent.width;
+  pc.extent.height              = RenderExtent.height;
+  pc.blend_state                = &blend;
+  pc.samples                    = (VkSampleCountFlagBits)rd->samples;
 
   iris_create_pipeline_layout(rd->vkctx, &pc, &g_Pipelines.ctext.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.ctext.pipeline_layout;
@@ -207,7 +196,7 @@ bake_debug_line_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   pc.format                    = rd->swapchain.image_format;
 
   pc.topology    = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-  pc.render_pass = nv_renderer_get_render_pass(rd);
+  pc.render_pass = nv_rdr_get_render_pass(rd);
 
   pc.n_attribute_descriptions = 0;
   pc.attribute_descriptions   = NULL;
@@ -224,11 +213,11 @@ bake_debug_line_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
   pc.n_descriptor_layouts = nv_arrlen(layouts);
   pc.descriptor_layouts   = layouts;
 
-  const nv_extent2d RenderExtent = nv_renderer_get_render_extent(rd);
-  pc.extent.width                = RenderExtent.width;
-  pc.extent.height               = RenderExtent.height;
-  pc.blend_state                 = &blend;
-  pc.samples                     = (VkSampleCountFlagBits)rd->samples;
+  const nv_extent2 rdr_extent = nv_rdr_get_render_extent(rd);
+  pc.extent.width             = rdr_extent.width;
+  pc.extent.height            = rdr_extent.height;
+  pc.blend_state              = &blend;
+  pc.samples                  = (VkSampleCountFlagBits)rd->samples;
 
   iris_create_pipeline_layout(rd->vkctx, &pc, &g_Pipelines.line.pipeline_layout);
   pc.pipeline_layout = g_Pipelines.line.pipeline_layout;
@@ -1282,7 +1271,7 @@ nv_vk_get_supported_format(nvvk_ctx_t* vkctx, VkPhysicalDevice phys_device, VkSu
   }
   else
   {
-    *dst_format      = nv_vk_format_to_nv_format(selected_format.format);
+    *dst_format      = nv_format_from_vk_format(selected_format.format);
     *dst_color_space = selected_format.colorSpace;
 
     return VK_TRUE;

@@ -1,6 +1,7 @@
 #include "../../external/volk/volk.h"
+#include "../../include/ctext/ctext.h"
+#include "../../include/ctext/fontc.h"
 #include "../../include/engine/camera.h"
-#include "../../include/engine/ctext.h"
 #include "../../include/engine/renderer.h"
 #include "../../include/iris/buffer.h"
 #include "../../include/iris/descriptors.h"
@@ -23,7 +24,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <vulkan/vulkan_core.h>
 
 static inline bool
 ctext_font_resize_buffer_if_needed(nv_renderer* rd, cfont_t* fnt, size_t minimum_size)
@@ -50,12 +50,12 @@ ctext_font_resize_buffer_if_needed(nv_renderer* rd, cfont_t* fnt, size_t minimum
     new_slice_size = NV_MAX(allocated_slice_size / 3, minimum_size);
   }
   // We have an equal number of frames as the renderer, no resize needed at all.
-  else if (nv_renderer_get_frames_in_flight(rd) == fnt->buffer.frames_in_flight)
+  else if (nv_rdr_get_frames_in_flight(rd) == fnt->buffer.frames_in_flight)
   {
     return false;
   }
 
-  const size_t frames_in_flight = nv_renderer_get_frames_in_flight(fnt->rd);
+  const size_t frames_in_flight = nv_rdr_get_frames_in_flight(fnt->rd);
   iris_ring_buffer_resize(&fnt->buffer, new_slice_size, 4, frames_in_flight, false);
   iris_buffer_resize(&fnt->staging_buffer, new_slice_size, 4, false);
 
@@ -76,7 +76,7 @@ ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
     return;
   }
 
-  VkCommandBuffer cmd = nv_renderer_get_draw_buffer(rd);
+  VkCommandBuffer cmd = nv_rdr_get_draw_buffer(rd);
 
   const size_t       vertex_buffer_offset = iris_ring_buffer_offset(&fnt->buffer);
   const size_t       index_buffer_offset  = vertex_buffer_offset + fnt->index_buffer_offset;
@@ -109,7 +109,8 @@ ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 
     nvm_mat_copy(pc.model, final_model);
     nvm_vec_copy(pc.color, drawcall->color);
-    pc.scale = (float)drawcall->scale;
+    pc.scale                = (float)drawcall->scale;
+    pc.is_orthographic_proj = !drawcall->perspective_projection;
 
     vkCmdPushConstants(cmd, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(struct ctext_push_constants), &pc);
 
@@ -124,57 +125,30 @@ ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
 }
 
 static nv_list_t
-split_string_by_lines(const char* str)
+split_string_by_lines(char* buffer)
 {
-  nv_list_t    result;
-  char*        substr  = NULL;
-  const size_t str_len = nv_strlen(str);
-  size_t       i_start = 0;
-
+  nv_list_t result;
   nv_list_init(sizeof(char*), 16, nv_allocator_c, NULL, &result);
 
-  for (size_t i = 0; i < str_len; i++)
+  char* start = buffer;
+
+  for (char* p = buffer; *p; p++)
   {
-    if (str[i] == '\n' || str[i] == '\r')
+    if (*p == '\r' || *p == '\n')
     {
-      size_t newline_len = 1;
-      if (str[i] == '\r' && (i + 1 < str_len) && str[i + 1] == '\n')
-      {
-        newline_len = 2;
-      }
+      *p = '\0'; // terminate substring
+      nv_list_push_back(&result, &start);
 
-      size_t const sub_len = i - i_start;
-      if (sub_len > 0)
-      {
-        substr = nv_substr(str, i_start, sub_len);
-      }
-      else
-      {
-        substr = nv_strdup(nv_allocator_c, NULL, "");
-      }
-      nv_list_push_back(&result, (void*)&substr);
+      // CRLF handling
+      if (*p == '\r' && *(p + 1) == '\n')
+        p++;
 
-      i_start = i + newline_len;
-      if (newline_len == 2)
-      {
-        i++; // skip '\n' after '\r'
-      }
+      start = p + 1; // move to next segment
     }
   }
 
-  if (i_start <= str_len)
-  {
-    size_t const sub_len = str_len - i_start;
-    if (sub_len > 0)
-    {
-      substr = nv_substr(str, i_start, sub_len);
-    }
-    else
-    {
-      substr = nv_strdup(nv_allocator_c, NULL, "");
-    }
-    nv_list_push_back(&result, (void*)&substr);
-  }
+  if (*start) // last line
+    nv_list_push_back(&result, &start);
 
   return result;
 }
@@ -222,12 +196,12 @@ ctext_get_text_size(const cfont_t* fnt, const char* str, vec2* dst)
         break;
       default:
       {
-        const ctext_glyph_t* glyph = (ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
+        const fontc_glyph_t* glyph = (fontc_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
         if (glyph == NULL)
         {
           break;
         }
-        width += glyph->advance;
+        width += glyph->advance_x256 * (1.0 / 256.0);
         is_new_line = false;
         break;
       }
@@ -261,7 +235,7 @@ gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32
     return;
   }
 
-  const ctext_glyph_t* glyph = (const ctext_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
+  const fontc_glyph_t* glyph = (const fontc_glyph_t*)nv_hashmap_find(&fnt->glyph_map, &codepoint);
   if (glyph == NULL)
   {
     // nv_log_info("no glyph when rendering char [%i|ASCII:%c]\n", codepoint, (char)codepoint);
@@ -269,19 +243,27 @@ gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32
   }
 
   // Since we are providing vertices to the GPU in floats, we have to convert here from doubles
-  const float glyph_x0 = (float)((glyph->x0) + offset->x);
-  const float glyph_x1 = (float)((glyph->x1) + offset->x);
-  const float glyph_y0 = (float)((glyph->y0) + offset->y);
-  const float glyph_y1 = (float)((glyph->y1) + offset->y);
+  const float x0 = (float)((glyph->x0) + offset->x);
+  const float x1 = (float)((glyph->x1) + offset->x);
+  const float y0 = (float)((glyph->y0) + offset->y);
+  const float y1 = (float)((glyph->y1) + offset->y);
 
   const size_t          index_offset = *chars_drawn * 4;
   ctext_glyph_vertex_t* v_out        = drawcall->vertices + (*chars_drawn * 4); // 4 characters per glyph
 
+  // can we just use 2^16 here? It'll be like a tad bit less precise but theoretically faster?
+  // since compiler can just issue multiply by 1/2^16 which can be perfectly represented?
+  // TODO: test theory
+  const float l = glyph->l / (float)UINT16_MAX;
+  const float b = glyph->b / (float)UINT16_MAX;
+  const float r = glyph->r / (float)UINT16_MAX;
+  const float t = glyph->t / (float)UINT16_MAX;
+
   // clang-format off
-    v_out[0] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y0, 0.0F}, (vec2f){glyph->l, glyph->b} };
-    v_out[1] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y0, 0.0F}, (vec2f){glyph->r, glyph->b} };
-    v_out[2] = (ctext_glyph_vertex_t){ (vec3f){glyph_x1, glyph_y1, 0.0F}, (vec2f){glyph->r, glyph->t} };
-    v_out[3] = (ctext_glyph_vertex_t){ (vec3f){glyph_x0, glyph_y1, 0.0F}, (vec2f){glyph->l, glyph->t} };
+    v_out[0] = (ctext_glyph_vertex_t){ (vec3f){x0, y0, 0.0F}, (vec2f){l, b} };
+    v_out[1] = (ctext_glyph_vertex_t){ (vec3f){x1, y0, 0.0F}, (vec2f){r, b} };
+    v_out[2] = (ctext_glyph_vertex_t){ (vec3f){x1, y1, 0.0F}, (vec2f){r, t} };
+    v_out[3] = (ctext_glyph_vertex_t){ (vec3f){x0, y1, 0.0F}, (vec2f){l, t} };
   // clang-format on
 
   u32* i_out = drawcall->indices + (*chars_drawn * 6);
@@ -292,7 +274,7 @@ gen_vert_data_for_char(const cfont_t* fnt, const ctext_drawcall_t* drawcall, u32
   i_out[4]   = index_offset + 3;
   i_out[5]   = index_offset;
 
-  offset->x += glyph->advance;
+  offset->x += glyph->advance_x256 * (1.0 / 256.0);
   (*chars_drawn)++;
 }
 
@@ -315,9 +297,9 @@ ctext_get_effective_length(const char* buf, size_t buflen)
 }
 
 static inline int
-ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_render_info_t* pInfo, const char* str)
+ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_render_info_t* pInfo, char* buffer)
 {
-  if ((str == NULL) || *str == 0) // nv_strlen == 0
+  if ((buffer == NULL) || *buffer == 0) // nv_strlen == 0
   {
     return 1;
   }
@@ -332,13 +314,13 @@ ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_re
   vec2 text_size       = v2zero;
   vec2 position_offset = v2zero;
 
-  lines = split_string_by_lines(str);
+  lines = split_string_by_lines(buffer);
   if (nv_list_size(&lines) == 0)
   {
     return 0;
   }
 
-  ctext_get_text_size(fnt, str, &text_size);
+  ctext_get_text_size(fnt, buffer, &text_size);
 
   // text_h = fnt->line_height * (double)(nv_list_size(&lines) - 1);
 
@@ -382,11 +364,6 @@ ctext_gen_vertices(cfont_t* fnt, ctext_drawcall_t* drawcall, const ctext_text_re
     position_offset.x += fnt->line_height;
   }
 
-  for (size_t i = 0; i < nv_list_size(&lines); i++)
-  {
-    char* line = ((char**)nv_list_data(&lines))[i];
-    nv_free(line);
-  }
   nv_list_destroy(&lines);
 
   return 0;
@@ -425,6 +402,8 @@ ctext_render_and_queue_drawcall(cfont_t* fnt, const ctext_text_render_info_t* pI
   drawcall.scale    = pInfo->scale;
   drawcall.position = pInfo->position;
   drawcall.rotation = pInfo->rotation;
+
+  drawcall.perspective_projection = pInfo->perspective_projection;
 
   drawcall.vertex_count = effective_length * 4;
   drawcall.index_count  = effective_length * 6;

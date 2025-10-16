@@ -11,6 +11,9 @@ layout(push_constant) uniform push_constant_block
   vec4 color;
   vec4 outline_color;
   float scale;
+  // Whether to use the orthographic projection matrix or the perspective one
+  // 0=false, anything_else=true
+  int is_orthographic_proj;
 }
 pc;
 
@@ -21,7 +24,10 @@ layout(location = 1) out vec4 f_col;
 void
 main()
 {
-  gl_Position = cam_ub.ortho * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
+  mat4 projection = cam_ub.ortho;
+  if (pc.is_orthographic_proj == 0) projection = cam_ub.perspective;
+
+  gl_Position = projection * cam_ub.view * pc.model * vec4(v_vertices, 1.0);
   f_col       = pc.color;
   f_uv = v_uv;
 }

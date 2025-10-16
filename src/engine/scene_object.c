@@ -254,7 +254,7 @@ nv_scene_render(nv_renderer_t* rd)
     {
       texmul.y *= -1.0f;
     }
-    nv_renderer_render_quad(rd, spr_renderer->spr, spr_renderer->tex_coord_multiplier, (vec3){ pos.x, pos.y, 0.0 }, (vec3){ siz.x, siz.y, 0.0 }, spr_renderer->color, 0);
+    nv_rdr_render_quad(rd, spr_renderer->spr, spr_renderer->tex_coord_multiplier, (vec3){ pos.x, pos.y, 0.0 }, (vec3){ siz.x, siz.y, 0.0 }, spr_renderer->color, 0);
   }
   for (int i = 0; i < (int)nv_list_size(&scene_main->objects); i++)
   {

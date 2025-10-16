@@ -121,7 +121,7 @@ nvui_render(nv_renderer_t* rd)
 
     const nv_transform* t = &bton->transform;
 
-    nv_renderer_render_quad(rd, bton->spr, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->half_size.x, t->half_size.y, 1.0f }, bton->color, 0);
+    nv_rdr_render_quad(rd, bton->spr, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->half_size.x, t->half_size.y, 1.0f }, bton->color, 0);
   }
 
   for (int i = 0; i < (int)nv_list_size(&nvui_ctx.sliders); i++)
@@ -136,13 +136,13 @@ nvui_render(nv_renderer_t* rd)
 
     const nv_transform* t = &slider->transform;
 
-    nv_renderer_render_quad(
+    nv_rdr_render_quad(
         rd, slider->bg_sprite, (vec2){ 1.0f, 1.0f }, (vec3){ t->position.x, t->position.y, 0.0f }, (vec3){ t->half_size.x, t->half_size.y, 1.0f }, slider->bg_color, 0);
 
     double pcent = ((slider->value - slider->min) / (slider->max - slider->min));
     pcent        = NVM_CLAMP(pcent, 0.0f, 1.0f);
 
-    nv_renderer_render_quad(
+    nv_rdr_render_quad(
         rd,
         slider->slider_sprite,
         (vec2){ 1.0f, 1.0f },
@@ -164,7 +164,7 @@ nvui_update(nv_input_ctx_t* inputctx)
     nvui_button*        bton = (nvui_button*)nv_list_get(&nvui_ctx.btons, i);
     const nv_transform* t    = &bton->transform;
 
-    const nvm_rect2d bton_rect = (nvm_rect2d){ .position = t->position, .half_size = t->half_size };
+    const nvm_rect2d_t bton_rect = (nvm_rect2d_t){ .position = t->position, .half_size = t->half_size };
     if (nvm_is_point_inside_rect(&mouse_position, &bton_rect))
     {
       bton->was_hovered = true;
@@ -191,7 +191,7 @@ nvui_update(nv_input_ctx_t* inputctx)
     nvui_slider*        slider = (nvui_slider*)nv_list_get(&nvui_ctx.sliders, i);
     const nv_transform* t      = &slider->transform;
 
-    const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .half_size = t->half_size };
+    const nvm_rect2d_t slider_rect = (nvm_rect2d_t){ .position = t->position, .half_size = t->half_size };
     if (slider->interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
     {
       if (nv_input_is_mouse_signalled(inputctx, NOVA_MOUSE_BUTTON_LEFT))

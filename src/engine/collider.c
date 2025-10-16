@@ -92,7 +92,7 @@ nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shap
     b2Capsule const capsule = nv_zero_init(b2Capsule);
     b2CreateCapsuleShape(body_id, &shape_def, &capsule);
     // capsule.
-    nv_assert(0);
+    nv_assert_else_return(0, (b2BodyId){ 0 });
   }
 
   return body_id;

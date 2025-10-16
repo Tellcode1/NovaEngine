@@ -2,6 +2,7 @@
 #define ENGINE_ENGINE_H
 
 #include "../std/include/containers/list.h"
+#include "../std/include/math/math.h"
 #include "../std/include/stdafx.h"
 #include "../std/include/types.h"
 
@@ -114,6 +115,8 @@ extern "C"
 
   extern void nv_consume_event(nv_ctx_t* ctx, const union SDL_Event* event);
   extern void nv_update(nv_ctx_t* ctx);
+
+  extern nv_extent2 nv_get_window_size(nv_ctx_t* ctx);
 
 #ifdef __cplusplus
 }

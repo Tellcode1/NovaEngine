@@ -175,9 +175,9 @@ nv_camera_set_position(nv_camera_t* cam, const vec3 pos)
 void
 nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
 {
-  // if (cam->uniform_buffer.frames_in_flight != nv_renderer_get_frames_in_flight(rd))
+  // if (cam->uniform_buffer.frames_in_flight != nv_rdr_get_frames_in_flight(rd))
   // {
-  //   iris_ring_buffer_resize(&cam->uniform_buffer, cam->uniform_buffer.slice_size, cam->uniform_buffer.backing.alignment, nv_renderer_get_frames_in_flight(rd), false);
+  //   iris_ring_buffer_resize(&cam->uniform_buffer, cam->uniform_buffer.slice_size, cam->uniform_buffer.backing.alignment, nv_rdr_get_frames_in_flight(rd), false);
   // }
   iris_ring_buffer_next(&camera.uniform_buffer);
 
@@ -197,8 +197,8 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
   const double ortho_half_w = cam->ortho_half_size.x;
   const double ortho_half_h = cam->ortho_half_size.y;
 
-  const nv_extent2d render_extent = nv_renderer_get_render_extent(rd);
-  const double      aspect        = (double)render_extent.width / (double)render_extent.height;
+  const nv_extent2 render_extent = nv_rdr_get_render_extent(rd);
+  const double     aspect        = (double)render_extent.width / (double)render_extent.height;
 
   cam->perspective = m4perspective(cam->fov, aspect, cam->near_clip, cam->far_clip);
   cam->ortho       = m4ortho(-ortho_half_w, ortho_half_w, -ortho_half_h, ortho_half_h, 0.1, 100.0);
@@ -207,8 +207,8 @@ nv_camera_update(nv_camera_t* cam, struct nv_renderer* rd)
 void
 nv_camera_upload_uniform_buffer(nv_camera_t* cam, struct nv_renderer* rd)
 {
-  const nv_extent2d render_extent = nv_renderer_get_render_extent(rd);
-  const vec3        right         = nv_camera_get_right(cam);
+  const nv_extent2 render_extent = nv_rdr_get_render_extent(rd);
+  const vec3       right         = nv_camera_get_right(cam);
 
   nv_camera_uniform_buffer_t ub = nv_zero_init(nv_camera_uniform_buffer_t);
 

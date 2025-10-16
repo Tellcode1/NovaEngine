@@ -4,6 +4,7 @@
 
 #include "../../external/volk/volk.h"
 #include "../engine/format.h"
+#include "../std/include/math/math.h"
 #include "../std/include/math/vec3.h"
 #include "buffer.h"
 #include "memory.h"
@@ -47,17 +48,14 @@ extern "C"
 
     /* request to generate mips */
     IRIS_TEXTURE_GENERATE_MIPMAPS_BIT = 1 << 7,
-
-    /* if backed by linear memory and mappable (very rare) */
-    IRIS_TEXTURE_PERSISTENT_MAPPING_BIT = 1 << 9,
   } iris_texture_flags_bits;
 
   typedef struct iris_texture_region
   {
-    vec3i       offset;
-    nv_extent3D extent;
-    u32         mip_level;
-    u32         array_level;
+    vec3i      offset;
+    nv_extent3 extent;
+    u32        mip_level;
+    u32        array_level;
   } iris_texture_region_t;
 
   typedef struct iris_texture_extra_create_info
@@ -69,6 +67,8 @@ extern "C"
     VkImageLayout     initial_layout;
 
     bool immutable; /* image created once, NO RESIZES TOO */
+
+    VkImage render_texture_image;
   } iris_texture_extra_create_info_t;
 
   typedef struct iris_texture_create_info
@@ -78,8 +78,8 @@ extern "C"
      * If extent.depth = 0, Image is considered 2D
      * Else, image is considered 3D
      */
-    nv_extent3D extent; // < width, height, depth > depth = 1 for 2D image
-    size_t      alignment;
+    nv_extent3 extent; // < width, height, depth > depth = 1 for 2D image
+    size_t     alignment;
 
     /**
      * The size of the array of images. Each image will have the same width and height, but can have different data
@@ -109,9 +109,9 @@ extern "C"
     iris_texture_flags flags;
 
     /* description */
-    nv_extent3D extent;
-    u32         mip_levels;
-    u32         array_layers;
+    nv_extent3 extent;
+    u32        mip_levels;
+    u32        array_layers;
 
     nv_format     format;
     VkImageLayout current_layout;
@@ -132,13 +132,13 @@ extern "C"
    */
   extern nv_error iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* info, iris_texture_t* out_texture);
 
-  extern void iris_texture_destroy_immediate(iris_texture_t* tex);
+  extern void iris_texture_destroy(iris_texture_t* tex);
 
   /**
    * @brief Resize an image to new dimensions.
    * @param copy_old If true, all data from old texture is copied
    */
-  extern nv_error iris_texture_resize(iris_texture_t* tex, nv_extent3D new_extent, bool copy_old);
+  extern nv_error iris_texture_resize(iris_texture_t* tex, nv_extent3 new_extent, bool copy_old);
 
   /**
    * Write CPU data into image (single-subresource or whole image). Internally may use staging.

@@ -7,8 +7,8 @@
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
 
+#include "../../include/ctext/fontc.h"
 #include "../../include/engine/atlas.h"
-#include "../../include/engine/fontc.h"
 #include "../../include/engine/format.h"
 #include "../../include/engine/image.h"
 
@@ -88,8 +88,8 @@ main(int argc, char* argv[])
 fontc_err_t
 fontc_read_font(const char* path, fontc_file_t* file)
 {
-  nv_assert(path != NULL);
-  nv_assert(file != NULL);
+  nv_assert_else_return(path != NULL, FONTC_INVALID_ARGUMENT);
+  nv_assert_else_return(file != NULL, FONTC_INVALID_ARGUMENT);
 
   fontc_err_t    retcode           = FONTC_SUCCESS;
   FILE*          f                 = NULL;
@@ -304,12 +304,12 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     FT_Done_Glyph(gl);
 
     glyphs[0] = (fontc_glyph_t){
-      .codepoint = 0,
-      .advance   = (u16)((float)face->glyph->metrics.horiAdvance * 256),
-      .x0        = (float)box.xMin,
-      .x1        = (float)box.xMax,
-      .y0        = (float)box.yMin,
-      .y1        = (float)box.yMax,
+      .codepoint    = 0,
+      .advance_x256 = (u16)((float)face->glyph->metrics.horiAdvance * 256),
+      .x0           = (float)box.xMin,
+      .x1           = (float)box.xMax,
+      .y0           = (float)box.yMin,
+      .y1           = (float)box.yMax,
     };
     atlas_extents[0] = (vec4u){
       x,
@@ -397,12 +397,12 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
 
       float advance             = (float)thread_face->glyph->metrics.horiAdvance / units_per_em;
       local_glyphs[local_count] = (fontc_glyph_t){
-        .codepoint = i,
-        .advance   = (u16)(advance * 256),
-        .x0        = (float)box.xMin,
-        .x1        = (float)box.xMax,
-        .y0        = (float)box.yMin,
-        .y1        = (float)box.yMax,
+        .codepoint    = i,
+        .advance_x256 = (u16)(advance * 256),
+        .x0           = (float)box.xMin,
+        .x1           = (float)box.xMax,
+        .y0           = (float)box.yMin,
+        .y1           = (float)box.yMax,
       };
       local_extents[local_count++] = (vec4u){
         x,
