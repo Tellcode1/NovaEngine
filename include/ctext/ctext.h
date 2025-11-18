@@ -2,6 +2,7 @@
 #define C_TEXT_H
 
 #include "../iris/buffer.h"
+#include "../iris/mesh.h"
 #include "../iris/ringbuffer.h"
 #include "../iris/sampler.h"
 #include "../iris/texture.h"

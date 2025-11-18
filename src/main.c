@@ -247,9 +247,6 @@ main(int argc, char* argv[])
   }
 
   cfont_t amongus = nv_zero_init(cfont_t);
-
-  nv_log_info("Initialized in %fs\n", nv_timer_time_since_start(&tm));
-
   ctext_load_font(&vkctx, &rdr, "Assets/roboto.ttf", 64, &amongus);
 
   nv_sprite_t circle_sprite = nv_zero_init(nv_sprite_t);
@@ -299,6 +296,8 @@ main(int argc, char* argv[])
     p->vel.y  = (SDL_randf() - 0.5) * 1e-5;
   }
 
+  nv_log_info("[" PRINT_GREEN_SUCCESS "] Initialized in %fs\n", nv_timer_time_since_start(&tm));
+
   while (nv_ctx_running(&ctx))
   {
     iris_begin_upload_batch(&driver);
@@ -312,7 +311,7 @@ main(int argc, char* argv[])
     // we're like nearly fixed with some random lag spikes so ignore them lmao
     // 1 hour per step. ~60 hours per second
     const double simulation_dt = 60.0 * 10.0;
-    const int    substeps      = simulation_dt / 60;
+    const size_t substeps      = simulation_dt / 60;
     const double substep_dt    = simulation_dt / substeps;
 
     verlet_accelerations(partices, nv_arrlen(partices));
@@ -379,6 +378,7 @@ main(int argc, char* argv[])
       txt.vertical               = CTEXT_VERT_ALIGN_CENTER;
       txt.color                  = v4one;
       txt.perspective_projection = true;
+
       ctext_render(&amongus, &txt, "%d", (int)(1.0 / ctx.delta_time));
 
       nv_rdr_end_render(&rdr);

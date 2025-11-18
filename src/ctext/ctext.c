@@ -26,6 +26,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <freetype/config/ftheader.h>
+#include <freetype/fttypes.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
+#include FT_IMAGE_H
+
 /* I have no idea what any of this is */
 
 static inline void
@@ -115,6 +121,11 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
     nv_raise_error(NV_ERROR_IO_ERROR, "There was an error loading the font file. Skipping\n");
     return;
   }
+  // if (fontc_bake_font_to_cache(font_path, scale, 1024, 1024, 4, &f_file) != 0)
+  // {
+  //   nv_raise_error(NV_ERROR_IO_ERROR, "There was an error loading the font file (%s).", font_path);
+  //   return;
+  // }
 
   // Store a pointer to the font for future reference
   *(cfont_t**)nv_list_push_empty(&rdr->ctext->fonts) = dst;

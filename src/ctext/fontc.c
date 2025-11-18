@@ -320,7 +320,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
   }
 
   omp_set_num_threads((int)num_threads);
-  nv_log_info("Using %zu threads\n", num_threads);
+  // nv_log_info("Using %zu threads\n", num_threads);
 
   faces = (FT_Face*)nv_calloc(sizeof(FT_Face) * num_threads);
   if (faces == NULL)
@@ -431,7 +431,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
   char buffer[256];
   nv_btoa2(atlas.width * atlas.height * nv_format_get_bytes_per_pixel(atlas.format), true, buffer, sizeof(buffer));
 
-  nv_log_info("final atlas size w=%zu h=%zu (uncompressed %s)\n", atlas.width, atlas.height, buffer);
+  // nv_log_info("final atlas size w=%zu h=%zu (uncompressed %s)\n", atlas.width, atlas.height, buffer);
 
   nv_texture_atlas_finish(&atlas);
 
@@ -443,7 +443,7 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     retcode = FONTC_ATLAS_ERROR;
     goto CLEANUP_AND_RETURN;
   }
-  nv_assert(units_per_em != 0.0F);
+  nv_assert_else_return(units_per_em != 0.0F, FONTC_FONT_FILE_NOT_VALID);
 
 #pragma omp parallel for
   for (size_t i = 0; i < glyph_count; i++)
@@ -461,7 +461,6 @@ fontc_bake_font_to_cache(const char* font_path, size_t pixel_size, size_t init_a
     glyph->r = (u16)(((float)atlas_extents[i].z / atlas_w) * UINT16_MAX);
     glyph->t = (u16)(((float)atlas_extents[i].w / atlas_h) * UINT16_MAX);
   }
-  nv_log_info("%zu glyphs processed\n", glyph_count);
 
   out_file->header.bmpwidth  = (int)atlas.width;
   out_file->header.bmpheight = (int)atlas.height;

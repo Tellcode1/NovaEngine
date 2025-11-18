@@ -134,6 +134,8 @@ nv_sprite_load_from_disk(iris_driver_t* driver, const char* path, nv_sprite_t* d
     nv_free(tex.data);
   }
 
+  nv_log_info("[" PRINT_GREEN_SUCCESS "] Texture %s loaded\n", path);
+
   return code;
 }
 

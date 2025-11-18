@@ -155,8 +155,7 @@ extern "C"
    * Readback pixels to CPU buffer (will block by default).
    * @todo Figure out ways for async this?
    */
-  extern nv_error iris_texture_readback(
-      iris_texture_t* tex, void* dst, size_t dst_size, u32 mip_level, u32 array_layer, VkImageLayout current_layout); /* use to know if layout transition is necessary */
+  extern nv_error iris_texture_readback(iris_texture_t* tex, void* dst, size_t dst_size, u32 mip_level, u32 array_layer); /* use to know if layout transition is necessary */
 
   extern nv_error iris_texture_generate_mipmaps(iris_texture_t* tex, u32 levels);
 

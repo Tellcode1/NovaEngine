@@ -23,10 +23,12 @@ nv_window_init(const char* window_title, int window_width, int window_height, nv
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
-  dst->window = SDL_CreateWindow(window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  u64 sdl_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+
+  dst->window = SDL_CreateWindow(window_title, window_width, window_height, sdl_flags);
   nv_assert_and_exec(dst->window != NULL, nv_raise_error(NV_ERROR_EXTERNAL, "%s\n", SDL_GetError()); return;);
 
-  nv_log_info("Created window (name=%s w=%i h=%i flags=%#lx)\n", window_title, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+  nv_log_info("[" PRINT_GREEN_SUCCESS "] Created window (name=%s w=%i h=%i flags=%#lx)\n", window_title, window_width, window_height, sdl_flags);
 
   nv_error code = nv_list_init(sizeof(nv_fixed_update_fn_stored), 8, nv_allocator_c, NULL, &dst->fixed_update_fns);
   if (code != NV_SUCCESS)

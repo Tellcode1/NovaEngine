@@ -576,7 +576,7 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
     code = nvsm_dump_shader(bin, spirv_path);
     if (code == NV_SUCCESS)
     {
-      nv_log_verbose("%s baked to %s\n", shader_path, spirv_path);
+      nv_log_verbose("[" PRINT_GREEN_SUCCESS "] %s compiled\n", shader_path);
     }
     else
     {
@@ -772,7 +772,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
     get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
     /* we have the cache in this branch */
-    nv_log_info("Loaded cache file (%s)\n", cache_file_path);
+    nv_log_info("[" PRINT_GREEN_SUCCESS "] Loaded cache file (%s)\n", cache_file_path);
 
     code = nvsm_default_compile_with_cache(ctx, &list_file, &cache_file);
 

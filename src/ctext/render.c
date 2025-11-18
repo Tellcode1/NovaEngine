@@ -449,7 +449,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
 
   va_start(args, fmt);
 
-  char* buffer = (char*)nv_malloc(buffer_size * sizeof(char)); // +1 for the NULL terminator
+  char* buffer = (char*)nv_malloc(buffer_size * sizeof(char));
   nv_vsnprintf(args, buffer, buffer_size, fmt);
 
   va_end(args);
