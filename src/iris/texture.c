@@ -9,7 +9,7 @@
 #include "../../include/iris/sampler.h"
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
@@ -51,7 +51,7 @@ create_image(
     bool               linear_tiling,
     VkImage*           dst)
 {
-  VkImageCreateInfo imageCreateInfo = nv_zero_init(VkImageCreateInfo);
+  VkImageCreateInfo imageCreateInfo = nv_zinit(VkImageCreateInfo);
   imageCreateInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageCreateInfo.imageType         = image_type;
   imageCreateInfo.extent            = (VkExtent3D){ extent.width, extent.height, extent.depth };
@@ -161,7 +161,7 @@ iris_texture_init(struct iris_driver* driver, const iris_texture_create_info_t* 
       break;
   }
 
-  VkImageViewCreateInfo imageViewCreateInfo           = nv_zero_init(VkImageViewCreateInfo);
+  VkImageViewCreateInfo imageViewCreateInfo           = nv_zinit(VkImageViewCreateInfo);
   imageViewCreateInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   imageViewCreateInfo.image                           = dst->handle;
   imageViewCreateInfo.viewType                        = view_type;

@@ -7,6 +7,7 @@
 #include "../../include/engine/sprite.h"
 #include "../../include/iris/buffer.h"
 #include "../../include/iris/descriptors.h"
+#include "../../include/iris/extent.h"
 #include "../../include/iris/memory.h"
 #include "../../include/iris/ringbuffer.h"
 #include "../../include/iris/sampler.h"
@@ -15,7 +16,7 @@
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/hashmap.h"
 #include "../../include/std/include/containers/list.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/hash.h"
 #include "../../include/std/include/math/vec2.h"
 #include "../../include/std/include/stdafx.h"
@@ -113,7 +114,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
     return;
   }
 
-  *dst = nv_zero_init(cfont_t);
+  *dst = nv_zinit(cfont_t);
 
   struct fontc_file_t f_file;
   if (fontc_load_font(font_path, scale, &f_file) != 0)
@@ -132,8 +133,8 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
 
   dst->rd = rdr;
 
-  nv_hashmap_init(256, sizeof(u32), sizeof(fontc_glyph_t), nv_hash_fnv1a, nv_allocator_c, NULL, &dst->glyph_map);
-  nv_list_init(sizeof(ctext_drawcall_t), 4, nv_allocator_c, NULL, &dst->drawcalls);
+  nv_hashmap_init(sizeof(u32), sizeof(fontc_glyph_t), nv_hash_fnv1a, nv_compare_default, 256, &dst->glyph_map);
+  nv_list_init(sizeof(ctext_drawcall_t), 4, &dst->drawcalls);
 
   nv_texture_atlas_t atlas;
 
@@ -157,7 +158,7 @@ ctext_load_font(nvvk_ctx_t* vkctx, nv_renderer_t* rdr, const char* font_path, in
 
   const size_t initial_font_gpu_buffer_size = 1024;
 
-  iris_buffer_extra_create_info_t extra_info = nv_zero_init(iris_buffer_extra_create_info_t);
+  iris_buffer_extra_create_info_t extra_info = nv_zinit(iris_buffer_extra_create_info_t);
   extra_info.multibuffering_enable           = true;
   extra_info.multibuffering_frames           = nv_rdr_get_frames_in_flight(rdr);
   extra_info.custom_memory_flags             = IRIS_MEMORY_FLAGS_DEFAULT_BIT;
@@ -222,14 +223,14 @@ ctext_init(struct nv_renderer* rd)
   nv_assert_else_return(rd != NULL, NV_ERROR_INVALID_ARG);
   nv_assert_else_return(nvvk_ctx_is_valid(rd->vkctx) == true, NV_ERROR_INVALID_ARG);
 
-  rd->ctext = (nv_ctext_module*)nv_calloc(sizeof(nv_ctext_module));
+  rd->ctext = (nv_ctext_module*)nv_zmalloc(sizeof(nv_ctext_module));
   nv_assert_else_return(rd->ctext != NULL, NV_ERROR_MALLOC_FAILED);
 
   nv_ctext_module* ctext = rd->ctext;
 
   nv_error code = NV_ERROR_SUCCESS;
 
-  if ((code = nv_list_init(sizeof(cfont_t*), 4, nv_allocator_c, NULL, &ctext->fonts)) != NV_ERROR_SUCCESS)
+  if ((code = nv_list_init(sizeof(cfont_t*), 4, &ctext->fonts)) != NV_ERROR_SUCCESS)
   {
     return code;
   }

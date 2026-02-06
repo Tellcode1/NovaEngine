@@ -126,6 +126,7 @@ set(LIBS
     volk
     m
     SDL3
+    SDL3_image
     freetype
     box2d
     OpenMP::OpenMP_C

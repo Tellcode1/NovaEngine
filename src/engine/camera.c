@@ -5,12 +5,13 @@
 #include "../../include/iris/buffer.h"
 #include "../../include/iris/descriptors.h"
 #include "../../include/iris/driver.h"
+#include "../../include/iris/extent.h"
 #include "../../include/iris/memory.h"
 #include "../../include/iris/ringbuffer.h"
 #include "../../include/iris/texture.h"
 #include "../../include/iris/types.h"
 #include "../../include/iris/vkstdafx.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/math/mat.h"
 #include "../../include/std/include/math/math.h"
 #include "../../include/std/include/math/vec2.h"
@@ -40,7 +41,7 @@ nv_camera_init(iris_driver_t* driver, nv_camera_t* cam)
   const float ortho_half_w = 5.0F, ortho_half_h = 5.0F;
   *cam = (nv_camera_t){
     .ortho_half_size = (vec2){ ortho_half_w, ortho_half_h },
-    .perspective     = nv_zero_init(mat4),
+    .perspective     = nv_zinit(mat4),
     .ortho           = m4ortho(-ortho_half_w, ortho_half_w, -ortho_half_h, ortho_half_h, 0.1f, 100.0f),
     .position        = (vec3){ 0.0f, 0.0f, 10.0f },
     .actual_pos      = (vec3){ 0.0f, 0.0f, 10.0f },
@@ -65,7 +66,7 @@ nv_camera_init(iris_driver_t* driver, nv_camera_t* cam)
   size_t const ub_size = align_up_size(sizeof(nv_camera_uniform_buffer_t), ub_align);
   nv_assert_else_return(ub_size != 0, NV_ERROR_INVALID_RETVAL);
 
-  iris_buffer_extra_create_info_t extra_info = nv_zero_init(iris_buffer_extra_create_info_t);
+  iris_buffer_extra_create_info_t extra_info = nv_zinit(iris_buffer_extra_create_info_t);
   extra_info.multibuffering_enable           = true;
   extra_info.multibuffering_frames           = CAMERA_FAKE_BUFFER_COUNT;
   extra_info.custom_memory_flags             = IRIS_MEMORY_FLAGS_PERSISTENT_MAPPED_BIT;
@@ -210,7 +211,7 @@ nv_camera_upload_uniform_buffer(nv_camera_t* cam, struct nv_renderer* rd)
   const nv_extent2 render_extent = nv_rdr_get_render_extent(rd);
   const vec3       right         = nv_camera_get_right(cam);
 
-  nv_camera_uniform_buffer_t ub = nv_zero_init(nv_camera_uniform_buffer_t);
+  nv_camera_uniform_buffer_t ub = nv_zinit(nv_camera_uniform_buffer_t);
 
   nvm_mat_copy(ub.perspective, cam->perspective);
   nvm_mat_copy(ub.ortho, cam->ortho);

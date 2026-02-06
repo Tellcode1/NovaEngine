@@ -5,7 +5,7 @@ extern "C"
 {
 #endif
 
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include <stdbool.h>
 #include <stddef.h>
 

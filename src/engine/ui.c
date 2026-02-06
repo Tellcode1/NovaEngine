@@ -7,7 +7,7 @@
 
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/list.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/math/math.h"
 #include "../../include/std/include/math/vec2.h"
 #include "../../include/std/include/math/vec3.h"
@@ -31,8 +31,8 @@ void
 nvui_init(void)
 {
   nvui_ctx.active = true;
-  nv_list_init(sizeof(nvui_button), 4, nv_allocator_c, NULL, &nvui_ctx.btons);
-  nv_list_init(sizeof(nvui_slider), 4, nv_allocator_c, NULL, &nvui_ctx.sliders);
+  nv_list_init(sizeof(nvui_button), 4, &nvui_ctx.btons);
+  nv_list_init(sizeof(nvui_slider), 4, &nvui_ctx.sliders);
 }
 
 void
@@ -55,7 +55,7 @@ nvui_create_button(nv_sprite_t* spr)
     nv_raise_error(NV_ERROR_BROKEN_STATE, "nvui not initialized\n");
     return NULL;
   }
-  nvui_button bton         = nv_zero_init(nvui_button);
+  nvui_button bton         = nv_zinit(nvui_button);
   bton.transform.position  = v2zero;
   bton.transform.half_size = (vec2){ 0.5f, 0.5f };
   bton.color               = (vec4){ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -72,7 +72,7 @@ nvui_create_slider(nv_sprite_t* foreground, nv_sprite_t* background)
     nv_log_error("nvui not initialized\n");
     return NULL;
   }
-  nvui_slider slider         = nv_zero_init(nvui_slider);
+  nvui_slider slider         = nv_zinit(nvui_slider);
   slider.transform.position  = v2zero;
   slider.transform.half_size = (vec2){ 0.5f, 1.5f };
   slider.min                 = 0.0f;
@@ -164,7 +164,7 @@ nvui_update(nv_input_ctx_t* inputctx)
     nvui_button*        bton = (nvui_button*)nv_list_get(&nvui_ctx.btons, i);
     const nv_transform* t    = &bton->transform;
 
-    const nvm_rect2d_t bton_rect = (nvm_rect2d_t){ .position = t->position, .half_size = t->half_size };
+    const nvm_rect2d bton_rect = (nvm_rect2d){ .position = t->position, .size = t->half_size };
     if (nvm_is_point_inside_rect(&mouse_position, &bton_rect))
     {
       bton->was_hovered = true;
@@ -191,7 +191,7 @@ nvui_update(nv_input_ctx_t* inputctx)
     nvui_slider*        slider = (nvui_slider*)nv_list_get(&nvui_ctx.sliders, i);
     const nv_transform* t      = &slider->transform;
 
-    const nvm_rect2d_t slider_rect = (nvm_rect2d_t){ .position = t->position, .half_size = t->half_size };
+    const nvm_rect2d slider_rect = (nvm_rect2d){ .position = t->position, .size = t->half_size };
     if (slider->interactable && nvm_is_point_inside_rect(&mouse_position, &slider_rect))
     {
       if (nv_input_is_mouse_signalled(inputctx, NOVA_MOUSE_BUTTON_LEFT))

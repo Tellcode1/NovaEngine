@@ -13,7 +13,7 @@
 #include "../../include/shadersystem/nvsm.h"
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/list.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/math/mat.h"
 #include "../../include/std/include/math/math.h"
 #include "../../include/std/include/math/vec2.h"
@@ -39,7 +39,7 @@ bake_unlit_pipeline(nvsm_ctx_t* ctx, nv_renderer_t* rd)
     { 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, NULL },
   };
 
-  VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zero_init(VkDescriptorSetLayoutCreateInfo);
+  VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zinit(VkDescriptorSetLayoutCreateInfo);
   layoutinfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutinfo.pBindings                       = bindings;
   layoutinfo.bindingCount                    = 1;
@@ -370,7 +370,7 @@ iris_create_graphics_pipeline(nvvk_ctx_t* vkctx, const iris_pipeline_create_info
     .alphaToOneEnable      = VK_FALSE,
   };
 
-  VkPipelineColorBlendAttachmentState colorblendAttachmentState = nv_zero_init(VkPipelineColorBlendAttachmentState);
+  VkPipelineColorBlendAttachmentState colorblendAttachmentState = nv_zinit(VkPipelineColorBlendAttachmentState);
 
   if (pCreateInfo->blend_state != NULL)
   {
@@ -404,7 +404,7 @@ iris_create_graphics_pipeline(nvvk_ctx_t* vkctx, const iris_pipeline_create_info
     .blendConstants  = { 0.0f, 0.0f, 0.0f, 0.0f },
   };
 
-  VkPipelineShaderStageCreateInfo* shader_infos = (VkPipelineShaderStageCreateInfo*)nv_calloc(pCreateInfo->n_shaders * sizeof(VkPipelineShaderStageCreateInfo));
+  VkPipelineShaderStageCreateInfo* shader_infos = (VkPipelineShaderStageCreateInfo*)nv_zmalloc(pCreateInfo->n_shaders * sizeof(VkPipelineShaderStageCreateInfo));
   for (size_t i = 0; i < pCreateInfo->n_shaders; i++)
   {
     if ((pCreateInfo->shaders[i] == NULL) || pCreateInfo->shaders[i]->handle == VK_NULL_HANDLE)
@@ -442,7 +442,7 @@ iris_create_graphics_pipeline(nvvk_ctx_t* vkctx, const iris_pipeline_create_info
     .basePipelineIndex   = 0, // ?
   };
 
-  VkPipelineDynamicStateCreateInfo dynamicStateInfo = nv_zero_init(VkPipelineDynamicStateCreateInfo);
+  VkPipelineDynamicStateCreateInfo dynamicStateInfo = nv_zinit(VkPipelineDynamicStateCreateInfo);
   const VkDynamicState             dynamicStates[]  = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DYNAMIC_VIEWPORT)) {}
   else
@@ -465,8 +465,8 @@ iris_create_graphics_pipeline(nvvk_ctx_t* vkctx, const iris_pipeline_create_info
       .depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL,
       .depthBoundsTestEnable = VK_FALSE,
       .stencilTestEnable     = VK_FALSE,
-      .front                 = nv_zero_init(VkStencilOpState),
-      .back                  = nv_zero_init(VkStencilOpState),
+      .front                 = nv_zinit(VkStencilOpState),
+      .back                  = nv_zinit(VkStencilOpState),
       .minDepthBounds        = 0.0f,
       .maxDepthBounds        = 1.0f,
     };
@@ -504,7 +504,7 @@ iris_create_render_pass(nvvk_ctx_t* vkctx, iris_render_pass_create_info const* p
     .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
   };
 
-  VkAttachmentReference colorAttachmentReference = nv_zero_init(VkAttachmentReference);
+  VkAttachmentReference colorAttachmentReference = nv_zinit(VkAttachmentReference);
   colorAttachmentReference.attachment            = 0;
   colorAttachmentReference.layout                = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -522,11 +522,11 @@ iris_create_render_pass(nvvk_ctx_t* vkctx, iris_render_pass_create_info const* p
   };
 
   nv_list_t attachments;
-  nv_list_init(sizeof(VkAttachmentDescription), 5, nv_allocator_c, NULL, &attachments);
+  nv_list_init(sizeof(VkAttachmentDescription), 5, &attachments);
   nv_list_push_back(&attachments, &colorAttachmentDescription);
 
-  VkAttachmentDescription depthAttachment    = nv_zero_init(VkAttachmentDescription);
-  VkAttachmentReference   depthAttachmentRef = nv_zero_init(VkAttachmentReference);
+  VkAttachmentDescription depthAttachment    = nv_zinit(VkAttachmentDescription);
+  VkAttachmentReference   depthAttachmentRef = nv_zinit(VkAttachmentReference);
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK))
   {
     depthAttachment = (VkAttachmentDescription){
@@ -549,8 +549,8 @@ iris_create_render_pass(nvvk_ctx_t* vkctx, iris_render_pass_create_info const* p
     nv_list_push_back(&attachments, &depthAttachment);
   }
 
-  VkAttachmentReference   colorAttachmentResolveRef = nv_zero_init(VkAttachmentReference);
-  VkAttachmentDescription colorAttachmentResolve    = nv_zero_init(VkAttachmentDescription);
+  VkAttachmentReference   colorAttachmentResolveRef = nv_zinit(VkAttachmentReference);
+  VkAttachmentDescription colorAttachmentResolve    = nv_zinit(VkAttachmentDescription);
   if (HAS_FLAG(NVVK_PIPELINE_FLAGS_FORCE_MULTISAMPLING))
   {
     colorAttachmentResolve = (VkAttachmentDescription){
@@ -689,14 +689,13 @@ iris_create_swapchain(nvvk_ctx_t* vkctx, iris_swapchain_create_info const* pCrea
   VkSurfaceFormatKHR surface_format = (VkSurfaceFormatKHR){ (VkFormat)nv_format_to_vk_format(pCreateInfo->format), pCreateInfo->color_space };
 
   uchar buffer[1024];
+  NV_SETUP_STACK_ALLOC(stackalloc, buffer, sizeof(buffer));
 
-  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
-  stack.buffer            = buffer;
-  stack.buffer_size       = sizeof(buffer);
+  nv_allocator_t* old = nv_push_allocator(&stackalloc);
 
   u32 present_mode_count = 0;
   vkGetPhysicalDeviceSurfacePresentModesKHR(vkctx->phys_device, vkctx->surface, &present_mode_count, NULL);
-  VkPresentModeKHR* present_modes = (VkPresentModeKHR*)nv_allocator_estack(&stack, NULL, NV_ALLOC_NEW_BLOCK, present_mode_count * sizeof(VkPresentModeKHR));
+  VkPresentModeKHR* present_modes = (VkPresentModeKHR*)nv_zmalloc(present_mode_count * sizeof(VkPresentModeKHR));
   nv_assert_else_return(present_modes != NULL, );
   vkGetPhysicalDeviceSurfacePresentModesKHR(vkctx->phys_device, vkctx->surface, &present_mode_count, present_modes);
 
@@ -710,7 +709,7 @@ iris_create_swapchain(nvvk_ctx_t* vkctx, iris_swapchain_create_info const* pCrea
     }
   }
 
-  nv_allocator_estack(&stack, present_modes, present_mode_count * sizeof(VkPresentModeKHR), NV_ALLOC_FREE);
+  nv_free(present_modes);
 
   const VkPresentModeKHR fallback_present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
@@ -722,7 +721,7 @@ iris_create_swapchain(nvvk_ctx_t* vkctx, iris_swapchain_create_info const* pCrea
 
   u32 surface_format_count = 0;
   vkGetPhysicalDeviceSurfaceFormatsKHR(vkctx->phys_device, vkctx->surface, &surface_format_count, NULL);
-  VkSurfaceFormatKHR* surface_formats = (VkSurfaceFormatKHR*)nv_allocator_estack(&stack, NULL, NV_ALLOC_NEW_BLOCK, sizeof(VkSurfaceFormatKHR) * surface_format_count);
+  VkSurfaceFormatKHR* surface_formats = (VkSurfaceFormatKHR*)nv_zmalloc(sizeof(VkSurfaceFormatKHR) * surface_format_count);
   vkGetPhysicalDeviceSurfaceFormatsKHR(vkctx->phys_device, vkctx->surface, &surface_format_count, surface_formats);
 
   const VkSurfaceFormatKHR* fallback = &surface_formats[0];
@@ -754,7 +753,7 @@ iris_create_swapchain(nvvk_ctx_t* vkctx, iris_swapchain_create_info const* pCrea
     surface_format.colorSpace = fallback->colorSpace;
   }
 
-  nv_allocator_estack(&stack, surface_formats, surface_format_count * sizeof(VkSurfaceFormatKHR), NV_ALLOC_FREE);
+  nv_free(surface_formats);
   fallback = NULL;
 
   VkSwapchainCreateInfoKHR const swapChainCreateInfo = {
@@ -778,12 +777,14 @@ iris_create_swapchain(nvvk_ctx_t* vkctx, iris_swapchain_create_info const* pCrea
     .oldSwapchain          = pCreateInfo->old_swapchain,
   };
   nvvk_result_check(*vkctx, vkCreateSwapchainKHR(vkctx->device, &swapChainCreateInfo, &vkctx->vkalloc, dstSwapchain));
+
+  nv_pop_allocator(old);
 }
 
 iris_pipeline_blend_state
 iris_init_pipeline_blend_state(iris_pipeline_blend_preset preset)
 {
-  iris_pipeline_blend_state ret = nv_zero_init(iris_pipeline_blend_state);
+  iris_pipeline_blend_state ret = nv_zinit(iris_pipeline_blend_state);
   ret.color_write_mask          = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
   switch (preset)
@@ -861,7 +862,7 @@ nv_vk_create_buffer(
   VkBuffer       newBuffer;
   VkDeviceMemory newMemory;
 
-  VkBufferCreateInfo bufferCreateInfo = nv_zero_init(VkBufferCreateInfo);
+  VkBufferCreateInfo bufferCreateInfo = nv_zinit(VkBufferCreateInfo);
   bufferCreateInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferCreateInfo.size               = size;
   bufferCreateInfo.usage              = usageFlags;
@@ -873,7 +874,7 @@ nv_vk_create_buffer(
 
   if (!externallyAllocated)
   {
-    VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
+    VkMemoryAllocateInfo allocInfo = nv_zinit(VkMemoryAllocateInfo);
     allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize       = bufferMemoryRequirements.size;
     allocInfo.memoryTypeIndex      = (uint32_t)nv_vk_get_mem_type(vkctx, bufferMemoryRequirements.memoryTypeBits, propertyFlags);
@@ -906,7 +907,7 @@ nv_vk_get_mem_type(nvvk_ctx_t* vkctx, const u32 memoryTypeBits, const VkMemoryPr
 VkCommandBuffer
 nv_vk_begin_command_buffer_from(VkCommandBuffer src)
 {
-  VkCommandBufferBeginInfo beginInfo = nv_zero_init(VkCommandBufferBeginInfo);
+  VkCommandBufferBeginInfo beginInfo = nv_zinit(VkCommandBufferBeginInfo);
   beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
@@ -922,13 +923,13 @@ nv_vk_begin_command_buffer(iris_driver_t* driver)
 
   if (vkctx->cmd_pool == VK_NULL_HANDLE)
   {
-    VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zero_init(VkCommandPoolCreateInfo);
+    VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zinit(VkCommandPoolCreateInfo);
     cmdPoolCreateInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     cmdPoolCreateInfo.queueFamilyIndex        = vkctx->graphics_family_index;
     cmdPoolCreateInfo.flags                   = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     nvvk_result_check(*vkctx, vkCreateCommandPool(vkctx->device, &cmdPoolCreateInfo, &vkctx->vkalloc, &vkctx->cmd_pool));
 
-    VkCommandBufferAllocateInfo cmdAllocInfo = nv_zero_init(VkCommandBufferAllocateInfo);
+    VkCommandBufferAllocateInfo cmdAllocInfo = nv_zinit(VkCommandBufferAllocateInfo);
     cmdAllocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmdAllocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmdAllocInfo.commandBufferCount          = IRIS_COMMAND_BUFFER_CACHE_COUNT;
@@ -987,7 +988,7 @@ nv_vk_end_command_buffer(iris_driver_t* driver, VkCommandBuffer cmd, VkQueue que
     return res;
   }
 
-  VkSubmitInfo submitInfo       = nv_zero_init(VkSubmitInfo);
+  VkSubmitInfo submitInfo       = nv_zinit(VkSubmitInfo);
   submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers    = &cmd;
@@ -1133,7 +1134,7 @@ nv_vk_create_texture_empty(
     VkImage*              dst,
     VkDeviceMemory*       dstMem)
 {
-  VkPhysicalDeviceProperties device_properties = nv_zero_init(VkPhysicalDeviceProperties);
+  VkPhysicalDeviceProperties device_properties = nv_zinit(VkPhysicalDeviceProperties);
   vkGetPhysicalDeviceProperties(vkctx->phys_device, &device_properties);
 
   const VkPhysicalDeviceLimits* limits = &device_properties.limits;
@@ -1145,7 +1146,7 @@ nv_vk_create_texture_empty(
     format = nv_vk_get_supported_format_for_draw(vkctx, format);
   }
 
-  VkImageCreateInfo imageCreateInfo = nv_zero_init(VkImageCreateInfo);
+  VkImageCreateInfo imageCreateInfo = nv_zinit(VkImageCreateInfo);
   imageCreateInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageCreateInfo.imageType         = VK_IMAGE_TYPE_2D;
   imageCreateInfo.extent.width      = width;
@@ -1174,7 +1175,7 @@ nv_vk_create_texture_empty(
   {
     const u32 localDeviceMemoryIndex = nv_vk_get_mem_type(vkctx, imageMemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
+    VkMemoryAllocateInfo allocInfo = nv_zinit(VkMemoryAllocateInfo);
     allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize       = imageMemoryRequirements.size;
     allocInfo.memoryTypeIndex      = localDeviceMemoryIndex;
@@ -1187,7 +1188,7 @@ nv_vk_create_texture_empty(
 u8*
 nv_vk_create_texture_from_disk(iris_driver_t* driver, const char* path, u32* width, u32* height, nv_format* channels, VkImage* dst, VkDeviceMemory* dstMem)
 {
-  nv_image tex = nv_zero_init(nv_image);
+  nv_image tex = nv_zinit(nv_image);
 
   nv_error const code = nv_image_load(path, &tex);
   nv_assert_else_return(code == NV_SUCCESS, NULL);
@@ -1215,7 +1216,7 @@ nv_vk_insert_texture_layout_transition(
     VkPipelineStageFlags  sourceStage,
     VkPipelineStageFlags  destinationStage)
 {
-  VkImageMemoryBarrier barrier            = nv_zero_init(VkImageMemoryBarrier);
+  VkImageMemoryBarrier barrier            = nv_zinit(VkImageMemoryBarrier);
   barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout                       = oldLayout;
   barrier.newLayout                       = newLayout;
@@ -1243,7 +1244,7 @@ nv_vk_get_supported_format(nvvk_ctx_t* vkctx, VkPhysicalDevice phys_device, VkSu
   u32 formatCount = 0;
   nvvk_result_check(*vkctx, vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &formatCount, VK_NULL_HANDLE));
   nv_list_t surface_formats;
-  nv_list_init(sizeof(VkSurfaceFormatKHR), formatCount, nv_allocator_c, NULL, &surface_formats);
+  nv_list_init(sizeof(VkSurfaceFormatKHR), formatCount, &surface_formats);
   nvvk_result_check(*vkctx, vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &formatCount, (VkSurfaceFormatKHR*)nv_list_data(&surface_formats)));
 
   VkSurfaceFormatKHR selected_format = { VK_FORMAT_MAX_ENUM, VK_COLOR_SPACE_MAX_ENUM_KHR };
@@ -1377,7 +1378,7 @@ iris_create_framebuffer(nvvk_ctx_t* vkctx, const iris_framebuffer_create_info_t*
   dst->extent          = pCreateInfo->extent;
   dst->num_layers      = pCreateInfo->num_layers;
 
-  VkFramebufferCreateInfo framebufferInfo = nv_zero_init(VkFramebufferCreateInfo);
+  VkFramebufferCreateInfo framebufferInfo = nv_zinit(VkFramebufferCreateInfo);
   framebufferInfo.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   framebufferInfo.renderPass              = pCreateInfo->pass;
   framebufferInfo.attachmentCount         = pCreateInfo->num_attachments;

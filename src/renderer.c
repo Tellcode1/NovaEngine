@@ -20,7 +20,7 @@
 #include "../include/shadersystem/nvsm.h"
 #include "../include/std/include/alloc.h"
 #include "../include/std/include/containers/list.h"
-#include "../include/std/include/errorcodes.h"
+#include "../include/std/include/error.h"
 #include "../include/std/include/math/mat.h"
 #include "../include/std/include/math/math.h"
 #include "../include/std/include/math/vec2.h"
@@ -165,9 +165,12 @@ nv_rdr_render_line(nv_renderer_t* rd, vec3 start, vec3 end, vec4 color, int laye
 }
 
 // thjs will just sort the array from small layer to big layer :> and try to group the types together
+NOVA_ATTR_CONST
 static inline int
-drawcall_compar(const void* obj1, const void* obj2)
+drawcall_compar(const void* obj1, const void* obj2, size_t size, void* user)
 {
+  (void)user;
+  (void)size;
   const nv_draw_call_t* call1 = (nv_draw_call_t*)obj1;
   const nv_draw_call_t* call2 = (nv_draw_call_t*)obj2;
   return ((int)call1->layer - (int)call2->layer) + ((int)call1->type - (int)call2->type);
@@ -186,7 +189,7 @@ nv_renderer_flush_renders(nv_renderer_t* rd)
 
   bool bound_quad_state = false;
 
-  nv_list_sort(&rd->drawcalls, drawcall_compar);
+  // nv_list_sort(&rd->drawcalls, drawcall_compar);
 
   VkDeviceSize offsets = 0;
   vkCmdBindVertexBuffers(cmd, 0, 1, &rd->quad_vb.handle, &offsets);
@@ -386,7 +389,7 @@ create_optional_images(nv_renderer_t* rd)
     return NV_ERROR_INVALID_RETVAL;
   }
 
-  VkImage* swapchainImages = (VkImage*)nv_malloc(rd->swapchain.image_count * sizeof(VkImage));
+  VkImage* swapchainImages = (VkImage*)nv_zmalloc(rd->swapchain.image_count * sizeof(VkImage));
   nv_assert_else_return(swapchainImages != NULL, NV_ERROR_MALLOC_FAILED);
 
   if (nvvk_result_check(*rd->vkctx, vkGetSwapchainImagesKHR(rd->vkctx->device, rd->swapchain.handle, &rd->swapchain.image_count, swapchainImages)) != VK_SUCCESS)
@@ -457,7 +460,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
 
   nv_list_t attachments;
   nv_error  code = NV_ERROR_SUCCESS;
-  if ((code = nv_list_init(sizeof(iris_texture_t*), 3, nv_allocator_c, NULL, &attachments)) != NV_ERROR_SUCCESS)
+  if ((code = nv_list_init(sizeof(iris_texture_t*), 3, &attachments)) != NV_ERROR_SUCCESS)
   {
     return code;
   }
@@ -473,7 +476,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
     // we don't know anything about the swapchain_image, as it's a swapchain
     // image so we have to manually create the image view;
     // we will later smush in the view using iris_texture_attach_view
-    VkImageViewCreateInfo imageViewCreateInfo           = nv_zero_init(VkImageViewCreateInfo);
+    VkImageViewCreateInfo imageViewCreateInfo           = nv_zinit(VkImageViewCreateInfo);
     imageViewCreateInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCreateInfo.image                           = data->swapchain_image;
     imageViewCreateInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
@@ -507,7 +510,7 @@ create_framebuffers_and_swapchain_image_views(nv_renderer_t* rd)
       nv_list_push_set(&attachments, (void*)(VkImageView[]){ data->swapchain_image_view, iris_texture_get_image_view(&data->depth_image) }, 2);
     }
 
-    iris_framebuffer_create_info_t framebuffer_info = nv_zero_init(iris_framebuffer_create_info_t);
+    iris_framebuffer_create_info_t framebuffer_info = nv_zinit(iris_framebuffer_create_info_t);
     framebuffer_info.attachments                    = (VkImageView*)nv_list_data(&attachments);
     framebuffer_info.num_attachments                = (u32)nv_list_size(&attachments);
     framebuffer_info.extent                         = rd->render_extent;
@@ -556,7 +559,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   nv_assert_else_return(rd->swapchain.image_format != NOVA_FORMAT_UNDEFINED, NV_ERROR_BROKEN_STATE);
   nv_assert_else_return(rd->swapchain.image_count != 0, NV_ERROR_BROKEN_STATE);
 
-  iris_swapchain_create_info swapchain_create_info = nv_zero_init(iris_swapchain_create_info);
+  iris_swapchain_create_info swapchain_create_info = nv_zinit(iris_swapchain_create_info);
   swapchain_create_info.extent.width               = rd->render_extent.width;
   swapchain_create_info.extent.height              = rd->render_extent.height;
   swapchain_create_info.present_mode               = present_mode;
@@ -586,7 +589,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   rd->vkctx->flag_register |= NVVK_PIPELINE_FLAGS_FORCE_DEPTH_CHECK;
   rd->vkctx->flag_register |= NVVK_PIPELINE_FLAGS_FORCE_CULLING;
 
-  VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zero_init(VkCommandPoolCreateInfo);
+  VkCommandPoolCreateInfo cmdPoolCreateInfo = nv_zinit(VkCommandPoolCreateInfo);
   cmdPoolCreateInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cmdPoolCreateInfo.queueFamilyIndex        = rd->vkctx->graphics_family_index;
   cmdPoolCreateInfo.flags                   = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -599,7 +602,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
 
   VkCommandBuffer buffer[32];
 
-  VkCommandBufferAllocateInfo cmdAllocInfo = nv_zero_init(VkCommandBufferAllocateInfo);
+  VkCommandBufferAllocateInfo cmdAllocInfo = nv_zinit(VkCommandBufferAllocateInfo);
   cmdAllocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cmdAllocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   cmdAllocInfo.commandBufferCount          = rd->swapchain.image_count;
@@ -620,7 +623,7 @@ nv_renderer_initialize_rendering_components(nv_renderer_t* rd, const nv_renderer
   rd->main_pass.depth_buffer_format = (VkFormat)nv_format_to_vk_format(NOVA_FORMAT_D32); // replace (probably)
   nv_assert_else_return(rd->main_pass.depth_buffer_format != VK_FORMAT_UNDEFINED, NV_ERROR_INVALID_RETVAL);
 
-  iris_render_pass_create_info rpi = nv_zero_init(iris_render_pass_create_info);
+  iris_render_pass_create_info rpi = nv_zinit(iris_render_pass_create_info);
 
   rpi.format              = rd->swapchain.image_format;
   rpi.depth_buffer_format = nv_format_from_vk_format(rd->main_pass.depth_buffer_format);
@@ -696,16 +699,16 @@ nv_rdr_init(struct nv_ctx* ctx, nvsm_ctx_t* nvsmctx, iris_driver_t* driver, cons
 
   dst->swapchain.image_count = nv_vk_get_surface_image_count(dst->vkctx, dst->vkctx->phys_device, dst->vkctx->surface);
 
-  code = nv_list_init(sizeof(nv_draw_call_t), 4, nv_allocator_c, NULL, &dst->drawcalls);
+  code = nv_list_init(sizeof(nv_draw_call_t), 4, &dst->drawcalls);
   nv_assert_else_return(code == NV_ERROR_SUCCESS, code);
 
-  code = nv_list_init(sizeof(nv_renderer_frame_render_info), dst->swapchain.image_count, nv_allocator_c, NULL, &dst->main_pass.render_data);
+  code = nv_list_init(sizeof(nv_renderer_frame_render_info), dst->swapchain.image_count, &dst->main_pass.render_data);
   nv_assert_else_return(code == NV_ERROR_SUCCESS, code);
 
-  code = nv_list_init(sizeof(nv_rdr_per_frame_data_t), nv_rdr_get_frames_in_flight(dst), nv_allocator_c, NULL, &dst->main_pass.per_frame_data);
+  code = nv_list_init(sizeof(nv_rdr_per_frame_data_t), nv_rdr_get_frames_in_flight(dst), &dst->main_pass.per_frame_data);
   nv_assert_else_return(code == NV_ERROR_SUCCESS, code);
 
-  code = nv_list_init(sizeof(nv_rdr_per_image_data_t), dst->swapchain.image_count, nv_allocator_c, NULL, &dst->main_pass.per_image_data);
+  code = nv_list_init(sizeof(nv_rdr_per_image_data_t), dst->swapchain.image_count, &dst->main_pass.per_image_data);
   nv_assert_else_return(code == NV_ERROR_SUCCESS, code);
 
   nv_assert_else_return(nv_list_is_valid(&dst->drawcalls), NV_ERROR_BROKEN_STATE);
@@ -879,7 +882,7 @@ renderer_resize(nv_renderer_t* rd)
     };
   }
 
-  iris_swapchain_create_info swapchain_create_info = nv_zero_init(iris_swapchain_create_info);
+  iris_swapchain_create_info swapchain_create_info = nv_zinit(iris_swapchain_create_info);
   swapchain_create_info.extent.width               = rd->render_extent.width;
   swapchain_create_info.extent.height              = rd->render_extent.height;
   swapchain_create_info.present_mode               = present_mode;
@@ -926,7 +929,7 @@ renderer_resize(nv_renderer_t* rd)
   }
 
   VkCommandBuffer             buffer[32];
-  VkCommandBufferAllocateInfo cmdAllocInfo = nv_zero_init(VkCommandBufferAllocateInfo);
+  VkCommandBufferAllocateInfo cmdAllocInfo = nv_zinit(VkCommandBufferAllocateInfo);
   cmdAllocInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cmdAllocInfo.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   cmdAllocInfo.commandBufferCount          = rd->swapchain.image_count;

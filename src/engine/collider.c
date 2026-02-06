@@ -1,6 +1,7 @@
 #include "../../include/engine/collider.h"
 #include "../../include/engine/scene.h"
 
+#include "../../include/std/include/alloc.h"
 #include "../../include/std/include/math/vec2.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
@@ -62,7 +63,7 @@ nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shap
 
   if (!start_enabled)
   {
-    return nv_zero_init(b2BodyId);
+    return nv_zinit(b2BodyId);
   }
 
   body_def.position = VEC2_TO_BVEC2(pos);
@@ -89,7 +90,7 @@ nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shap
   }
   else if (shape == NOVA_COLLIDER_SHAPE_CAPSULE)
   {
-    b2Capsule const capsule = nv_zero_init(b2Capsule);
+    b2Capsule const capsule = nv_zinit(b2Capsule);
     b2CreateCapsuleShape(body_id, &shape_def, &capsule);
     // capsule.
     nv_assert_else_return(0, (b2BodyId){ 0 });
@@ -101,7 +102,7 @@ nv_collider_body_init(nv_scene_t* scene, nv_collider_type type, nv_collider_shap
 nv_collider_t*
 nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type type, nv_collider_shape shape, uint64_t layer, uint64_t mask, bool start_enabled)
 {
-  nv_collider_t* col = (nv_collider_t*)nv_calloc(sizeof(nv_collider_t));
+  nv_collider_t* col = (nv_collider_t*)nv_zmalloc(sizeof(nv_collider_t));
 
   col->body       = nv_collider_body_init(scene, type, shape, position, size, layer, mask, start_enabled);
   col->position   = position;
@@ -197,10 +198,10 @@ cast_result_fn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, v
 nv_collider_ray_hit
 nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask)
 {
-  nv_collider_ray_hit hit = nv_zero_init(nv_collider_ray_hit);
+  nv_collider_ray_hit hit = nv_zinit(nv_collider_ray_hit);
   hit.host                = col;
 
-  ray_cast_context ctx = nv_zero_init(ray_cast_context);
+  ray_cast_context ctx = nv_zinit(ray_cast_context);
   ctx.raycaster        = col->shape;
   ctx.hit              = &hit;
 

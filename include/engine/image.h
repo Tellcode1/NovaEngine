@@ -26,7 +26,7 @@
 #define ENGINE_IMAGE_H
 
 #include "../std/include/attributes.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/math/vec2.h"
 #include "../std/include/stdafx.h"
 #include "format.h"

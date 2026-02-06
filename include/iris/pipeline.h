@@ -6,7 +6,7 @@
 #include "../engine/format.h"
 #include "../engine/renderer.h"
 #include "../shadersystem/nvsm.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/print.h"
 #include "../std/include/stdafx.h"
 #include "../std/include/types.h"
@@ -20,13 +20,13 @@ extern "C"
 #endif
 
 #define NVVK_REQUIRED_PTR(ptr)                                                                                                                                                \
-  if ((ptr) == (VK_NULL_HANDLE))                                                                                                                                              \
+  if ((uintptr_t)(ptr) == 0)                                                                                                                                                  \
   {                                                                                                                                                                           \
-    nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.")                                                                                           \
+    nv_log_and_abort(#ptr " :  Required parameter \"" #ptr "\" specified as NULL.");                                                                                          \
   }
 #define NVVK_NOT_EQUAL_TO(val, to)                                                                                                                                            \
   if ((val) == (to))                                                                                                                                                          \
-  nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".")
+    nv_log_and_abort(#val " == " #to ". Value \"" #val "\" must not be equal to " #to ".");
 
 #define NVVK_TO_BIT_(n) (1 << (n))
 

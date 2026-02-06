@@ -22,7 +22,7 @@ extern "C"
   static inline nv_error
   sets_init(void)
   {
-    nv_error code = nv_hashmap_init(16, sizeof(const char*), sizeof(sets_var_t), nv_hash_fnv1a, nv_allocator_c, NULL, &sets_name_variable_pairs_);
+    nv_error code = nv_hashmap_init(sizeof(const char*), sizeof(sets_var_t), nv_hash_fnv1a_string, nv_compare_string, 16, &sets_name_variable_pairs_);
     if (code != NV_SUCCESS)
     {
       return code;

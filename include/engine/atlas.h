@@ -28,7 +28,7 @@
 #include "../std/include/alloc.h"
 #include "../std/include/attributes.h"
 #include "../std/include/containers/rectpack.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/types.h"
 #include "format.h"
 #include "image.h"
@@ -63,16 +63,12 @@ struct nv_texture_atlas
   u32       padding;
   nv_format format;
 
-  nv_allocator_fn alloc;
-
-  SDL_Mutex* mutex;
-
   unsigned char* data;
 
   size_t width;
   size_t height;
 
   nv_skyline_bin_t bin;
-} NOVA_ATTR_ALIGNED(128);
+};
 
 #endif // ENGINE_ATLAS_H

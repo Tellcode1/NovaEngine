@@ -7,7 +7,7 @@
 #include "../../include/iris/utils.h"
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/list.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
@@ -54,7 +54,7 @@ iris_driver_init(nvvk_ctx_t* ctx, iris_driver_t* dst)
 
   nv_error code = NV_SUCCESS;
 
-  code = nv_list_init(sizeof(iris_sampler_internal_t), 16, nv_allocator_c, NULL, &dst->samplers);
+  code = nv_list_init(sizeof(iris_sampler_internal_t), 16, &dst->samplers);
   nv_assert_else_return(code == NV_SUCCESS, code);
 
   iris_memory_pool_create_info_t pool_ci = (iris_memory_pool_create_info_t){
@@ -79,7 +79,7 @@ iris_driver_init(nvvk_ctx_t* ctx, iris_driver_t* dst)
   code = iris_memory_pool_init(dst, &pool_ci, &dst->gpu_local_pool);
   nv_assert_else_return(code == NV_SUCCESS, code);
 
-  iris_buffer_extra_create_info_t extra_info = nv_zero_init(iris_buffer_extra_create_info_t);
+  iris_buffer_extra_create_info_t extra_info = nv_zinit(iris_buffer_extra_create_info_t);
   extra_info.custom_memory_flags             = dst->cpu_mappable_pool.memory_flags | IRIS_MEMORY_FLAGS_PERSISTENT_MAPPED_BIT;
   extra_info.custom_memory_pool              = &dst->cpu_mappable_pool;
 

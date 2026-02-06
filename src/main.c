@@ -1,3 +1,4 @@
+#include "../include/iris/extent.h"
 #include "../include/iris/types.h"
 #include "../include/std/include/math/vec4.h"
 #include <SDL3/SDL_events.h>
@@ -15,12 +16,11 @@
 
 #include "../include/sets/runtime.h"
 #include "../include/sets/sets.h"
-#include "../include/std/include/errorcodes.h"
+#include "../include/std/include/error.h"
 #include "../include/std/include/file.h"
 #include "../include/std/include/print.h"
 #include "../include/std/include/props.h"
 #include "../include/std/include/stdafx.h"
-#include "../include/std/include/timer.h"
 
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
@@ -45,7 +45,7 @@ simple_camera_movement_controller(double dt, void* arg)
 {
   const nv_input_ctx_t* inputctxp = (nv_input_ctx_t*)arg;
 
-  vec3   camera_movement_aggregate = nv_zero_init(vec3);
+  vec3   camera_movement_aggregate = nv_zinit(vec3);
   double movespeed                 = 20.0;
 
   if (nv_input_is_key_signalled(inputctxp, SDL_SCANCODE_UP))
@@ -149,11 +149,11 @@ main(int argc, char* argv[])
     nv_strlcpy(windowname, sets_get_setting_string("window_name"), sizeof(windowname));
   }
 
-  int         window_width            = SETS_GET_INT_WITH_FALLBACK("window_width", 800);
-  int         window_height           = SETS_GET_INT_WITH_FALLBACK("window_height", 600);
-  bool        force_recompile_shaders = false;
-  bool        window_is_resizable     = false;
-  nv_option_t options[]               = {
+  int              window_width            = SETS_GET_INT_WITH_FALLBACK("window_width", 800);
+  int              window_height           = SETS_GET_INT_WITH_FALLBACK("window_height", 600);
+  bool             force_recompile_shaders = false;
+  bool             window_is_resizable     = false;
+  nv_option_desc_t options[]               = {
     { NV_OP_TYPE_STRING, "wn", "window-name", windowname, sizeof(windowname) },
     { NV_OP_TYPE_INT, "ww", "window-width", &window_width, 0 },
     { NV_OP_TYPE_INT, "wh", "window-height", &window_height, 0 },
@@ -162,23 +162,21 @@ main(int argc, char* argv[])
   };
 
   char error[256];
-  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)) == -1)
+  if (nv_props_parse(argc, argv, options, nv_arrlen(options), error, sizeof(error)))
   {
     nv_log_error("PROPS error: %s\n", error);
-    nv_props_gen_help(options, nv_arrlen(options), error, nv_arrlen(error));
+    nv_props_generate_help_message(options, nv_arrlen(options), error, nv_arrlen(error));
     nv_printf("%s\n", error);
   }
 
-  nv_timer_t const tm = nv_timer_begin(0.1);
-
   const nv_extent2 window_size = (nv_extent2){ (size_t)window_width, (size_t)window_height };
 
-  nv_ctx_t       ctx      = nv_zero_init(nv_ctx_t);
-  nvvk_ctx_t     vkctx    = nv_zero_init(nvvk_ctx_t);
-  iris_driver_t  driver   = nv_zero_init(iris_driver_t);
-  nv_renderer_t  rdr      = nv_zero_init(nv_renderer_t);
-  nv_input_ctx_t inputctx = nv_zero_init(nv_input_ctx_t);
-  nvsm_ctx_t     nvsmctx  = nv_zero_init(nvsm_ctx_t);
+  nv_ctx_t       ctx      = nv_zinit(nv_ctx_t);
+  nvvk_ctx_t     vkctx    = nv_zinit(nvvk_ctx_t);
+  iris_driver_t  driver   = nv_zinit(iris_driver_t);
+  nv_renderer_t  rdr      = nv_zinit(nv_renderer_t);
+  nv_input_ctx_t inputctx = nv_zinit(nv_input_ctx_t);
+  nvsm_ctx_t     nvsmctx  = nv_zinit(nvsm_ctx_t);
 
   nv_window_init(windowname, (int)window_size.width, (int)window_size.height, &ctx);
 
@@ -246,10 +244,10 @@ main(int argc, char* argv[])
     return code;
   }
 
-  cfont_t amongus = nv_zero_init(cfont_t);
+  cfont_t amongus = nv_zinit(cfont_t);
   ctext_load_font(&vkctx, &rdr, "Assets/roboto.ttf", 64, &amongus);
 
-  nv_sprite_t circle_sprite = nv_zero_init(nv_sprite_t);
+  nv_sprite_t circle_sprite = nv_zinit(nv_sprite_t);
   if ((code = nv_sprite_load_from_disk(&driver, "Assets/circle.png", &circle_sprite)) != NV_SUCCESS)
   {
     return code;
@@ -261,7 +259,7 @@ main(int argc, char* argv[])
   double scale = 1.0;
 
   char* the_bible_for_some_fucking_reason = NULL;
-  nv_fs_file_read_all("./piss", nv_allocator_c, NULL, &the_bible_for_some_fucking_reason, NULL);
+  nvfs_file_read_all("./piss", &the_bible_for_some_fucking_reason, NULL);
 
   // const double M_sun   = 1.9891e30;
   // const double M_earth = 5.97219e24;
@@ -296,7 +294,7 @@ main(int argc, char* argv[])
     p->vel.y  = (SDL_randf() - 0.5) * 1e-5;
   }
 
-  nv_log_info("[" PRINT_GREEN_SUCCESS "] Initialized in %fs\n", nv_timer_time_since_start(&tm));
+  nv_log_info("[SUCCESS] Initialized in %fs\n", SDL_GetTicksNS() / (double)1e6);
 
   while (nv_ctx_running(&ctx))
   {

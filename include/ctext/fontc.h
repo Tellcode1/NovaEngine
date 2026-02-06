@@ -3,7 +3,6 @@
 
 // implementation: vk.c
 
-#include "../std/include/semver.h"
 #include "../std/include/types.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -41,15 +40,17 @@ extern "C"
 
   struct fontc_file_header_t
   {
-    u32       magic;
-    version_t version;
-    u32       pixel_size;
-    u32       float_size;
-    float     line_height, space_width;
-    u32       bmpwidth, bmpheight;
-    u32       img_compressed_sz, glyphs_compressed_sz;
-    u32       numglyphs;
-    u32       magic2;
+    u32   magic;
+    u8    major;
+    u8    minor;
+    u16   patch;
+    u32   pixel_size;
+    u32   float_size;
+    float line_height, space_width;
+    u32   bmpwidth, bmpheight;
+    u32   img_compressed_sz, glyphs_compressed_sz;
+    u32   numglyphs;
+    u32   magic2;
   };
 
   struct fontc_glyph_t

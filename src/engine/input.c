@@ -1,9 +1,8 @@
 #include "../../include/engine/input.h"
 #include "../../include/engine/engine.h"
 #include "../../include/std/include/alloc.h"
-#include "../../include/std/include/bit.h"
 #include "../../include/std/include/containers/hashmap.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/hash.h"
 #include "../../include/std/include/math/vec2.h"
 #include "../../include/std/include/stdafx.h"
@@ -42,8 +41,8 @@ nv_input_get_key_state(const nv_input_ctx_t* ctx, const SDL_Scancode sc)
   // const nv_input_key_state this_frame_key_state = (nv_input_key_state)nv_bitset_access_bit(&ctx->input_kb_state, sc);
   // const nv_input_key_state last_frame_key_state = (nv_input_key_state)nv_bitset_access_bit(&ctx->input_last_frame_kb_state, sc);
 
-  const nv_input_key_state this_frame_key_state = (nv_input_key_state)nv_bitmap_check_bit(ctx->kb_state, sc);
-  const nv_input_key_state last_frame_key_state = (nv_input_key_state)nv_bitmap_check_bit(ctx->last_frame_kb_state, sc);
+  const uchar this_frame_key_state = (uchar)(ctx->kb_state[sc / 8] & (1 << (sc % 8))) != 0;
+  const uchar last_frame_key_state = (uchar)(ctx->last_frame_kb_state[sc + 7 / 8] & (1 << (sc % 8))) != 0;
 
   // curly braces are beautiful, aren't they?
   if ((this_frame_key_state != 0u) && (last_frame_key_state != 0u))
@@ -126,7 +125,7 @@ nv_input_init(nv_ctx_t* ctx, nv_input_ctx_t* inputctx)
 {
   nv_error code = NV_SUCCESS;
 
-  if ((code = nv_hashmap_init(16, sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_allocator_c, NULL, &inputctx->action_mapping)) != NV_SUCCESS)
+  if ((code = nv_hashmap_init(sizeof(const char*), sizeof(nv_input_action_t), nv_hash_fnv1a, nv_compare_default, 16, &inputctx->action_mapping)) != NV_SUCCESS)
   {
     return code;
   }
@@ -201,14 +200,17 @@ nv_input_update(nv_input_ctx_t* ctx)
 
   for (size_t i = 0; i < SDL_SCANCODE_COUNT; i++)
   {
-    nv_bitmap_set_bit_to(ctx->kb_state, i, sdl_kb_state[i]);
+    if (sdl_kb_state[i])
+      ctx->kb_state[i / 8] |= (1 << (i % 8));
+    else
+      ctx->kb_state[i / 8] &= ~(1 << (i % 8));
   }
 
   u32 const mouse_state = SDL_GetMouseState(NULL, NULL);
 
   size_t             _i = 0;
   nv_hashmap_node_t* node;
-  while ((node = nv_hashmap_iterate_unsafe(&ctx->action_mapping, &_i)) != NULL)
+  while ((node = nv_hashmap_iterate(&ctx->action_mapping, &_i)) != NULL)
   {
     nv_input_action_t* ia = (nv_input_action_t*)node->value;
 
@@ -275,7 +277,7 @@ nv_input_bind_key_to_action(nv_input_ctx_t* ctx, SDL_Scancode key, const char* a
 void
 nv_input_bind_mouse_to_action(nv_input_ctx_t* ctx, int bton, const char* action)
 {
-  nv_input_action_t ia = nv_zero_init(nv_input_action_t);
+  nv_input_action_t ia = nv_zinit(nv_input_action_t);
   ia.mouse             = bton;
   nv_hashmap_insert(&ctx->action_mapping, action, &ia);
 }

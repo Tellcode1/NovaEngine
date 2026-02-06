@@ -1,7 +1,8 @@
 #include "../include/engine/image.h"
 #include "../include/engine/format.h"
 
-#include "../include/std/include/errorcodes.h"
+#include "../include/std/include/alloc.h"
+#include "../include/std/include/error.h"
 #include "../include/std/include/math/math.h"
 #include "../include/std/include/stdafx.h"
 #include "../include/std/include/string.h"
@@ -35,7 +36,7 @@ nv_image_pad_channels(const nv_image* src, size_t dst_channels)
   const size_t src_channels = nv_format_get_num_channels(src->format);
   nv_assert_else_return(src_channels < dst_channels, NULL);
 
-  uint8_t* dst = (uint8_t*)nv_calloc(src->width * src->height * dst_channels * sizeof(uchar));
+  uint8_t* dst = (uint8_t*)nv_zmalloc(src->width * src->height * dst_channels * sizeof(uchar));
 
   for (size_t y = 0; y < src->height; y++)
   {
@@ -135,7 +136,7 @@ nv_image_bilinear_filter(nv_image* dst, const nv_image* src, double scale)
   dst->width  = (size_t)((double)src->width / scale);
   dst->height = (size_t)((double)src->width / scale);
   dst->format = src->format;
-  dst->data   = (uchar*)nv_calloc(dst->width * dst->height * nv_format_get_bytes_per_pixel(dst->format));
+  dst->data   = (uchar*)nv_zmalloc(dst->width * dst->height * nv_format_get_bytes_per_pixel(dst->format));
 
   // Calculate the ratios for x and y coordinates
   double x_ratio, y_ratio;
@@ -209,8 +210,8 @@ _nv_image_to_sdl_surface(const nv_image* tex)
 nv_image
 _nv_sdl_surface_to_image(SDL_Surface* surface)
 {
-  nv_assert_else_return(surface->w != 0, nv_zero_init(nv_image));
-  nv_assert_else_return(surface->h != 0, nv_zero_init(nv_image));
+  nv_assert_else_return(surface->w != 0, nv_zinit(nv_image));
+  nv_assert_else_return(surface->h != 0, nv_zinit(nv_image));
 
   SDL_LockSurface(surface);
 
@@ -219,13 +220,13 @@ _nv_sdl_surface_to_image(SDL_Surface* surface)
   nv_image image;
   image.width  = (size_t)surface->w;
   image.height = (size_t)surface->h;
-  nv_assert_else_return(image.width != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image));
-  nv_assert_else_return(image.height != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image));
+  nv_assert_else_return(image.width != NOVA_FORMAT_UNDEFINED, nv_zinit(nv_image));
+  nv_assert_else_return(image.height != NOVA_FORMAT_UNDEFINED, nv_zinit(nv_image));
 
   image.format = nv_format_from_sdl_format((SDL_Format_)surface->format);
-  nv_assert_else_return(image.format != NOVA_FORMAT_UNDEFINED, nv_zero_init(nv_image));
+  nv_assert_else_return(image.format != NOVA_FORMAT_UNDEFINED, nv_zinit(nv_image));
 
-  image.data = (uchar*)nv_calloc(surface_size_bytes);
+  image.data = (uchar*)nv_zmalloc(surface_size_bytes);
 
   nv_memcpy(image.data, surface->pixels, surface_size_bytes);
 

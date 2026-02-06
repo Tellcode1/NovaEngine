@@ -4,7 +4,7 @@
 // implementation: engine.c
 
 #include "../std/include/containers/hashmap.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/math/vec2.h"
 #include <SDL3/SDL_scancode.h>
 #include <stdint.h>

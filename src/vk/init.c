@@ -6,7 +6,7 @@
 #include "../../include/engine/engine.h"
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/attributes.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/print.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
@@ -101,7 +101,7 @@ static inline nv_list_t
 setify(u32 i1, u32 i2, u32 i3, u32 i4)
 {
   nv_list_t ret;
-  nv_list_init(sizeof(u32), 4, nv_allocator_c, NULL, &ret);
+  nv_list_init(sizeof(u32), 4, &ret);
   const u32 nums[4] = { i1, i2, i3, i4 };
   for (int j = 0; j < (int)nv_arrlen(nums); j++)
   {
@@ -130,12 +130,6 @@ setify(u32 i1, u32 i2, u32 i3, u32 i4)
 static inline bool
 nvvk_validate_layers()
 {
-  uchar buffer[2048];
-
-  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
-  stack.buffer            = buffer;
-  stack.buffer_size       = sizeof(buffer);
-
   if (nv_arrlen(ValidationLayers) == 0)
   {
     return true;
@@ -154,7 +148,7 @@ nvvk_validate_layers()
    * this doesn't use the stack allocator, intentionally. VkLayerProperties is a whopping 520 bytes
    * and will easily overflow the stack
    */
-  nv_error const code = nv_list_init(sizeof(VkLayerProperties), vk_layer_count, nv_allocator_c, NULL, &vk_layer_properties);
+  nv_error const code = nv_list_init(sizeof(VkLayerProperties), vk_layer_count, &vk_layer_properties);
 
   if (code != NV_SUCCESS)
   {
@@ -205,7 +199,7 @@ nvvk_validate_layers()
     nv_log_error("But instance asked for (i.e. are not available):\n");
 
     nv_list_t missing_layers;
-    nv_list_init(sizeof(const char*), 16, nv_allocator_estack, &stack, &missing_layers);
+    nv_list_init(sizeof(const char*), 16, &missing_layers);
 
     for (size_t i = 0; i < nv_arrlen(ValidationLayers); i++)
     {
@@ -251,7 +245,7 @@ nvvk_validate_layers()
 static inline void
 nvvk_setup_debug_messenger(nvvk_ctx_t* vkctx)
 {
-  VkDebugUtilsMessengerCreateInfoEXT create_info = nv_zero_init(VkDebugUtilsMessengerCreateInfoEXT);
+  VkDebugUtilsMessengerCreateInfoEXT create_info = nv_zinit(VkDebugUtilsMessengerCreateInfoEXT);
   create_info.sType                              = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   create_info.messageSeverity =
       VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -298,7 +292,7 @@ nvvk_get_valid_extensions(nv_list_t* returned_valid_extensions)
   u32 ext_count = 0;
   vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
 
-  VkExtensionProperties* vk_extensions = nv_calloc(sizeof(VkExtensionProperties) * ext_count);
+  VkExtensionProperties* vk_extensions = nv_zmalloc(sizeof(VkExtensionProperties) * ext_count);
 
   for (size_t i = 0; i < NUM_REQUIRED_INSTANCE_EXTENSIONS; i++)
   {
@@ -350,12 +344,6 @@ nvvk_create_instance(nvvk_ctx_t* vkctx, const char* title)
     .apiVersion         = VK_API_VERSION_1_0,
   };
 
-  uchar buffer[1024];
-
-  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
-  stack.buffer            = buffer;
-  stack.buffer_size       = sizeof(buffer);
-
   uint32_t SDLExtensionCount = 0;
   nv_assert(SDL_Vulkan_GetInstanceExtensions(&SDLExtensionCount) != NULL);
 
@@ -363,12 +351,7 @@ nvvk_create_instance(nvvk_ctx_t* vkctx, const char* title)
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
 
   nv_list_t enabled_extensions;
-  nv_list_init(
-      sizeof(const char*),
-      (NUM_REQUIRED_INSTANCE_EXTENSIONS + SDLExtensionCount + extensionCount + NUM_WANTED_INSTANCE_EXTENSIONS),
-      nv_allocator_estack,
-      &stack,
-      &enabled_extensions);
+  nv_list_init(sizeof(const char*), (NUM_REQUIRED_INSTANCE_EXTENSIONS + SDLExtensionCount + extensionCount + NUM_WANTED_INSTANCE_EXTENSIONS), &enabled_extensions);
 
   nvvk_get_valid_extensions(&enabled_extensions);
 
@@ -474,10 +457,9 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
   nv_assert_else_return(surface != VK_NULL_HANDLE, VK_NULL_HANDLE);
 
   uchar buffer[1024];
+  NV_SETUP_STACK_ALLOC(stackalloc, buffer, sizeof(buffer));
 
-  nv_alloc_estack_t stack = nv_zero_init(nv_alloc_estack_t);
-  stack.buffer            = buffer;
-  stack.buffer_size       = sizeof(buffer);
+  nv_allocator_t* old = nv_push_allocator(&stackalloc);
 
   uint32_t phys_device_count = 0;
 
@@ -496,7 +478,7 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
   }
 
   nv_list_t physical_devices;
-  nv_list_init(sizeof(VkPhysicalDevice), phys_device_count, nv_allocator_estack, &stack, &physical_devices);
+  nv_list_init(sizeof(VkPhysicalDevice), phys_device_count, &physical_devices);
   vkEnumeratePhysicalDevices(instance, &phys_device_count, (VkPhysicalDevice*)nv_list_data(&physical_devices));
 
   for (u32 devi = 0; devi < phys_device_count; devi++)
@@ -504,6 +486,7 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
     if (nv_list_get(&physical_devices, devi) == NULL)
     {
       nv_log_error("NULL physical device? Do you have enough memory?\n");
+      nv_pop_allocator(old);
       continue;
     }
     VkPhysicalDevice device = *(VkPhysicalDevice*)nv_list_get(&physical_devices, devi);
@@ -519,7 +502,7 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
     uint32_t extension_count = 0;
     nvvk_result_check(*vkctx, vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, NULL));
     nv_list_t available_extensions;
-    nv_list_init(sizeof(VkExtensionProperties), extension_count, nv_allocator_c, NULL, &available_extensions);
+    nv_list_init(sizeof(VkExtensionProperties), extension_count, &available_extensions);
     nvvk_result_check(*vkctx, vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, (VkExtensionProperties*)nv_list_data(&available_extensions)));
 
     for (size_t i = 0; i < NUM_WANTED_DEVICE_EXTENSIONS; i++)
@@ -546,6 +529,7 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
     {
       nvvk_print_device_info(device);
       nv_list_destroy(&physical_devices);
+      nv_pop_allocator(old);
       return device;
     }
   }
@@ -566,6 +550,8 @@ nvvk_choose_physical_device(nvvk_ctx_t* vkctx, VkInstance instance, VkSurfaceKHR
 
   nv_list_destroy(&physical_devices);
 
+  nv_pop_allocator(old);
+
   return fallback;
 }
 
@@ -578,7 +564,7 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* vkctx, nv_list_t* available_extensi
   u32 extension_count = 0;
   vkEnumerateDeviceExtensionProperties(vkctx->phys_device, NULL, &extension_count, NULL);
   nv_list_t extensions;
-  nv_list_init(sizeof(VkExtensionProperties), extension_count, nv_allocator_c, NULL, &extensions);
+  nv_list_init(sizeof(VkExtensionProperties), extension_count, &extensions);
   vkEnumerateDeviceExtensionProperties(vkctx->phys_device, NULL, &extension_count, (VkExtensionProperties*)nv_list_data(&extensions));
 
   for (size_t i = 0; i < NUM_WANTED_DEVICE_EXTENSIONS; i++)
@@ -589,7 +575,7 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* vkctx, nv_list_t* available_extensi
       VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[j];
       if (nv_strcmp(wanted, ext.extensionName) == 0)
       {
-        const char* ext_name_copy = nv_strdup(nv_allocator_c, NULL, ext.extensionName);
+        const char* ext_name_copy = nv_strdup(ext.extensionName);
         nv_list_push_back(available_extensions, (void*)&ext_name_copy);
       }
     }
@@ -604,7 +590,7 @@ nvvk_get_valid_device_extensions(nvvk_ctx_t* vkctx, nv_list_t* available_extensi
       VkExtensionProperties ext = ((VkExtensionProperties*)nv_list_data(&extensions))[j];
       if (nv_strcmp(required, ext.extensionName) == 0)
       {
-        char* ext_name_copy = nv_strdup(nv_allocator_c, NULL, ext.extensionName);
+        char* ext_name_copy = nv_strdup(ext.extensionName);
         nv_list_push_back(available_extensions, (void*)&ext_name_copy);
         validated = true;
       }
@@ -628,7 +614,7 @@ nvvk_validate_queues(nvvk_ctx_t* vkctx, nv_list_t* queue_create_infos)
   u32 queue_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(vkctx->phys_device, &queue_count, NULL);
   nv_list_t queue_families;
-  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, nv_allocator_c, NULL, &queue_families);
+  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, &queue_families);
   vkGetPhysicalDeviceQueueFamilyProperties(vkctx->phys_device, &queue_count, (VkQueueFamilyProperties*)nv_list_data(&queue_families));
 
   // Clang loves complaining about these.
@@ -707,11 +693,11 @@ nvvk_create_device(nvvk_ctx_t* vkctx)
   nv_assert_else_return(vkctx->surface != VK_NULL_HANDLE, NULL);
 
   nv_list_t enabled_extensions;
-  nv_list_init(sizeof(const char*), NUM_WANTED_DEVICE_EXTENSIONS + NUM_WANTED_DEVICE_EXTENSIONS, nv_allocator_c, NULL, &enabled_extensions);
+  nv_list_init(sizeof(const char*), NUM_WANTED_DEVICE_EXTENSIONS + NUM_WANTED_DEVICE_EXTENSIONS, &enabled_extensions);
   nvvk_get_valid_device_extensions(vkctx, &enabled_extensions);
 
   nv_list_t queue_create_infos;
-  nv_list_init(sizeof(VkDeviceQueueCreateInfo), 0, nv_allocator_c, NULL, &queue_create_infos);
+  nv_list_init(sizeof(VkDeviceQueueCreateInfo), 0, &queue_create_infos);
   nvvk_validate_queues(vkctx, &queue_create_infos);
 
   const float queue_priority = 1.0F;
@@ -760,7 +746,7 @@ nvvk_ctx_setup_queues(nvvk_ctx_t* vkctx)
   nv_assert_else_return(queue_count != 0, NV_ERROR_EXTERNAL);
 
   nv_list_t queue_families;
-  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, nv_allocator_c, NULL, &queue_families);
+  nv_list_init(sizeof(VkQueueFamilyProperties), queue_count, &queue_families);
   nv_assert_else_return(nv_list_data(&queue_families) != NULL, NV_ERROR_EXTERNAL);
 
   vkGetPhysicalDeviceQueueFamilyProperties(vkctx->phys_device, &queue_count, (VkQueueFamilyProperties*)nv_list_data(&queue_families));

@@ -12,7 +12,7 @@
 #include "format.h"
 #include "sprite.h"
 
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/math/math.h"
 #include "../std/include/math/vec2.h"
 #include "../std/include/math/vec3.h"

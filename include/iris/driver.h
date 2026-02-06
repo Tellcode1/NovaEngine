@@ -2,10 +2,11 @@
 #define NOVA_VK_DRIVER_H
 
 #include "../std/include/containers/list.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/types.h"
 #include "buffer.h"
 #include "descriptors.h"
+#include "extent.h"
 #include "memory.h"
 #include "texture.h"
 #include "types.h"

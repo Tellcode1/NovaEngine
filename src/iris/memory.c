@@ -7,7 +7,7 @@
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
 #include "../../include/iris/vkstdafx.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
@@ -46,7 +46,7 @@ iris_memory_pool_init(iris_driver_t* driver, const iris_memory_pool_create_info_
 
   VkMemoryPropertyFlags const vk_property_flags = iris_nv_memory_flags_to_vk_flags(info->memory_flags);
 
-  VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
+  VkMemoryAllocateInfo allocInfo = nv_zinit(VkMemoryAllocateInfo);
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = aligned_size;
 
@@ -224,7 +224,7 @@ iris_memory_allocate_dedicated(iris_driver_t* driver, u32 memory_type_bits, iris
   flags |= IRIS_MEMORY_FLAGS_DEDICATED_BIT;
   VkMemoryPropertyFlags const vk_property_flags = iris_nv_memory_flags_to_vk_flags(flags);
 
-  VkMemoryAllocateInfo allocInfo = nv_zero_init(VkMemoryAllocateInfo);
+  VkMemoryAllocateInfo allocInfo = nv_zinit(VkMemoryAllocateInfo);
   allocInfo.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize       = aligned_size;
 
@@ -386,21 +386,33 @@ nv_error
 nvvk_allocator_init(nvvk_allocator_t* dst)
 {
   (void)dst;
+  dst->stop_crying = 0;
   return NV_SUCCESS;
 }
 
 void
 nvvk_allocator_destroy(nvvk_allocator_t* alloc)
 {
-  (void)alloc;
+  nv_bzero(alloc, sizeof(*alloc));
 }
 
 void*
 nvvk_alloc(void* user_data, size_t size, size_t alignment, VkSystemAllocationScope scope)
 {
+  nvvk_ctx_t* ctx = user_data;
+  if (NV_UNLIKELY(size == 0))
+    return &ctx->i_have_to_respond_to_0_size_allocations_for_some_reason_with_a_valid_pointer_why_vulkan_why_why_cant_you_just_be_normal;
+
   (void)scope;
   (void)user_data;
-  return nv_aligned_alloc(size, alignment);
+  void* p = nv_aligned_alloc(size, alignment);
+#ifndef NDEBUG
+  if (p == NULL)
+  {
+    nv_log_error("vkalloc for size=%zu align=%zu returned NULL\n", size, alignment);
+  }
+#endif
+  return p;
 }
 
 void*

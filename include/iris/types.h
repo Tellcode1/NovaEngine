@@ -2,9 +2,10 @@
 #define IRIS_TYPES_H
 
 #include "../../external/volk/volk.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/stdafx.h"
 #include "../std/include/types.h"
+#include "extent.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -114,6 +115,7 @@ extern "C"
 
     VkAllocationCallbacks vkalloc;
     nvvk_allocator_t      allocator;
+    u32                   i_have_to_respond_to_0_size_allocations_for_some_reason_with_a_valid_pointer_why_vulkan_why_why_cant_you_just_be_normal;
   } nvvk_ctx_t;
 
   extern nv_error nvvk_ctx_init(struct nv_ctx* nvctx, nvvk_ctx_t* ctx);

@@ -6,7 +6,7 @@
 
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/hashmap.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/file.h"
 #include "../../include/std/include/hash.h"
 #include "../../include/std/include/stdafx.h"
@@ -73,7 +73,7 @@ static inline bool
 was_file_modified(const char* filepath, size_t saved_mtime)
 {
   size_t tmp;
-  if (nv_fs_file_get_modified_time(filepath, &tmp) != NV_SUCCESS)
+  if (nvfs_get_modified_time(filepath, &tmp) != NV_SUCCESS)
   {
     return true;
   }
@@ -131,7 +131,7 @@ get_file_max_line_length(FILE* file)
 nvsm_compile_options_t
 nvsm_get_default_compile_options(void)
 {
-  nvsm_compile_options_t opts = nv_zero_init(nvsm_compile_options_t);
+  nvsm_compile_options_t opts = nv_zinit(nvsm_compile_options_t);
 #if NVSM_SHADERS_ENABLE_DEBUGGING
   opts.enable_debug_mode = true;
 #else
@@ -177,10 +177,10 @@ load_list_file(nvsm_ctx_t* ctx, nvsm_list_file_t* file)
   /* may be wrong (some lines may be garbage/empty), so it is correctly set after the loop */
   file->num_entries = num_lines_list_file;
 
-  file->entries = (nvsm_list_file_entry_t*)nv_calloc(num_lines_list_file * sizeof(nvsm_list_file_entry_t));
+  file->entries = (nvsm_list_file_entry_t*)nv_zmalloc(num_lines_list_file * sizeof(nvsm_list_file_entry_t));
   nv_assert_else_return(file->entries != NULL, NV_ERROR_MALLOC_FAILED);
 
-  char* line = (char*)nv_calloc(max_line_len + 1);
+  char* line = (char*)nv_zmalloc(max_line_len + 1);
   nv_assert_else_return(line != NULL, NV_ERROR_MALLOC_FAILED);
 
   nv_assert_else_return(max_line_len <= __INT_MAX__, NV_ERROR_INVALID_INPUT);
@@ -264,7 +264,7 @@ nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
   size_t list_file_mtime = 0;
 
   size_t list_file_new_mtime;
-  if (nv_fs_file_get_modified_time(list_file_path, &list_file_new_mtime) != NV_SUCCESS)
+  if (nvfs_get_modified_time(list_file_path, &list_file_new_mtime) != NV_SUCCESS)
   {
     fclose(cache_file);
     return NV_ERROR_INVALID_CACHE;
@@ -285,7 +285,7 @@ nvsm_load_cache_file(nvsm_ctx_t* ctx, nvsm_cache_file_t* file)
     return NV_ERROR_INVALID_CACHE;
   }
 
-  file->entries = (nvsm_cache_file_entry_t*)nv_calloc(file->num_entries * sizeof(nvsm_cache_file_entry_t));
+  file->entries = (nvsm_cache_file_entry_t*)nv_zmalloc(file->num_entries * sizeof(nvsm_cache_file_entry_t));
   if (file->entries == NULL)
   {
     nv_assert(fclose(cache_file) == 0);
@@ -355,7 +355,7 @@ generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_file_mti
     return NV_ERROR_IO_ERROR;
   }
 
-  nvsm_cache_file_entry_t* cache_converted_entries = (nvsm_cache_file_entry_t*)nv_calloc(sizeof(nvsm_cache_file_entry_t) * file->num_entries);
+  nvsm_cache_file_entry_t* cache_converted_entries = (nvsm_cache_file_entry_t*)nv_zmalloc(sizeof(nvsm_cache_file_entry_t) * file->num_entries);
   nv_assert_else_return(cache_converted_entries != NULL, NV_ERROR_MALLOC_FAILED);
 
   for (size_t idx = 0; idx < file->num_entries; idx++)
@@ -363,9 +363,9 @@ generate_and_write_cache_file(const nvsm_list_file_t* file, size_t list_file_mti
     const nvsm_list_file_entry_t* entry   = &file->entries[idx];
     nvsm_cache_file_entry_t*      convert = &cache_converted_entries[idx];
 
-    *convert = nv_zero_init(nvsm_cache_file_entry_t);
+    *convert = nv_zinit(nvsm_cache_file_entry_t);
 
-    if (nv_fs_file_get_modified_time(entry->shader_path, &convert->last_mod_time) != NV_SUCCESS)
+    if (nvfs_get_modified_time(entry->shader_path, &convert->last_mod_time) != NV_SUCCESS)
     {
       continue;
     }
@@ -392,14 +392,14 @@ nvsm_dump_shader(const nvsm_spirv_binary_t* bin, const char* out_filename)
 
   nv_error code = NV_SUCCESS;
 
-  code = nv_fs_dir_create_recursive_for_file(out_filename, NV_FS_PERMISSION_READ_WRITE);
-  if (code != NV_SUCCESS)
+  code = nvfs_dir_create_recursive_for_file(out_filename, NVFS_PERMISSION_READ_WRITE);
+  if (code != NV_SUCCESS && code != NV_ERROR_EXIST)
   {
     return code;
   }
 
-  code = nv_fs_file_write_all(out_filename, (const void*)bin->words, bin->byte_count);
-  if (code != NV_SUCCESS)
+  code = nvfs_file_write_all(out_filename, (const void*)bin->words, bin->byte_count);
+  if (code != NV_SUCCESS && code != NV_ERROR_EXIST)
   {
     return code;
   }
@@ -490,18 +490,18 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
   glslang_shader_t* shader = glslang_shader_create(&input);
   nv_assert_else_return(shader != NULL, NV_ERROR_EXTERNAL);
 
-  *bin = nv_zero_init(nvsm_spirv_binary_t);
+  *bin = nv_zinit(nvsm_spirv_binary_t);
 
   if (glslang_shader_preprocess(shader, &input) == 0)
   {
     nv_log_error("GLSL preprocessing failed : %s\n", shader_path);
     if (nv_strcmp(glslang_shader_get_info_log(shader), "") != 0)
     {
-      nv_log_error("%s\n", glslang_shader_get_info_log(shader));
+      nv_log_error("%s", glslang_shader_get_info_log(shader));
     }
     if (nv_strcmp(glslang_shader_get_info_debug_log(shader), "") != 0)
     {
-      nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
+      nv_log_error("%s", glslang_shader_get_info_debug_log(shader));
     }
     glslang_shader_delete(shader);
     nv_free(shader_source);
@@ -514,11 +514,11 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
     nv_log_error("GLSL parsing failed : %s\n", shader_path);
     if (nv_strcmp(glslang_shader_get_info_log(shader), "") != 0)
     {
-      nv_log_error("%s\n", glslang_shader_get_info_log(shader));
+      nv_log_error("%s", glslang_shader_get_info_log(shader));
     }
     if (nv_strcmp(glslang_shader_get_info_debug_log(shader), "") != 0)
     {
-      nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
+      nv_log_error("%s", glslang_shader_get_info_debug_log(shader));
     }
     glslang_shader_delete(shader);
     nv_free(shader_source);
@@ -534,11 +534,11 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
     nv_log_error("GLSL linking failed %s\n\n", shader_path);
     if (nv_strcmp(glslang_shader_get_info_log(shader), "") != 0)
     {
-      nv_log_error("%s\n", glslang_shader_get_info_log(shader));
+      nv_log_error("%s", glslang_shader_get_info_log(shader));
     }
     if (nv_strcmp(glslang_shader_get_info_debug_log(shader), "") != 0)
     {
-      nv_log_error("%s\n", glslang_shader_get_info_debug_log(shader));
+      nv_log_error("%s", glslang_shader_get_info_debug_log(shader));
     }
     glslang_program_delete(program);
     glslang_shader_delete(shader);
@@ -547,7 +547,7 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
     return NV_ERROR_INVALID_INPUT;
   }
 
-  glslang_spv_options_t spirv_options = nv_zero_init(glslang_spv_options_t);
+  glslang_spv_options_t spirv_options = nv_zinit(glslang_spv_options_t);
   spirv_options.disable_optimizer     = !opts->enable_optimizations;
   spirv_options.optimize_size         = opts->enable_size_optimizations;
   spirv_options.generate_debug_info   = opts->enable_debug_mode;
@@ -557,7 +557,7 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
   glslang_program_SPIRV_generate_with_options(program, nvsm_glslang_shader_stage_from_string(stage), &spirv_options);
 
   bin->byte_count = glslang_program_SPIRV_get_size(program) * sizeof(uint32_t);
-  bin->words      = (uint32_t*)nv_malloc(bin->byte_count);
+  bin->words      = (uint32_t*)nv_zmalloc(bin->byte_count);
   nv_assert_else_return(bin->words != NULL, NV_ERROR_MALLOC_FAILED);
 
   glslang_program_SPIRV_get(program, bin->words);
@@ -565,7 +565,7 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
   const char* spirv_messages = glslang_program_SPIRV_get_messages(program);
   if (spirv_messages != NULL)
   {
-    nv_log_info("(%s) %s\n", shader_path, spirv_messages);
+    nv_log_info("(%s) %s", shader_path, spirv_messages);
   }
 
   glslang_program_delete(program);
@@ -574,9 +574,9 @@ nvsm_compile_shader(const char* shader_path, const nvsm_compile_options_t* opts,
   if (dump)
   {
     code = nvsm_dump_shader(bin, spirv_path);
-    if (code == NV_SUCCESS)
+    if (code == NV_SUCCESS || code == NV_ERROR_EXIST)
     {
-      nv_log_verbose("[" PRINT_GREEN_SUCCESS "] %s compiled\n", shader_path);
+      nv_log_verbose("[SUCCESS] %s compiled\n", shader_path);
     }
     else
     {
@@ -642,10 +642,10 @@ nvsm_default_compile_with_cache(nvsm_ctx_t* ctx, nvsm_list_file_t* list_file, nv
         if (!was_file_modified(list_entry->shader_path, cache_entry->last_mod_time))
         {
           /* this is possibly a stupid idea */
-          code = nv_fs_file_read_all(list_entry->spirv_path, nv_allocator_c, NULL, (char**)&list_entry->bin.words, &list_entry->bin.byte_count);
+          code = nvfs_file_read_all(list_entry->spirv_path, (char**)&list_entry->bin.words, &list_entry->bin.byte_count);
           if (code != NV_SUCCESS)
           {
-            nv_log_error("Failed to read shader %s $(%s)\n", list_entry->shader_path, nv_error_str(code));
+            nv_log_error("Failed to read shader %s: %s\n", list_entry->shader_path, nv_error_str(code));
           }
           wasnt_modified = true;
           break;
@@ -707,8 +707,9 @@ generate_and_dump_cache_file(const char* cache_file_dir, const nvsm_list_file_t*
   char cache_file_path[256] = { 0 };
   get_cache_file_path(cache_file_dir, cache_file_path);
 
+  remove(cache_file_path); // WSL2 errors out on the next line if the file still exists
   FILE* generated_cache_file = fopen(cache_file_path, "wb");
-  nv_assert_and_exec(generated_cache_file != NULL, nv_log_error("w:%s fail. %s\n", cache_file_path, strerror(errno)); return NV_ERROR_IO_ERROR;);
+  nv_assert_and_exec(generated_cache_file != NULL, nv_log_error("%s fail. %s\n", cache_file_path, strerror(errno)); return NV_ERROR_IO_ERROR;);
 
   nv_error const code = generate_and_write_cache_file(list_file, list_file_last_modtime, generated_cache_file);
   if (code != NV_SUCCESS)
@@ -735,8 +736,8 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
 
   nv_error code = NV_ERROR_SUCCESS;
 
-  nvsm_list_file_t  list_file  = nv_zero_init(nvsm_list_file_t);
-  nvsm_cache_file_t cache_file = nv_zero_init(nvsm_cache_file_t);
+  nvsm_list_file_t  list_file  = nv_zinit(nvsm_list_file_t);
+  nvsm_cache_file_t cache_file = nv_zinit(nvsm_cache_file_t);
 
   if ((code = load_list_file(ctx, &list_file)) != NV_SUCCESS)
   {
@@ -758,7 +759,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
      * Should we add a ctx configuration for that? Or a preprocessor maybe?
      */
     size_t list_file_mtime = 0;
-    nv_fs_file_get_modified_time(list_file_path, &list_file_mtime);
+    nvfs_get_modified_time(list_file_path, &list_file_mtime);
 
     generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, list_file_mtime);
   }
@@ -772,7 +773,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
     get_cache_file_path(ctx->cache_file_dir, cache_file_path);
 
     /* we have the cache in this branch */
-    nv_log_info("[" PRINT_GREEN_SUCCESS "] Loaded cache file (%s)\n", cache_file_path);
+    nv_log_info("[SUCCESS] Loaded cache file (%s)\n", cache_file_path);
 
     code = nvsm_default_compile_with_cache(ctx, &list_file, &cache_file);
 
@@ -792,7 +793,7 @@ nvsm_compile_shaders(nvsm_ctx_t* ctx)
      */
 
     size_t list_file_mtime = 0;
-    nv_fs_file_get_modified_time(list_file_path, &list_file_mtime);
+    nvfs_get_modified_time(list_file_path, &list_file_mtime);
     generate_and_dump_cache_file(ctx->cache_file_dir, &list_file, list_file_mtime);
   }
 
@@ -822,7 +823,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* vkctx, nvsm_ctx_t* ctx)
 
   size_t             _hashmap_iter = 0;
   nv_hashmap_node_t* node          = NULL;
-  while ((node = nv_hashmap_iterate_unsafe(&ctx->shader_map, &_hashmap_iter)) != NULL)
+  while ((node = nv_hashmap_iterate(&ctx->shader_map, &_hashmap_iter)) != NULL)
   {
     nvsm_list_file_entry_t* entry = (nvsm_list_file_entry_t*)node->value;
     if (entry == NULL)
@@ -834,7 +835,7 @@ nvsm_create_shader_modules(nvvk_ctx_t* vkctx, nvsm_ctx_t* ctx)
 
     if (entry->bin.words == NULL || entry->bin.byte_count == 0)
     {
-      code = nv_fs_file_read_all(entry->spirv_path, nv_allocator_c, NULL, (char**)&entry->bin.words, &entry->bin.byte_count);
+      code = nvfs_file_read_all(entry->spirv_path, (char**)&entry->bin.words, &entry->bin.byte_count);
       if (code != NV_SUCCESS)
       {
         code = nvsm_compile_shader(entry->shader_path, &compile_options, entry->spirv_path, entry->stage, &entry->bin, true);
@@ -921,7 +922,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
 
   nv_error code = NV_ERROR_SUCCESS;
 
-  nvsm_list_file_t list_file = nv_zero_init(nvsm_list_file_t);
+  nvsm_list_file_t list_file = nv_zinit(nvsm_list_file_t);
 
   if ((code = load_list_file(ctx, &list_file)) != NV_SUCCESS)
   {
@@ -942,7 +943,7 @@ nvsm_compile_shaders_force(nvsm_ctx_t* ctx, bool generate_cache)
     nv_assert_else_return(generated_cache_file != NULL, NV_ERROR_IO_ERROR);
 
     size_t list_file_mtime = 0;
-    nv_fs_file_get_modified_time(list_file_path, &list_file_mtime);
+    nvfs_get_modified_time(list_file_path, &list_file_mtime);
 
     generate_and_write_cache_file(&list_file, list_file_mtime, generated_cache_file);
 
@@ -991,7 +992,7 @@ nvsm_init(nvsm_ctx_t* ctx)
 
   nv_bzero(ctx, sizeof(nvsm_ctx_t));
 
-  nv_error const code = nv_hashmap_init(16, sizeof(const char*), sizeof(nvsm_list_file_entry_t), nv_hash_fnv1a_string, nv_allocator_c, NULL, &ctx->shader_map);
+  nv_error const code = nv_hashmap_init(sizeof(const char*), sizeof(nvsm_list_file_entry_t), nv_hash_fnv1a_string, nv_compare_string, 16, &ctx->shader_map);
   if (code != NV_SUCCESS)
   {
     return code;
@@ -1009,7 +1010,7 @@ nvsm_shutdown(nvvk_ctx_t* vkctx, nvsm_ctx_t* ctx)
 
   size_t             _hashmap_iter = 0;
   nv_hashmap_node_t* node          = NULL;
-  while ((node = nv_hashmap_iterate_unsafe(&ctx->shader_map, &_hashmap_iter)) != NULL)
+  while ((node = nv_hashmap_iterate(&ctx->shader_map, &_hashmap_iter)) != NULL)
   {
     nvsm_list_file_entry_t* entry = (nvsm_list_file_entry_t*)node->value;
     vkDestroyShaderModule(vkctx->device, entry->handle, &vkctx->vkalloc);
@@ -1068,17 +1069,17 @@ nvsm_shader_resources_extract(const u32* spirv_data, size_t spirv_size, size_t* 
     return NULL;
   }
 
-  SpvReflectDescriptorBinding** bindings = (SpvReflectDescriptorBinding**)nv_malloc(sizeof(SpvReflectDescriptorBinding*) * binding_count);
+  SpvReflectDescriptorBinding** bindings = (SpvReflectDescriptorBinding**)nv_zmalloc(sizeof(SpvReflectDescriptorBinding*) * binding_count);
   spvReflectEnumerateDescriptorBindings(&handle, &binding_count, bindings);
 
-  nvsm_shader_resources_t* resources = (nvsm_shader_resources_t*)nv_malloc(sizeof(nvsm_shader_resources_t) * binding_count);
+  nvsm_shader_resources_t* resources = (nvsm_shader_resources_t*)nv_zmalloc(sizeof(nvsm_shader_resources_t) * binding_count);
   nv_memset(resources, 0, sizeof(nvsm_shader_resources_t) * binding_count);
 
   for (size_t i = 0; i < binding_count; i++)
   {
     SpvReflectDescriptorBinding* binding = bindings[i];
 
-    resources[i].name         = nv_strdup(nv_allocator_c, NULL, binding->name);
+    resources[i].name         = nv_strdup(binding->name);
     resources[i].set          = binding->set;
     resources[i].binding      = binding->binding;
     resources[i].type         = nvsm_shader_resources_type_to_spv_reflect_type(binding->descriptor_type);

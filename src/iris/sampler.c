@@ -52,13 +52,13 @@ iris_create_sampler(iris_driver_t* driver, const iris_sampler_create_info* pInfo
    * Store the pointer to the newly created sampler into dst.
    */
 
-  VkPhysicalDeviceProperties device_properties = nv_zero_init(VkPhysicalDeviceProperties);
+  VkPhysicalDeviceProperties device_properties = nv_zinit(VkPhysicalDeviceProperties);
   vkGetPhysicalDeviceProperties(driver->vkctx->phys_device, &device_properties);
 
   const VkPhysicalDeviceLimits* limits = &device_properties.limits;
   nv_assert_else_return(nv_list_size(&driver->samplers) < limits->maxSamplerAllocationCount, );
 
-  VkSamplerCreateInfo samplerInfo = nv_zero_init(VkSamplerCreateInfo);
+  VkSamplerCreateInfo samplerInfo = nv_zinit(VkSamplerCreateInfo);
   samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerInfo.magFilter           = (VkFilter)pInfo->mag_filter;
   samplerInfo.minFilter           = (VkFilter)pInfo->min_filter;

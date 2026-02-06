@@ -43,7 +43,7 @@ readfile(const char* fname, char** data, size_t* data_size)
     return NV_ERROR_IO_ERROR;
   }
 
-  *data = (char*)nv_calloc(size + 1);
+  *data = (char*)nv_zmalloc(size + 1);
   if (*data == NULL)
   {
     fclose(f);
@@ -86,20 +86,20 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
     return (size_t)-1;
   }
 
-  if (!nv_chr_isalpha(*beg) && *beg != '_')
+  if (!nv_isalpha(*beg) && *beg != '_')
   {
     *errcode = SETS_INVALID_VARIABLE_NAME;
     return column;
   }
 
   const char* end = beg;
-  if (!nv_chr_isalnum(*end) && *end != '_')
+  if (!nv_isalnum(*end) && *end != '_')
   {
     *errcode = SETS_INVALID_VARIABLE_NAME;
     return column;
   }
 
-  while (nv_chr_isalnum(*end) || *end == '_')
+  while (nv_isalnum(*end) || *end == '_')
   {
     end++;
     column++;
@@ -118,7 +118,7 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
 
   size_t variable_name_size = (end - beg) + 1;
 
-  char* name = nv_calloc(variable_name_size);
+  char* name = nv_zmalloc(variable_name_size);
   nv_strlcpy(name, beg, variable_name_size);
   dst->name = name;
 
@@ -139,9 +139,9 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
 
   beg = end;
 
-  if (nv_chr_isdigit(*end))
+  if (nv_isdigit(*end))
   {
-    while (nv_chr_isdigit(*end) || *end == '.')
+    while (nv_isdigit(*end) || *end == '.')
     {
       end++;
       column++;
@@ -157,12 +157,12 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
     if (nv_strnchr(beg, '.', end - beg))
     {
       dst->type      = SETS_VAR_TYPE_DOUBLE;
-      dst->value.dbl = nv_atof(beg, end - beg);
+      dst->value.dbl = nv_atof2(beg, end - beg, NULL);
     }
     else
     {
       dst->type      = SETS_VAR_TYPE_INT;
-      dst->value.num = (int)nv_atoi(beg, end - beg);
+      dst->value.num = (int)nv_atoi2(beg, end - beg, NULL);
     }
   }
   else if (*end == '\"')
@@ -185,7 +185,7 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
     }
 
     size_t string_size = (end - beg) + 1;
-    char*  string      = nv_calloc(string_size);
+    char*  string      = nv_zmalloc(string_size);
 
     const char* src_string = beg;
     char*       dst_string = string;
@@ -224,9 +224,9 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
   }
   // true/false
   // extra logic is for later code to allow for more complex stuff like variable reference etc.
-  else if (nv_chr_isalpha(*end))
+  else if (nv_isalpha(*end))
   {
-    while (nv_chr_isalnum(*end) || *end == '_')
+    while (nv_isalnum(*end) || *end == '_')
     {
       end++;
       column++;
@@ -275,23 +275,14 @@ parse_line(const char* line, sets_var_t* dst, sets_error* errcode)
 nv_error
 sets_parse(const char* input, sets_var_t** resultarrp, size_t* resultarrsize)
 {
-  unsigned char     buffer[1024];
-  nv_alloc_estack_t estack = {
-    .buffer            = buffer,
-    .buffer_size       = sizeof(buffer),
-    .last_allocation   = 0,
-    .buffer_bumper     = 0,
-    .using_heap_buffer = false,
-  };
-
-  char* dup = nv_strdup(nv_allocator_estack, &estack, input);
+  char* dup = nv_strdup(input);
 
   const char* line_start  = dup;
   const char* newline_pos = nv_strchr(line_start, '\n');
 
   size_t      allocated_vars  = 16;
   size_t      num_parsed_vars = 0;
-  sets_var_t* parsed_vars     = nv_calloc(sizeof(sets_var_t) * allocated_vars);
+  sets_var_t* parsed_vars     = nv_zmalloc(sizeof(sets_var_t) * allocated_vars);
 
   size_t line = 1;
   while (*line_start != 0 && newline_pos != NULL)
@@ -389,7 +380,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
   }
 
   char* ctx  = NULL;
-  char* line = nv_strtok(contents, "\n", &ctx);
+  char* line = nv_strtok_r(contents, "\n", &ctx);
 
   while (line != NULL)
   {
@@ -403,7 +394,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
     {
       fputs(line, out);
       fputc('\n', out);
-      line = nv_strtok(NULL, "\n", &ctx);
+      line = nv_strtok_r(NULL, "\n", &ctx);
       continue;
     }
 
@@ -427,7 +418,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
       {
         fputs(line, out);
         fputc('\n', out);
-        line = nv_strtok(NULL, "\n", &ctx);
+        line = nv_strtok_r(NULL, "\n", &ctx);
         continue;
       }
 
@@ -438,7 +429,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
       {
         fputs(line, out);
         fputc('\n', out);
-        line = nv_strtok(NULL, "\n", &ctx);
+        line = nv_strtok_r(NULL, "\n", &ctx);
         continue;
       }
 
@@ -454,7 +445,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
       if (sep != NULL)
       {
         size_t const dir_len = sep - file + 1; /* include the slash */
-        base                 = (char*)nv_calloc(dir_len + 1);
+        base                 = (char*)nv_zmalloc(dir_len + 1);
         nv_memcpy(base, file, dir_len);
         base[dir_len] = '\0';
       }
@@ -469,7 +460,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
 
       size_t const full_len = nv_strlen(base) + name_len;
 
-      char* fullpath = (char*)nv_calloc(full_len + 1);
+      char* fullpath = (char*)nv_zmalloc(full_len + 1);
       nv_snprintf(fullpath, full_len + 1, "%s%.*s", base, (int)name_len, start);
       fullpath[full_len] = 0;
 
@@ -480,7 +471,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
       }
 
       fputc('\n', out);
-      line = nv_strtok(NULL, "\n", &ctx);
+      line = nv_strtok_r(NULL, "\n", &ctx);
 
       /**
        * We may point base to a stack
@@ -496,7 +487,7 @@ sets_parse_includes_to_file(const char* file, FILE* out)
 
     fputs(line, out);
     fputc('\n', out);
-    line = nv_strtok(NULL, "\n", &ctx);
+    line = nv_strtok_r(NULL, "\n", &ctx);
   }
 
   nv_free(contents);
@@ -523,7 +514,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
   {
     const size_t buffer_start_size = 4096;
 
-    *buffer      = (char*)nv_calloc(buffer_start_size);
+    *buffer      = (char*)nv_zmalloc(buffer_start_size);
     *buffer_size = buffer_start_size;
   }
 
@@ -536,7 +527,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
   }
 
   char* ctx  = NULL;
-  char* line = nv_strtok(contents, "\n", &ctx);
+  char* line = nv_strtok_r(contents, "\n", &ctx);
 
   while (line != NULL)
   {
@@ -550,7 +541,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
     {
       nv_strlcat(*buffer, line, *buffer_size);
       nv_strlcat(*buffer, "\n", *buffer_size);
-      line = nv_strtok(NULL, "\n", &ctx);
+      line = nv_strtok_r(NULL, "\n", &ctx);
       continue;
     }
 
@@ -574,7 +565,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
       {
         nv_strlcat(*buffer, line, *buffer_size);
         nv_strlcat(*buffer, "\n", *buffer_size);
-        line = nv_strtok(NULL, "\n", &ctx);
+        line = nv_strtok_r(NULL, "\n", &ctx);
         continue;
       }
 
@@ -585,7 +576,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
       {
         nv_strlcat(*buffer, line, *buffer_size);
         nv_strlcat(*buffer, "\n", *buffer_size);
-        line = nv_strtok(NULL, "\n", &ctx);
+        line = nv_strtok_r(NULL, "\n", &ctx);
         continue;
       }
 
@@ -601,7 +592,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
       if (sep != NULL)
       {
         size_t const dir_len = sep - file + 1; /* include the slash */
-        base                 = (char*)nv_calloc(dir_len + 1);
+        base                 = (char*)nv_zmalloc(dir_len + 1);
         nv_memcpy(base, file, dir_len);
         base[dir_len] = '\0';
       }
@@ -616,7 +607,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
 
       size_t const full_len = nv_strlen(base) + name_len;
 
-      char* fullpath = (char*)nv_calloc(full_len + 1);
+      char* fullpath = (char*)nv_zmalloc(full_len + 1);
       nv_snprintf(fullpath, full_len + 1, "%s%.*s", base, (int)name_len, start);
       fullpath[full_len] = 0;
 
@@ -630,7 +621,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
 
       nv_strlcat(*buffer, "\n", *buffer_size);
 
-      line = nv_strtok(NULL, "\n", &ctx);
+      line = nv_strtok_r(NULL, "\n", &ctx);
 
       /**
        * We may point base to a stack
@@ -646,7 +637,7 @@ sets_parse_includes_to_buffer(const char* file, char** buffer, size_t* buffer_si
 
     nv_strlcat(*buffer, line, *buffer_size);
     nv_strlcat(*buffer, "\n", *buffer_size);
-    line = nv_strtok(NULL, "\n", &ctx);
+    line = nv_strtok_r(NULL, "\n", &ctx);
   }
 
   nv_free(contents);

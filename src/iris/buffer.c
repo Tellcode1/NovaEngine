@@ -7,8 +7,7 @@
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
 #include "../../include/iris/vkstdafx.h"
-#include "../../include/std/include/bit.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include <stdint.h>
@@ -117,7 +116,7 @@ create_buffer(iris_driver_t* driver, iris_size_t size, iris_buffer_flags flags, 
 {
   const VkBufferUsageFlags vk_buffer_flags = nv_to_vk_buffer_usage(flags);
 
-  VkBufferCreateInfo buffer_info = nv_zero_init(VkBufferCreateInfo);
+  VkBufferCreateInfo buffer_info = nv_zinit(VkBufferCreateInfo);
   buffer_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size               = size;
   buffer_info.usage              = vk_buffer_flags;
@@ -287,7 +286,7 @@ iris_buffer_write_data(iris_buffer_t* buffer, const void* data, iris_size_t data
   nv_assert_else_return(offset <= buffer->size, NV_ERROR_INVALID_ARG);
 
   // we stop writing to CPU visible memory for writes up to 64 KiB
-  if (((buffer->memory.memory_flags & IRIS_MEMORY_FLAGS_MAPPABLE_BIT) != 0u) && data_size < nv_bytes_to_kib(64))
+  if (((buffer->memory.memory_flags & IRIS_MEMORY_FLAGS_MAPPABLE_BIT) != 0u) && data_size < (64 * 1000ULL))
   {
     return nv_transfer_to_cpu_visible_buffer(buffer, data, data_size, offset);
   }
@@ -329,7 +328,7 @@ readback_buffer_staged(iris_buffer_t* buffer, iris_size_t offset, iris_size_t si
 
   iris_driver_t* driver = buffer->driver;
 
-  iris_buffer_extra_create_info_t extra_info = nv_zero_init(iris_buffer_extra_create_info_t);
+  iris_buffer_extra_create_info_t extra_info = nv_zinit(iris_buffer_extra_create_info_t);
   extra_info.custom_memory_flags             = IRIS_MEMORY_FLAGS_READBACK_OPTIMAL_BIT | IRIS_MEMORY_FLAGS_PERSISTENT_MAPPED_BIT;
   extra_info.custom_memory_pool              = &driver->cpu_mappable_pool;
 
@@ -515,7 +514,7 @@ iris_buffer_resize(iris_buffer_t* buffer, size_t new_size, size_t new_alignment,
   VkMemoryRequirements memory_requirements;
   vkGetBufferMemoryRequirements(vkctx->device, new_buffer, &memory_requirements);
 
-  iris_memory_t       new_block = nv_zero_init(iris_memory_t);
+  iris_memory_t       new_block = nv_zinit(iris_memory_t);
   iris_memory_pool_t* pool      = buffer->memory.pool;
 
   if (copy_old_data)

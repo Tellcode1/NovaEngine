@@ -2,7 +2,7 @@
 #ifndef IRIS_BUFFER_H
 #define IRIS_BUFFER_H
 
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/types.h"
 #include "memory.h"
 #include "types.h"

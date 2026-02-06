@@ -9,7 +9,7 @@
 #include "../../include/iris/texture.h"
 #include "../../include/iris/types.h"
 #include "../../include/iris/utils.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include <SDL3/SDL_stdinc.h>
@@ -108,7 +108,7 @@ nv_sprite_load_from_disk(iris_driver_t* driver, const char* path, nv_sprite_t* d
 
   nv_bzero(dst, sizeof(nv_sprite_t));
 
-  nv_image tex = nv_zero_init(nv_image);
+  nv_image tex = nv_zinit(nv_image);
 
   nv_error code = nv_image_load(path, &tex);
   nv_assert_else_return(code == NV_SUCCESS, code);
@@ -134,7 +134,7 @@ nv_sprite_load_from_disk(iris_driver_t* driver, const char* path, nv_sprite_t* d
     nv_free(tex.data);
   }
 
-  nv_log_info("[" PRINT_GREEN_SUCCESS "] Texture %s loaded\n", path);
+  nv_log_info("[SUCCESS] Texture %s loaded\n", path);
 
   return code;
 }

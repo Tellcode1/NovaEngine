@@ -1,6 +1,7 @@
 #ifndef ENGINE_ENGINE_H
 #define ENGINE_ENGINE_H
 
+#include "../iris/extent.h"
 #include "../std/include/containers/list.h"
 #include "../std/include/math/math.h"
 #include "../std/include/stdafx.h"

@@ -1,7 +1,7 @@
 #ifndef NOVA_CAMERA_H
 #define NOVA_CAMERA_H
 
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/math/mat.h"
 #include "../std/include/math/vec2.h"
 #include "../std/include/math/vec3.h"
@@ -9,6 +9,7 @@
 
 #include "../iris/descriptors.h"
 #include "../iris/driver.h"
+#include "../iris/extent.h"
 #include "../iris/ringbuffer.h"
 #include "renderer.h"
 

@@ -1,7 +1,7 @@
 #ifndef IRIS_MEMORY_ALLOCATOR_H
 #define IRIS_MEMORY_ALLOCATOR_H
 
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/types.h"
 #include "types.h"
 

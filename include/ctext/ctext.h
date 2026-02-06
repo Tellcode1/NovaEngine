@@ -2,6 +2,7 @@
 #define C_TEXT_H
 
 #include "../iris/buffer.h"
+#include "../iris/extent.h"
 #include "../iris/mesh.h"
 #include "../iris/ringbuffer.h"
 #include "../iris/sampler.h"
@@ -9,7 +10,7 @@
 #include "../iris/types.h"
 #include "../std/include/containers/hashmap.h"
 #include "../std/include/containers/list.h"
-#include "../std/include/errorcodes.h"
+#include "../std/include/error.h"
 #include "../std/include/math/mat.h"
 #include "../std/include/math/vec2.h"
 #include "../std/include/math/vec3.h"

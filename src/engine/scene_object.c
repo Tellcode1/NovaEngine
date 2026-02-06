@@ -67,7 +67,7 @@ nv_object_create(nv_scene_t* scene, const char* name, nv_collider_type col_type,
   obj->transform.half_size = size;
   obj->transform.rotation  = (vec4){ 0.0f, 0.0f, 0.0f, 1.0f };
 
-  obj->spr_renderer = nv_zero_init(nv_sprite_renderer);
+  obj->spr_renderer = nv_zinit(nv_sprite_renderer);
   // TODO: remove things when they stop working? That's the best strategy!
   // obj->spr_renderer.spr                  = nv_sprite_empty;
   obj->spr_renderer.tex_coord_multiplier = (vec2){ 1.0f, 1.0f };
@@ -188,12 +188,12 @@ nv_scene_t* scene_main = NULL;
 nv_scene_t*
 nv_scene_init(void)
 {
-  nv_scene_t* scn = (nv_scene_t*)nv_calloc(sizeof(nv_scene_t));
+  nv_scene_t* scn = (nv_scene_t*)nv_zmalloc(sizeof(nv_scene_t));
 
   b2WorldDef world_def = b2DefaultWorldDef();
   world_def.gravity    = (b2Vec2){ 0.0f, -9.8f };
   scn->world           = b2CreateWorld(&world_def);
-  nv_list_init(sizeof(nv_object), 4, nv_allocator_c, NULL, &scn->objects);
+  nv_list_init(sizeof(nv_object), 4, &scn->objects);
 
   if (scene_main == NULL)
   {

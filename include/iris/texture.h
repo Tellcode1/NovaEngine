@@ -7,6 +7,7 @@
 #include "../std/include/math/math.h"
 #include "../std/include/math/vec3.h"
 #include "buffer.h"
+#include "extent.h"
 #include "memory.h"
 #include "types.h"
 #include <stddef.h>

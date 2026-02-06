@@ -2,7 +2,7 @@
 #include "../../external/volk/volk.h"
 #include "../../include/iris/pipeline.h"
 #include "../../include/iris/types.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/stdafx.h"
 #include "../../include/std/include/string.h"
 #include "../../include/std/include/types.h"
@@ -92,12 +92,12 @@ nv_descriptor_pool_allocate(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
     return -1;
   }
 
-  VkDescriptorSet* new_sets = (VkDescriptorSet*)nv_malloc(sizeof(VkDescriptorSet) * NV_MAX(pool->nsets, 1));
+  VkDescriptorSet* new_sets = (VkDescriptorSet*)nv_zmalloc(sizeof(VkDescriptorSet) * NV_MAX(pool->nsets, 1));
   nv_assert_else_return(new_sets != NULL, NV_ERROR_MALLOC_FAILED);
 
   if (pool->nsets > 0)
   {
-    VkDescriptorSetLayout* layouts = (VkDescriptorSetLayout*)nv_malloc(sizeof(VkDescriptorSetLayout) * pool->nsets);
+    VkDescriptorSetLayout* layouts = (VkDescriptorSetLayout*)nv_zmalloc(sizeof(VkDescriptorSetLayout) * pool->nsets);
     nv_assert_else_return(layouts != NULL, NV_ERROR_MALLOC_FAILED);
 
     for (size_t i = 0; i < pool->nsets; i++)
@@ -110,7 +110,7 @@ nv_descriptor_pool_allocate(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
       layouts[i] = pool->sets[i]->layout;
     }
 
-    VkDescriptorSetAllocateInfo setAllocInfo = nv_zero_init(VkDescriptorSetAllocateInfo);
+    VkDescriptorSetAllocateInfo setAllocInfo = nv_zinit(VkDescriptorSetAllocateInfo);
     setAllocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     setAllocInfo.descriptorPool              = new_pool;
     setAllocInfo.descriptorSetCount          = pool->nsets;
@@ -126,7 +126,7 @@ nv_descriptor_pool_allocate(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
   {
     ncopies += pool->sets[i]->nwrites;
   }
-  VkCopyDescriptorSet* copies = (VkCopyDescriptorSet*)nv_malloc(sizeof(VkCopyDescriptorSet) * NV_MAX(ncopies, 1));
+  VkCopyDescriptorSet* copies = (VkCopyDescriptorSet*)nv_zmalloc(sizeof(VkCopyDescriptorSet) * NV_MAX(ncopies, 1));
   nv_assert_else_return(copies != NULL, NV_ERROR_MALLOC_FAILED);
 
   nv_assert_else_return(pool->sets != NULL, -1);
@@ -180,7 +180,7 @@ nv_descriptor_pool_allocate(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* pool)
 int
 nv_descriptor_pool_init(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* dst)
 {
-  *dst                                 = nv_zero_init(nv_descriptor_pool_t);
+  *dst                                 = nv_zinit(nv_descriptor_pool_t);
   nv_descriptor_pool_size pool_sizes[] = {
     { VK_DESCRIPTOR_TYPE_SAMPLER, 0, 0 },
     { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, 0 },
@@ -195,7 +195,7 @@ nv_descriptor_pool_init(nvvk_ctx_t* vkctx, nv_descriptor_pool_t* dst)
     { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0, 0 },
   };
   nv_memcpy(dst->descriptors, pool_sizes, sizeof(pool_sizes));
-  dst->sets           = (nv_descriptor_set_t**)nv_malloc(sizeof(nv_descriptor_set_t*));
+  dst->sets           = (nv_descriptor_set_t**)nv_zmalloc(sizeof(nv_descriptor_set_t*));
   dst->max_child_sets = 1;
   dst->nsets          = 0;
   if (nv_descriptor_pool_allocate(vkctx, dst) != 0)
@@ -241,7 +241,7 @@ nv_allocate_descriptor_set(iris_driver_t* driver, nv_descriptor_pool_t* pool, co
     nv_descriptor_pool_allocate(driver->vkctx, pool);
   }
 
-  nv_descriptor_set_t* set = (nv_descriptor_set_t*)nv_calloc(sizeof(nv_descriptor_set_t));
+  nv_descriptor_set_t* set = (nv_descriptor_set_t*)nv_zmalloc(sizeof(nv_descriptor_set_t));
   nv_assert_else_return(set != NULL, NV_ERROR_MALLOC_FAILED);
 
   set->driver             = driver;
@@ -252,17 +252,17 @@ nv_allocate_descriptor_set(iris_driver_t* driver, nv_descriptor_pool_t* pool, co
   (*dst)->driver = driver;
 
   set->pool   = pool;
-  set->writes = (VkWriteDescriptorSet*)nv_malloc(sizeof(VkWriteDescriptorSet));
+  set->writes = (VkWriteDescriptorSet*)nv_zmalloc(sizeof(VkWriteDescriptorSet));
   nv_assert_else_return(set->writes != NULL, NV_ERROR_MALLOC_FAILED);
 
-  VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zero_init(VkDescriptorSetLayoutCreateInfo);
+  VkDescriptorSetLayoutCreateInfo layoutinfo = nv_zinit(VkDescriptorSetLayoutCreateInfo);
   layoutinfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutinfo.pBindings                       = bindings;
   layoutinfo.bindingCount                    = nbindings;
   nvvk_result_check(*vkctx, vkCreateDescriptorSetLayout(vkctx->device, &layoutinfo, &vkctx->vkalloc, &set->layout));
   nv_assert_else_return(set->layout != VK_NULL_HANDLE, NV_ERROR_EXTERNAL);
 
-  VkDescriptorSetAllocateInfo setAllocInfo = nv_zero_init(VkDescriptorSetAllocateInfo);
+  VkDescriptorSetAllocateInfo setAllocInfo = nv_zinit(VkDescriptorSetAllocateInfo);
   setAllocInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   setAllocInfo.descriptorPool              = pool->pool;
   setAllocInfo.descriptorSetCount          = 1;

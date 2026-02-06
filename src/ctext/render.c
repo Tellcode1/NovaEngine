@@ -10,7 +10,7 @@
 #include "../../include/std/include/alloc.h"
 #include "../../include/std/include/containers/hashmap.h"
 #include "../../include/std/include/containers/list.h"
-#include "../../include/std/include/errorcodes.h"
+#include "../../include/std/include/error.h"
 #include "../../include/std/include/math/mat.h"
 #include "../../include/std/include/math/math.h"
 #include "../../include/std/include/math/vec2.h"
@@ -82,7 +82,7 @@ ctext_render_drawcalls(nv_renderer_t* rd, cfont_t* fnt)
   const size_t       index_buffer_offset  = vertex_buffer_offset + fnt->index_buffer_offset;
   const VkDeviceSize offsets[1]           = { vertex_buffer_offset };
 
-  struct ctext_push_constants pc = nv_zero_init(struct ctext_push_constants);
+  struct ctext_push_constants pc = nv_zinit(struct ctext_push_constants);
 
   VkPipeline       pipeline        = g_Pipelines.ctext.pipeline;
   VkPipelineLayout pipeline_layout = g_Pipelines.ctext.pipeline_layout;
@@ -128,7 +128,7 @@ static nv_list_t
 split_string_by_lines(char* buffer)
 {
   nv_list_t result;
-  nv_list_init(sizeof(char*), 16, nv_allocator_c, NULL, &result);
+  nv_list_init(sizeof(char*), 16, &result);
 
   char* start = buffer;
 
@@ -390,9 +390,9 @@ ctext_render_and_queue_drawcall(cfont_t* fnt, const ctext_text_render_info_t* pI
   const size_t index_size      = (effective_length * 6) * sizeof(u32);
   const size_t allocation_size = vertex_size + index_size;
 
-  void* allocation = nv_calloc(allocation_size);
+  void* allocation = nv_zmalloc(allocation_size);
 
-  ctext_drawcall_t drawcall = nv_zero_init(ctext_drawcall_t);
+  ctext_drawcall_t drawcall = nv_zinit(ctext_drawcall_t);
   drawcall.vertices         = (ctext_glyph_vertex_t*)allocation;
   drawcall.index_offset     = vertex_size;
   drawcall.indices          = (u32*)((uchar*)allocation + vertex_size);
@@ -449,7 +449,7 @@ ctext_render(cfont_t* fnt, const ctext_text_render_info_t* pInfo, const char* fm
 
   va_start(args, fmt);
 
-  char* buffer = (char*)nv_malloc(buffer_size * sizeof(char));
+  char* buffer = (char*)nv_zmalloc(buffer_size * sizeof(char));
   nv_vsnprintf(args, buffer, buffer_size, fmt);
 
   va_end(args);
@@ -492,7 +492,7 @@ ctext_upload_vertices_and_render_drawcalls(cfont_t* fnt)
     ctext_render_drawcalls(rd, fnt);
   }
 
-  uint8_t* write_cache = (uint8_t*)nv_calloc(buffer_size);
+  uint8_t* write_cache = (uint8_t*)nv_zmalloc(buffer_size);
   if (write_cache == NULL)
   {
     return;
