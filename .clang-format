@@ -4,12 +4,11 @@ TabWidth: 2
 UseTab: Never
 ColumnLimit: 175
 AllowAllParametersOfDeclarationOnNextLine: true
-AlignAfterOpenBracket: DontAlign
-AlignConsecutiveAssignments: AcrossEmptyLines
-AlignConsecutiveDeclarations: AcrossEmptyLines
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: Consecutive
 AlignOperands: DontAlign
 AlignTrailingComments: true
-BreakBeforeBraces: Allman
 BreakConstructorInitializersBeforeComma: false
 SpaceBeforeParens: ControlStatements
 SpacesBeforeTrailingComments: 1
@@ -19,3 +18,22 @@ MaxEmptyLinesToKeep: 1
 PointerAlignment: Left
 SortIncludes: CaseSensitive
 SpaceBeforeAssignmentOperators: true
+IndentPPDirectives: AfterHash
+PPIndentWidth: 2
+AllowShortBlocksOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
+BreakBeforeTernaryOperators: true
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Allman
+BraceWrapping:
+  AfterStruct: true
+  AfterUnion: true
+  BeforeElse: true
+  BeforeCatch: true
+  BeforeLambdaBody: true
+  AfterEnum: true
+BreakConstructorInitializers: BeforeComma

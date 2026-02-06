@@ -1,44 +1,66 @@
-#ifndef __NV_COLLIDER_H__
-#define __NV_COLLIDER_H__
+#ifndef ENGINE_COLLIDER_H
+#define ENGINE_COLLIDER_H
 
-#include "../../common/math/vec2.h"
+// implementation: engine.c
 
-NOVA_HEADER_START;
+#include "../std/include/attributes.h"
+#include "../std/include/math/vec2.h"
+#include "../std/include/stdafx.h"
+#include "scene.h"
+#include <stdint.h>
 
-typedef struct NVCollider NVCollider;
-typedef struct NVScene NVScene;
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-typedef enum NVCollider_Type { NOVA_COLLIDER_TYPE_STATIC = 0, NOVA_COLLIDER_TYPE_DYNAMIC = 1, NOVA_COLLIDER_TYPE_KINEMATIC = 2 } NVCollider_Type;
+  typedef struct nv_collider_t nv_collider_t;
 
-typedef enum NVCollider_Shape {
-  NOVA_COLLIDER_SHAPE_RECT    = 0,
-  NOVA_COLLIDER_SHAPE_CIRCLE  = 1, // only x of size is used
-  NOVA_COLLIDER_SHAPE_CAPSULE = 2, // x of size is radius and y is height.
-} NVCollider_Shape;
+  struct b2BodyId;
 
-typedef struct NVCollider_RayHit {
-  const NVCollider *host;
-  NVCollider *other;
-  vec2 point_of_contact;
-  bool hit;
-} NVCollider_RayHit;
+  typedef enum nv_collider_type
+  {
+    NOVA_COLLIDER_TYPE_STATIC    = 0,
+    NOVA_COLLIDER_TYPE_DYNAMIC   = 1,
+    NOVA_COLLIDER_TYPE_KINEMATIC = 2
+  } nv_collider_type;
 
-// mask defines the layers that the collider can collide with
-// both layer and mask must be bitmasks
-extern NVCollider *NVCollider_Init(NVScene *scene, vec2 position, vec2 size, NVCollider_Type type, NVCollider_Shape shape, uint64_t layer,
-                                       uint64_t mask, bool start_enabled);
-extern void NVCollider_Destroy(NVCollider *col);
+  typedef enum nv_collider_shape
+  {
+    NOVA_COLLIDER_SHAPE_RECT    = 0,
+    NOVA_COLLIDER_SHAPE_CIRCLE  = 1, // only x of size is used
+    NOVA_COLLIDER_SHAPE_CAPSULE = 2, // x of size is radius and y is height.
+  } nv_collider_shape;
 
-extern vec2 NVCollider_GetPosition(const NVCollider *col);
-extern void NVCollider_SetPosition(NVCollider *col, vec2 to);
+  typedef struct nv_collider_ray_hit
+  {
+    const nv_collider_t* host;
+    nv_collider_t*       other;
+    vec2                 point_of_contact;
+    bool                 hit;
+  } NOVA_ATTR_ALIGNED(32) nv_collider_ray_hit;
 
-vec2 NVCollider_GetSize(const NVCollider *col);
-void NVCollider_SetSize(NVCollider *col, vec2 to);
+  // mask defines the layers that the collider can collide with
+  // both layer and mask must be bitmasks
+  extern nv_collider_t*
+              nv_collider_init(nv_scene_t* scene, vec2 position, vec2 size, nv_collider_type type, nv_collider_shape shape, uint64_t layer, uint64_t mask, bool start_enabled);
+  extern void nv_collider_destroy(nv_collider_t* col);
 
-extern NVCollider_RayHit NVCollider_RayCast(const NVCollider *col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask);
+  extern vec2 nv_collider_get_position(const nv_collider_t* col);
+  extern void nv_collider_set_position(nv_collider_t* col, vec2 to);
 
-// You need to update the colliders through luneScene_Update();
+  vec2 nv_collider_get_size(const nv_collider_t* col);
+  void nv_collider_set_size(nv_collider_t* col, vec2 to);
 
-NOVA_HEADER_END;
+  extern struct nv_collider_ray_hit nv_collider_cast_ray(const nv_collider_t* col, vec2 orig, vec2 dir, uint32_t layer, uint32_t mask);
 
-#endif //__NOVA_COLLIDER_H__
+  extern bool            nv_collider_is_enabled(const nv_collider_t* col);
+  extern struct b2BodyId nv_collider_get_body_id(const nv_collider_t* col);
+
+  // You need to update the colliders through luneScene_Update();
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // ENGINE_COLLIDER_H

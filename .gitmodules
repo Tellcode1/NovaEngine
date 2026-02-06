@@ -1,6 +1,21 @@
 [submodule "external/volk"]
-	path = external/volk
+	path = src/external/volk
 	url = https://github.com/zeux/volk.git
 [submodule "external/box2d"]
-	path = external/box2d
+	path = src/external/box2d
 	url = https://github.com/erincatto/box2d.git
+[submodule "include/std"]
+	path = include/std
+	url = https://github.com/Tellcode1/nvstd.git
+[submodule "external/clay"]
+	path = src/external/clay
+	url = https://github.com/nicbarker/clay
+[submodule "external/glslang"]
+	path = src/external/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "external/spirv_reflect"]
+	path = src/external/spirv_reflect
+	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "external/cgltf"]
+	path = src/external/cgltf
+	url = https://github.com/jkuhlmann/cgltf.git

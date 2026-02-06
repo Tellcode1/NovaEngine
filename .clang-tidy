@@ -1,0 +1,17 @@
+Checks:
+  -*,
+  readability-implicit-bool-conversion,
+  readability-simplify-boolean-expr,
+  misc-include-cleaner,
+  misc-const-correctness,
+  misc-misplaced-const,
+  modernize-raw-string-literal
+  readability-simplify-boolean-expr,
+  bugprone-*,
+  
+CheckOptions:
+  readability-identifier-naming.MemberCase: lower_case
+  readability-simplify-boolean-expr.IncludeStyle: llvm
+  readability-braces-around-statements.ShortStatementLines: 1
+  modernize-use-auto.MinTypeNameLength: 5
+  modernize-use-override.CheckSpelling: true

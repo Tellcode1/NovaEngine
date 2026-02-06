@@ -1,134 +1,229 @@
-#ifndef __LUNA_RENDERER_H__
-#define __LUNA_RENDERER_H__
+
+#ifndef NOVA_RENDERER_H
+#define NOVA_RENDERER_H
 
 // just keeping this here for reference
-// god tier article btw
-// https://zeux.io/2020/02/27/writing-an-efficient-vulkan-renderer/
+//  god tier article btw
+//  https://zeux.io/2020/02/27/writing-an-efficient-vulkan-renderer/
 
 // I strive for a world where I do not have to call vulkan functions myself again
 
-#include "../GPU/vkstdafx.h"
-#include "../GPU/descriptors.h"
+#include "engine.h"
+#include "format.h"
+#include "sprite.h"
 
-#include "../../common/math/vec2.h"
-#include "../../common/math/vec3.h"
-#include "../../common/math/vec4.h"
+#include "../std/include/error.h"
+#include "../std/include/math/math.h"
+#include "../std/include/math/vec2.h"
+#include "../std/include/math/vec3.h"
+#include "../std/include/math/vec4.h"
+#include "../std/include/types.h"
 
-NOVA_HEADER_START;
+#include "../iris/buffer.h"
+#include "../iris/descriptors.h"
+#include "../iris/driver.h"
+#include "../iris/framebuffer.h"
+#include "../iris/texture.h"
+#include "../iris/types.h"
 
-NVVK_FORWARD_DECLARE(VkFramebuffer);
-NVVK_FORWARD_DECLARE(VkSemaphore);
-NVVK_FORWARD_DECLARE(VkFence);
+#include "../std/include/containers/list.h"
 
-typedef struct NV_GPU_Texture NV_GPU_Texture;
+#include "../../external/volk/volk.h"
+#include <stddef.h>
 
-extern NV_DescriptorPool g_pool;
-extern struct NVCamera camera;
-typedef struct NVSprite NVSprite;
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-typedef enum NVWindow_OptionBits {
-  NOVA_WINDOW_OPTION_VSYNC         = 1 << 0,
-  NOVA_WINDOW_OPTION_RESIZABLE     = 1 << 1,
-  NOVA_WINDOW_OPTION_BORDERLESS    = 1 << 2,
-  NOVA_WINDOW_OPTION_FULLSCREEN    = 1 << 3,
-  NOVA_WINDOW_OPTION_MAXIMIZED     = 1 << 4,
-  NOVA_WINDOW_OPTION_MINIMIZED     = 1 << 5,
-  NOVA_WINDOW_OPTION_HIDDEN        = 1 << 6,
-  NOVA_WINDOW_OPTION_HIGH_DPI      = 1 << 7,
-  NOVA_WINDOW_OPTION_ALWAYS_ON_TOP = 1 << 8,
-} NVWindow_OptionBits;
+  typedef struct nv_ctext_module     nv_ctext_module;
+  typedef struct nv_quad_draw_call_t nv_quad_draw_call_t;
+  typedef struct nv_line_draw_call_t nv_line_draw_call_t;
+  typedef struct nv_draw_call_t      nv_draw_call_t;
+  typedef struct nv_renderer         nv_renderer_t;
 
-typedef enum NVWindow_VSyncBits { NOVA_WINDOW_VSYNC_DISABLED = 0, NOVA_WINDOW_VSYNC_ENABLED = 1 } NVWindow_VSyncBits;
-typedef bool NV_Window_VSync;
+  struct nvsm_ctx;
+  struct nv_ctx;
+  struct iris_driver;
 
-typedef enum NVWindow_BufferModeBits {
-  NOVA_BUFFER_MODE_SINGLE_BUFFERED = 0,
-  NOVA_BUFFER_MODE_DOUBLE_BUFFERED = 1,
-  NOVA_BUFFER_MODE_TRIPLE_BUFFERED = 2,
-} NVWindow_BufferModeBits;
-typedef unsigned NVBufferMode;
+  extern nv_descriptor_pool_t g_pool;
+  extern struct nv_camera     camera;
 
-typedef enum NVRenderer_SampleCountBits {
-  NOVA_SAMPLE_COUNT_MAX_SUPPORTED    = 0xFFFFFFFF,
-  NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES = 1,
-  NOVA_SAMPLE_COUNT_1_SAMPLES        = 1,
-  NOVA_SAMPLE_COUNT_2_SAMPLES        = 2,
-  NOVA_SAMPLE_COUNT_4_SAMPLES        = 4,
-  NOVA_SAMPLE_COUNT_8_SAMPLES        = 8,
-  NOVA_SAMPLE_COUNT_16_SAMPLES       = 16,
-  NOVA_SAMPLE_COUNT_32_SAMPLES       = 32,
-} NVRenderer_SampleCountBits;
-typedef unsigned NVSampleCount;
+  // Move ownership to camera VV
+  typedef struct nv_renderer_frame_render_info
+  {
+    VkImage            swapchain_image;
+    VkImageView        swapchain_image_view;
+    iris_texture_t     depth_image;
+    iris_framebuffer_t color_framebuffer;
+  } nv_renderer_frame_render_info;
 
-typedef struct NVExtent2D {
-  int width, height;
-} NVExtent2D;
+  typedef struct nv_rdr_per_image_data
+  {
+    VkCommandBuffer cmd;
+    VkFence         image_in_flight; // Set to nv_rdr_per_frame_data::in_flight_fence to signify its in use.
+  } nv_rdr_per_image_data_t;
 
-typedef struct NVExtent3D {
-  int width, height, depth;
-} NVExtent3D;
+  typedef struct nv_rdr_per_frame_data
+  {
+    VkSemaphore render_finish_semaphore;
+    VkSemaphore image_available_semaphore;
+    VkFence     in_flight_fence;
+  } nv_rdr_per_frame_data_t;
 
-// Move ownership to camera VV
-typedef struct NVFrameRenderData {
-  NV_GPU_Texture *sc_image; // sc -> swapchain owned
-  NV_GPU_Texture *depth_image;
-  VkFramebuffer color_framebuffer;
-  VkSemaphore image_available_semaphore;
-  VkSemaphore render_finish_semaphore;
-  VkFence in_flight_fence;
-} NVFrameRenderData;
+  typedef enum nv_renderer_flag_bits
+  {
+    NOVA_RENDERER_MULTISAMPLING_ENABLE = 1 << 0,
+    NOVA_RENDERER_VSYNC_ENABLE         = 1 << 1,
+    NOVA_RENDERER_WINDOW_RESIZABLE     = 1 << 2,
+  } nv_renderer_flag_bits;
 
-typedef enum NV_renderer_flag_bits {
-  NOVA_RENDERER_MULTISAMPLING_ENABLE = 1 << 0,
-  NOVA_RENDERER_VSYNC_ENABLE         = 1 << 1,
-  NOVA_RENDERER_WINDOW_RESIZABLE     = 1 << 2,
-} NVRenderer_FlagsBits;
+  typedef struct nv_renderer_config
+  {
+    nv_sample_count samples;
+    nv_buffer_mode  buffer_mode;
+    nv_extent2      initial_window_size;
+    int             exit_key;
+    bool            multisampling_enable;
+    bool            window_resizable;
+    nv_window_vsync vsync_enabled;
+  } nv_renderer_config;
 
-typedef struct NVRenderer_Config {
-  NVSampleCount samples;
-  NVBufferMode buffer_mode;
-  NVExtent2D initial_window_size;
-  int exit_key;
-  bool multisampling_enable;
-  bool window_resizable;
-  NV_Window_VSync vsync_enabled;
-} NVRenderer_Config;
-
-static inline NVRenderer_Config NVRenderer_ConfigInit() {
-  return (NVRenderer_Config){
+  static inline nv_renderer_config
+  nv_renderer_config_init(void)
+  {
+    return (nv_renderer_config){
       .samples              = NOVA_SAMPLE_COUNT_NO_EXTRA_SAMPLES,
       .buffer_mode          = NOVA_BUFFER_MODE_DOUBLE_BUFFERED,
-      .initial_window_size  = {800, 600},
-      .exit_key             = 41, /* SDL_SCANCODE_ESCAPE */
-      .multisampling_enable = 0,
-      .window_resizable     = 0,
-      .vsync_enabled        = 1,
+      .initial_window_size  = { 800, 600 },
+      .multisampling_enable = false,
+      .window_resizable     = false,
+      .vsync_enabled        = true,
+    };
+  }
+
+  struct nv_ctext_module
+  {
+    nv_list_t            fonts;
+    nv_descriptor_set_t* desc_set;
+    unsigned             flags;
   };
+
+  struct nv_quad_draw_call_t
+  {
+    nv_sprite_t* spr;
+    vec3         siz, pos;
+    vec2         tex_multiplier;
+    vec4         color;
+  };
+
+  struct nv_line_draw_call_t
+  {
+    vec3 begin, end;
+    vec4 color;
+  };
+
+  typedef enum nv_draw_call_type
+  {
+    NOVA_DRAWCALL_QUAD    = 0,
+    NOVA_DRAWCALL_LINE    = 1,
+    NOVA_DRAWCALL_INVALID = 0x7fffffff
+  } nv_draw_call_type;
+
+  struct nv_draw_call_t
+  {
+    nv_draw_call_type type;
+    int               layer;
+    union nv_draw_call_data
+    {
+      nv_line_draw_call_t line;
+      nv_quad_draw_call_t quad;
+    } drawcall;
+  };
+
+  struct nv_swapchain
+  {
+    VkSwapchainKHR handle;
+    nv_format      image_format;
+    u32            color_space;
+    u32            image_count;
+  };
+
+  struct nv_main_pass
+  {
+    /**
+     * the size of ONE depth texture. Multiply by
+     * SwapchainImageCount to get total size
+     */
+    size_t shadow_image_size;
+
+    iris_texture_t color_image;
+
+    VkFormat depth_buffer_format;
+
+    nv_list_t render_data;
+    nv_list_t per_frame_data;
+    nv_list_t per_image_data;
+  };
+
+  typedef struct nv_renderer
+  {
+    nv_ctx_t*      ctx;
+    nvvk_ctx_t*    vkctx;
+    iris_driver_t* driver;
+
+    struct nv_swapchain swapchain;
+
+    struct nv_main_pass main_pass;
+
+    unsigned       flags;
+    nv_buffer_mode buffer_mode;
+
+    nv_sprite_t sprite_empty;
+
+    bool will_render_this_frame;
+
+    nv_sample_count samples;
+
+    VkRenderPass render_pass;
+    nv_extent2   render_extent;
+
+    VkCommandPool command_pool;
+
+    u32 frame_index;
+    u32 image_index;
+
+    nv_list_t drawcalls;
+
+    nv_ctext_module* ctext;
+
+    // These are used to render all the sprites in the game (quad based sprites
+    // that is)
+    iris_buffer_t quad_vb;
+
+    void* mapped;
+  } nv_renderer;
+
+  extern nv_error nv_rdr_init(struct nv_ctx* ctx, struct nvsm_ctx* nvsmctx, iris_driver_t* driver, const nv_renderer_config* conf, nv_renderer_t* dst);
+  extern void     nv_rdr_destroy(nv_renderer_t* rd);
+
+  /**
+   * Returns whether the frame is to be rendered or not.
+   */
+  extern bool     nv_rdr_begin_render(nv_renderer_t* rd, vec4 clear_color);
+  extern nv_error nv_rdr_end_render(nv_renderer_t* rd);
+
+  extern u32             nv_rdr_get_frame(const nv_renderer_t* rd);
+  extern u32             nv_rdr_get_frames_in_flight(const nv_renderer_t* rd);
+  extern VkCommandBuffer nv_rdr_get_draw_buffer(const nv_renderer_t* rd);
+  extern VkRenderPass    nv_rdr_get_render_pass(const nv_renderer_t* rd);
+  extern nv_extent2      nv_rdr_get_render_extent(const nv_renderer_t* rd);
+
+  extern void nv_rdr_render_quad(nv_renderer_t* rd, nv_sprite_t* spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer);
+  extern void nv_rdr_render_line(nv_renderer_t* rd, vec3 start, vec3 end, vec4 color, int layer);
+
+#ifdef __cplusplus
 }
+#endif
 
-typedef struct NV_SpriteRenderer NV_SpriteRenderer;
-typedef struct NVRenderer_t NVRenderer_t;
-
-extern NVRenderer_t *NVRenderer_Init(const NVRenderer_Config *conf);
-extern void NVRenderer_Destroy(struct NVRenderer_t *rd);
-
-extern bool NVRenderer_BeginRender(struct NVRenderer_t *rd);
-extern void NVRenderer_EndRender(struct NVRenderer_t *rd);
-
-extern void NVRenderer_SetClearColor(struct NVRenderer_t *rd, vec4 col);
-
-extern int NVRenderer_GetFrame(const struct NVRenderer_t *rd);
-extern struct VkCommandBuffer_T *NVRenderer_GetDrawBuffer(const NVRenderer_t *rd);
-extern struct VkRenderPass_T *NVRenderer_GetRenderPass(const NVRenderer_t *rd);
-extern struct NVExtent2D NVRenderer_GetRenderExtent(const NVRenderer_t *rd);
-extern int NVRenderer_GetMaxFramesInFlight(const struct NVRenderer_t *rd);
-
-extern void NVRenderer_DrawTexturedQuad(NVRenderer_t *rd, const NV_SpriteRenderer *sprite_renderer, vec3 position, vec3 size, int layer);
-extern void NVRenderer_DrawQuad(NVRenderer_t *rd, NVSprite *spr, vec2 tex_coord_multiplier, vec3 position, vec3 size, vec4 color, int layer);
-extern void NVRenderer_DrawLine(NVRenderer_t *rd, vec2 start, vec2 end, vec4 color, int layer);
-
-extern NVExtent2D NV_GetWindowSize();
-
-NOVA_HEADER_END;
-
-#endif //__LUNA_RENDERER_H__
+#endif // LUNA_RENDERER_H

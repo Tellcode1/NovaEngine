@@ -1,39 +1,58 @@
-#ifndef __NV_SPRITE_H__
-#define __NV_SPRITE_H__
 
-#include "../GPU/vkstdafx.h"
-#include "../GPU/format.h"
+#ifndef NOVA_SPRITE_H
+#define NOVA_SPRITE_H
 
-NOVA_HEADER_START;
+#include "../../external/volk/volk.h"
+#include "../engine/format.h"
+#include "../iris/descriptors.h"
+#include "../iris/memory.h"
+#include "../iris/sampler.h"
+#include "../iris/texture.h"
+#include "../iris/types.h"
+#include "../std/include/error.h"
+#include "../std/include/stdafx.h"
+#include <stddef.h>
 
-// Renderable sprite
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-NVVK_FORWARD_DECLARE(VkImage);
-NVVK_FORWARD_DECLARE(VkImageView);
-NVVK_FORWARD_DECLARE(VkDescriptorSet);
-NVVK_FORWARD_DECLARE(VkSampler);
+  // Renderable sprite
 
-typedef struct NVSprite NVSprite;
+  struct iris_driver;
 
-extern NVSprite *NVSprite_Empty;
+  typedef struct nv_sprite_t nv_sprite_t;
 
-extern NVSprite *NVSprite_LoadFromMemory(const unsigned char *data, int w, int h, NVFormat fmt);
-extern NVSprite *NVSprite_LoadFromDisk(const char *path);
+  struct nv_sprite_t
+  {
+    size_t               w, h;
+    size_t               rcount;
+    nv_format            fmt;
+    iris_texture_t       tex;
+    iris_sampler_t       sampler;
+    nv_descriptor_set_t* set;
+  };
 
-// force destroy
-extern void NVSprite_Destroy(NVSprite *spr);
+  extern nv_error nv_sprite_load_from_memory(struct iris_driver* driver, const unsigned char* data, size_t w, size_t h, nv_format fmt, nv_sprite_t* dst);
+  extern nv_error nv_sprite_load_from_disk(struct iris_driver* driver, const char* path, nv_sprite_t* dst);
 
-// references
-extern void NVSprite_Lock(NVSprite *spr);
-extern void NVSprite_Release(NVSprite *spr);
+  // force destroy
+  extern void nv_sprite_destroy(nv_sprite_t* spr);
 
-extern void NVSprite_GetDimensions(const NVSprite *spr, int *w, int *h);
-extern VkImage NVSprite_GetVkImage(const NVSprite *spr);
-extern VkImageView NVSprite_GetVkImageView(const NVSprite *spr);
-extern VkDescriptorSet NVSprite_GetDescriptorSet(const NVSprite *spr);
-extern VkSampler NVSprite_GetSampler(const NVSprite *spr);
-extern NVFormat NVSprite_GetFormat(const NVSprite *spr);
+  // references
+  extern void nv_sprite_lock(nv_sprite_t* spr);
+  extern void nv_sprite_release(nv_sprite_t* spr);
 
-NOVA_HEADER_END;
+  extern void            nv_sprite_get_dimensions(const nv_sprite_t* spr, size_t* w, size_t* h);
+  extern VkImage         nv_sprite_get_vk_image(const nv_sprite_t* spr);
+  extern VkImageView     nv_sprite_get_vk_image_view(const nv_sprite_t* spr);
+  extern VkDescriptorSet nv_sprite_get_descriptor_set(const nv_sprite_t* spr);
+  extern VkSampler       nv_sprite_get_sampler(const nv_sprite_t* spr);
+  extern nv_format       nv_sprite_get_format(const nv_sprite_t* spr);
 
-#endif //__NOVA_SPRITE_H__
+#ifdef __cplusplus
+}
+#endif
+
+#endif // NOVA_SPRITE_H

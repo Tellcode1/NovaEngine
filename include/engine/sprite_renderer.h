@@ -1,26 +1,39 @@
-#ifndef __NV_SPRITE_RENDERER_H__
-#define __NV_SPRITE_RENDERER_H__
+#ifndef ENGINE_SPRITE_RENDERER_H
+#define ENGINE_SPRITE_RENDERER_H
 
-#include "../../common/math/vec2.h"
-#include "../../common/math/vec4.h"
+// implementation: none
+
+#include "../std/include/attributes.h"
+#include "../std/include/math/vec2.h"
+#include "../std/include/math/vec4.h"
+#include "../std/include/stdafx.h"
 #include "sprite.h"
+#include <stddef.h>
 
-NOVA_HEADER_START;
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-typedef struct NVRenderer_t NVRenderer_t;
+  typedef struct nv_sprite_renderer
+  {
+    nv_sprite_t* spr;
+    bool         flip_horizontal;
+    bool         flip_vertical;
+    vec2         tex_coord_multiplier; // This is multiplied with the texture coordinates while rendering.
+    vec4         color;
+  } NOVA_ATTR_ALIGNED(64) nv_sprite_renderer;
 
-typedef struct NV_SpriteRenderer {
-  NVSprite *spr;
-  bool flip_horizontal;
-  bool flip_vertical;
-  vec2 tex_coord_multiplier; // This is multiplied with the texture coordinates while rendering.
-  vec4 color;
-} NV_SpriteRenderer;
+  static inline nv_sprite_renderer
+  nv_sprite_renderer_init(void)
+  {
+    return (nv_sprite_renderer){
+      NULL, false, false, v2one, v4one,
+    };
+  }
 
-static inline NV_SpriteRenderer NV_SpriteRendererInit() {
-  return (NV_SpriteRenderer){NVSprite_Empty, 0, 0, (vec2){1.0f, 1.0f}, (vec4){1.0f, 1.0f, 1.0f, 1.0f}};
+#ifdef __cplusplus
 }
+#endif
 
-NOVA_HEADER_END;
-
-#endif //__NOVA_SPRITE_RENDERER_H__
+#endif // ENGINE_SPRITE_RENDERER_H

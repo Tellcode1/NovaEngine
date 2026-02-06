@@ -1,0 +1,8 @@
+Unlit/vert:      path: shaders/Generic/Unlit.vert      output: generic.unlit.vert.spv   stage: vert
+Unlit/frag:      path: shaders/Generic/Unlit.frag      output: generic.unlit.frag.spv   stage: frag
+
+ctext/vert:      path: shaders/ctext/ctext.vert.glsl   output: ctext.vert.spv           stage: vert
+ctext/frag:      path: shaders/ctext/ctext.frag.glsl   output: ctext.frag.spv           stage: frag
+
+Debug/Line/vert: path: shaders/Debug/Line.vert         output: debug.line.vert.spv      stage: vert
+Debug/Line/frag: path: shaders/Debug/Line.frag         output: debug.line.frag.spv      stage: frag
